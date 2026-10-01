@@ -1,5 +1,7 @@
 # Bonfire STACK
 
+![Bonfire STACK running the Glass Garden demo in the DM skin, with the Strudel code docked on the right](docs/screenshot.png)
+
 A browser modular synth rack that writes [Strudel](https://strudel.cc) code. Patch cables between
 Eurorack-style modules, turn knobs, and the dock at the bottom shows the Strudel pattern being
 played: the exact code. Copy it, or hit **OPEN IN STRUDEL**, and it runs unchanged on strudel.cc.

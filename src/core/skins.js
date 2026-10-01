@@ -24,7 +24,13 @@ export async function fetchSkinIndex() {
   return (await fetch('skins/index.json')).json();
 }
 
-const resolveUrl = (base, path) => (!path ? null : /^(data:|https?:|blob:|\/)/.test(path) ? path : base + path);
+// Always absolute: a relative url() inside a CSS variable resolves against the
+// stylesheet that USES the variable (assets/*.css in a build), not the page.
+const resolveUrl = (base, path) => {
+  if (!path) return null;
+  if (/^(data:|blob:)/.test(path)) return path;
+  return new URL(path, new URL(base || './', document.baseURI)).href;
+};
 
 function loadFonts(google = []) {
   document.getElementById('skin-fonts')?.remove();

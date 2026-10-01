@@ -242,7 +242,7 @@ async function showSplash({ first = false } = {}) {
     h('div', { class: 'demo-name' }, d.name),
     h('div', { class: 'demo-desc' }, d.description)));
   dlg = modal(h('div', { class: 'splash' },
-    h('div', { class: 'splash-hero', style: { '--hero': 'url(brand/hero.jpg)' } },
+    h('div', { class: 'splash-hero', style: { '--hero': `url(${new URL('brand/hero.jpg', document.baseURI).href})` } },
       h('img', { class: 'splash-logo', src: 'brand/logo.png', alt: 'Bonfire STACK' }),
       h('p', { class: 'splash-tag' }, 'A modular synth rack that writes Strudel code. Patch cables, turn knobs, copy the code.'),
       h('div', { class: 'splash-actions' },
