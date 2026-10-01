@@ -1,0 +1,89 @@
+{
+  "id": "dm",
+  "name": "DM",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "tagline": "black, grain & one red rose",
+  "description": "Shadowy synth-pop melancholy: grainy black-and-white film, matte black hardware, and blood red as the only colour.",
+  "fonts": {
+    "panel": "'Josefin Sans', sans-serif",
+    "ui": "'Josefin Sans', sans-serif",
+    "display": "'Share Tech Mono', monospace",
+    "google": [
+      "Josefin Sans:wght@400;600;700",
+      "Share Tech Mono"
+    ]
+  },
+  "colors": {
+    "background": "#050505",
+    "rack": "#0b0b0c",
+    "rail": "#3b3b3e",
+    "railShadow": "rgba(0,0,0,.8)",
+    "panel": "#19191a",
+    "panelEdge": "rgba(0,0,0,.7)",
+    "panelText": "#e2ded6",
+    "panelTextDim": "#7a766f",
+    "accent": "#c8141f",
+    "led": "#e0162b",
+    "ledOff": "#2a0b0e",
+    "knob": "#141414",
+    "knobRing": "#8d8d90",
+    "knobPointer": "#e0162b",
+    "jackNut": "#9c9a96",
+    "jackHole": "#000000",
+    "display": "#080808",
+    "displayText": "#ece8e0",
+    "ui": "#0a0a0b",
+    "uiRaised": "#151516",
+    "uiText": "#e6e2da",
+    "uiDim": "#8a857d",
+    "uiBorder": "#262628",
+    "code": "#060607",
+    "codeText": "#d9d5cd",
+    "codeString": "#ece8e0",
+    "codeNumber": "#9a958c",
+    "codeMethod": "#e0162b",
+    "codeComment": "#55524d",
+    "scope": "#040404",
+    "scopeLine": "#ece8e0",
+    "jack": {
+      "pattern": "#e0162b",
+      "rhythm": "#ece8e0",
+      "pitch": "#8f8a82",
+      "cv": "#6c7a88",
+      "clock": "#a8894a"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png"
+  },
+  "panel": {
+    "textureOpacity": 0.9,
+    "textureSize": "300px",
+    "blend": "normal",
+    "radius": 1
+  },
+  "cables": {
+    "colors": [
+      "#b3121e",
+      "#e8e4dc",
+      "#3a3a3d",
+      "#7d8a96",
+      "#6a0a12",
+      "#a39e94"
+    ],
+    "thickness": 4,
+    "sag": 1.3,
+    "opacity": 0.92
+  },
+  "backdropDim": 0.1,
+  "modules": {
+    "output": {
+      "panel": "#1c0608",
+      "panelTextDim": "#b3121e"
+    }
+  },
+  "css": ".mod-name{letter-spacing:.14em;font-size:14px;font-weight:600}.led.on{box-shadow:0 0 8px #e0162b,0 0 18px rgba(224,22,43,.5)}.cable .c-main{filter:drop-shadow(0 2px 3px rgba(0,0,0,.9))}.stage::before{bottom:var(--insp-h);background-position:center 75%}.rack-row{background:rgba(8,8,9,.38)}"
+}

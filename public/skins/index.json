@@ -23,5 +23,10 @@
     "id": "paprika",
     "name": "Paprika",
     "tagline": "Hungarian folk red"
+  },
+  {
+    "id": "dm",
+    "name": "DM",
+    "tagline": "black, grain & one red rose"
   }
 ]
