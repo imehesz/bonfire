@@ -1,0 +1,264 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Industrial Furnace",
+ "description": "Metal and anvils on a Euclidean grid, crushed to 4 bits and driven hard, over a distorted 808 \u2014 the bonfire at full blaze.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 138
+   }
+  },
+  {
+   "id": "beats1",
+   "type": "beats",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "grid": [
+     [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+     ],
+     [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    ],
+    "lane1": "sd",
+    "lane2": "hh",
+    "bank": "RolandTR808"
+   }
+  },
+  {
+   "id": "euclid1",
+   "type": "euclid",
+   "row": 0,
+   "x": 38,
+   "params": {
+    "pulses": 5,
+    "steps": 8,
+    "rotate": 2
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 0,
+   "x": 46,
+   "params": {
+    "mode": "sample",
+    "sound": "metal",
+    "tune": -5,
+    "level": 0.8
+   }
+  },
+  {
+   "id": "fx1",
+   "type": "fx",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "crush": 4,
+    "drive": 0.6,
+    "room": 0.2,
+    "size": 2
+   }
+  },
+  {
+   "id": "filter1",
+   "type": "filter",
+   "row": 1,
+   "x": 12,
+   "params": {
+    "type": "hp",
+    "cutoff": 160,
+    "res": 2
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 1,
+   "x": 20,
+   "params": {
+    "level0": 0.9
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 1,
+   "x": 36,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "beats1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "euclid1",
+    "j": "clk"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "euclid1",
+    "j": "rhy"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "gate"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx1",
+    "j": "in"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "fx1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "beats1",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "in"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "filter1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#e8483b"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}

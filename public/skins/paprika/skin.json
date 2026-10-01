@@ -1,0 +1,86 @@
+{
+  "id": "paprika",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "name": "Paprika",
+  "tagline": "Hungarian folk red",
+  "description": "Deep paprika-red linen, painted porcelain knobs and golden LEDs: a nod to where the dessert comes from.",
+  "fonts": {
+    "panel": "'Alegreya Sans SC', sans-serif",
+    "google": [
+      "Alegreya Sans SC:wght@500;700;800",
+      "Share Tech Mono"
+    ]
+  },
+  "colors": {
+    "background": "#140606",
+    "rack": "#1c0909",
+    "rail": "#b08d57",
+    "panel": "#9e1b1b",
+    "panelText": "#f6e7c8",
+    "panelTextDim": "#e0b58a",
+    "accent": "#f2c230",
+    "led": "#ffd23f",
+    "ledOff": "#4a1a10",
+    "knobPointer": "#9e1b1b",
+    "display": "#2a0c0c",
+    "displayText": "#ffd23f",
+    "jackNut": "#e9dcc0",
+    "ui": "#1d0b0b",
+    "uiRaised": "#2a1111",
+    "uiText": "#f6e7c8",
+    "uiDim": "#c49a76",
+    "uiBorder": "#4a1d1d",
+    "code": "#160707",
+    "codeText": "#f6e7c8",
+    "codeString": "#ffd23f",
+    "codeNumber": "#7fd8a8",
+    "codeMethod": "#ff7a5c",
+    "codeComment": "#8a5a4a",
+    "scope": "#1a0505",
+    "scopeLine": "#ffd23f",
+    "jack": {
+      "pattern": "#ffb347",
+      "rhythm": "#ffffff",
+      "pitch": "#4caf50",
+      "cv": "#64b5f6",
+      "clock": "#ffd23f"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png"
+  },
+  "panel": {
+    "textureOpacity": 0.55,
+    "textureSize": "280px",
+    "blend": "multiply",
+    "radius": 3
+  },
+  "cables": {
+    "colors": [
+      "#ffd23f",
+      "#2e7d32",
+      "#f6e7c8",
+      "#1565c0",
+      "#ff7a5c",
+      "#6d4c41"
+    ],
+    "thickness": 5,
+    "sag": 1,
+    "opacity": 0.95
+  },
+  "backdropDim": 0.2,
+  "modules": {
+    "output": {
+      "panel": "#f3e6c8",
+      "panelText": "#9e1b1b",
+      "panelTextDim": "#7a3a2a"
+    },
+    "clock": {
+      "panel": "#2e5d32",
+      "panelText": "#f6e7c8"
+    }
+  }
+}

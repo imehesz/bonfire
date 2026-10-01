@@ -1,0 +1,27 @@
+[
+  {
+    "id": "bonfire",
+    "name": "Bonfire",
+    "tagline": "toasted meringue & embers"
+  },
+  {
+    "id": "steel",
+    "name": "Brushed Steel",
+    "tagline": "classic rack aluminium"
+  },
+  {
+    "id": "midnight",
+    "name": "Midnight",
+    "tagline": "matte black, neon cyan"
+  },
+  {
+    "id": "amp98",
+    "name": "Amp '98",
+    "tagline": "beige plastic, green LCD"
+  },
+  {
+    "id": "paprika",
+    "name": "Paprika",
+    "tagline": "Hungarian folk red"
+  }
+]

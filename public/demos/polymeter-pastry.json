@@ -1,0 +1,293 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Polymeter Pastry",
+ "description": "Layers of different lengths \u2014 16, 12, 13 and 7 steps \u2014 that drift apart and re-align, like the layers of the dessert this app is named after.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 110
+   }
+  },
+  {
+   "id": "seq1",
+   "type": "seq",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "steps": [
+     1,
+     0,
+     0,
+     1,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "sound": "bd"
+   }
+  },
+  {
+   "id": "seq2",
+   "type": "seq",
+   "row": 0,
+   "x": 26,
+   "params": {
+    "steps": [
+     0,
+     0,
+     1,
+     0,
+     0,
+     1,
+     0,
+     0,
+     1,
+     1,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0
+    ],
+    "length": 12,
+    "sound": "rim"
+   }
+  },
+  {
+   "id": "euclid1",
+   "type": "euclid",
+   "row": 0,
+   "x": 44,
+   "params": {
+    "pulses": 5,
+    "steps": 13,
+    "sound": "hh"
+   }
+  },
+  {
+   "id": "melody1",
+   "type": "melody",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "degrees": [
+     0,
+     2,
+     4,
+     6,
+     4,
+     2,
+     1,
+     0
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     0
+    ],
+    "length": 7,
+    "root": "E",
+    "scale": "dorian",
+    "octave": 3
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 1,
+   "x": 18,
+   "params": {
+    "wave": "square",
+    "release": 0.15,
+    "decay": 0.1,
+    "sustain": 0.3,
+    "level": 0.6
+   }
+  },
+  {
+   "id": "filter1",
+   "type": "filter",
+   "row": 1,
+   "x": 30,
+   "params": {
+    "cutoff": 1800,
+    "res": 4
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 1,
+   "x": 38,
+   "params": {
+    "level1": 0.8,
+    "level2": 0.7,
+    "pan1": 0.3,
+    "pan2": 0.7
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 1,
+   "x": 54,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "seq1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "seq2",
+    "j": "clk"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "euclid1",
+    "j": "clk"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "melody1",
+    "j": "clk"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pitch"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "in"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "seq1",
+    "j": "pat"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "seq2",
+    "j": "pat"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "euclid1",
+    "j": "pat"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in2"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c10",
+   "from": {
+    "m": "filter1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in3"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c11",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#f28c28"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}

@@ -1,0 +1,38 @@
+[
+ {
+  "id": "first-spark",
+  "name": "First Spark",
+  "description": "A four-on-the-floor house groove on a TR-909: the shortest possible patch.",
+  "cover": "demos/first-spark.jpg"
+ },
+ {
+  "id": "acid-breakfast",
+  "name": "Acid Breakfast",
+  "description": "A squelchy 303-style line: MELODY into a saw VOICE, a resonant FILTER swept by an LFO, echoes from EMBERS FX, all over a 909 kick.",
+  "cover": "demos/acid-breakfast.jpg"
+ },
+ {
+  "id": "vandal-breaks",
+  "name": "Vandal Breaks",
+  "description": "The Amen break looped by the SAMPLER, then chopped, thinned and stuttered by the VANDALIZER, with a random LFO deciding how much gets lost \u2014 over a quiet supersaw pad.",
+  "cover": "demos/vandal-breaks.jpg"
+ },
+ {
+  "id": "glass-garden",
+  "name": "Glass Garden",
+  "description": "Slow ambient: one MELODY feeds two VOICES (a kalimba and a warm pad an octave down), drowned in reverb and echo while an LFO drifts the kalimba across the stereo field.",
+  "cover": "demos/glass-garden.jpg"
+ },
+ {
+  "id": "polymeter-pastry",
+  "name": "Polymeter Pastry",
+  "description": "Layers of different lengths \u2014 16, 12, 13 and 7 steps \u2014 that drift apart and re-align, like the layers of the dessert this app is named after.",
+  "cover": "demos/polymeter-pastry.jpg"
+ },
+ {
+  "id": "industrial-furnace",
+  "name": "Industrial Furnace",
+  "description": "Metal and anvils on a Euclidean grid, crushed to 4 bits and driven hard, over a distorted 808 \u2014 the bonfire at full blaze.",
+  "cover": "demos/industrial-furnace.jpg"
+ }
+]

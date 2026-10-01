@@ -1,0 +1,74 @@
+{
+  "id": "steel",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "name": "Brushed Steel",
+  "tagline": "classic rack aluminium",
+  "description": "The classic software-rack look: brushed aluminium, black silkscreen, black knobs.",
+  "fonts": {
+    "panel": "'Roboto Condensed', sans-serif",
+    "google": [
+      "Roboto Condensed:wght@500;700",
+      "Share Tech Mono"
+    ]
+  },
+  "colors": {
+    "background": "#141518",
+    "rack": "#1d1f23",
+    "rail": "#b9bcc1",
+    "panel": "#c9ccd1",
+    "panelText": "#16181b",
+    "panelTextDim": "#4d535c",
+    "accent": "#f2c230",
+    "led": "#ff3b2f",
+    "ledOff": "#3a1a18",
+    "knobPointer": "#f4f4f4",
+    "display": "#0f1113",
+    "displayText": "#9ef0ff",
+    "ui": "#17191c",
+    "uiRaised": "#212429",
+    "uiText": "#e8eaed",
+    "uiDim": "#8b929b",
+    "uiBorder": "#2f343a",
+    "code": "#101215",
+    "codeText": "#e3e6ea",
+    "codeString": "#f2c230",
+    "codeNumber": "#9ef0ff",
+    "codeMethod": "#ff8f5a",
+    "codeComment": "#5f6873",
+    "scope": "#06100f",
+    "scopeLine": "#5bff9a",
+    "jack": {
+      "pattern": "#ff8f2a",
+      "rhythm": "#ff3b2f",
+      "pitch": "#3ddc84",
+      "cv": "#29b6f6",
+      "clock": "#f2c230"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png"
+  },
+  "panel": {
+    "textureOpacity": 1,
+    "textureSize": "380px",
+    "blend": "normal",
+    "radius": 1
+  },
+  "cables": {
+    "colors": [
+      "#e53935",
+      "#fdd835",
+      "#43a047",
+      "#1e88e5",
+      "#fb8c00",
+      "#8e24aa"
+    ],
+    "thickness": 6,
+    "sag": 1.1,
+    "opacity": 0.9
+  },
+  "backdropDim": 0.3
+}

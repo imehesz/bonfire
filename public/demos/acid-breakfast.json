@@ -1,0 +1,305 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Acid Breakfast",
+ "description": "A squelchy 303-style line: MELODY into a saw VOICE, a resonant FILTER swept by an LFO, echoes from EMBERS FX, all over a 909 kick.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 128
+   }
+  },
+  {
+   "id": "melody1",
+   "type": "melody",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "degrees": [
+     0,
+     0,
+     7,
+     0,
+     3,
+     0,
+     10,
+     5
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     0,
+     1,
+     1,
+     1,
+     1
+    ],
+    "root": "A",
+    "scale": "minor",
+    "octave": 2
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 0,
+   "x": 26,
+   "params": {
+    "wave": "sawtooth",
+    "release": 0.1,
+    "decay": 0.15,
+    "sustain": 0.4
+   }
+  },
+  {
+   "id": "filter1",
+   "type": "filter",
+   "row": 0,
+   "x": 38,
+   "params": {
+    "cutoff": 380,
+    "res": 14,
+    "amt": 0.55
+   }
+  },
+  {
+   "id": "lfo1",
+   "type": "lfo",
+   "row": 0,
+   "x": 46,
+   "params": {
+    "shape": "saw",
+    "rate": 0.5
+   }
+  },
+  {
+   "id": "fx1",
+   "type": "fx",
+   "row": 0,
+   "x": 52,
+   "params": {
+    "delay": 0.35,
+    "time": 0.1875,
+    "feedback": 0.45
+   }
+  },
+  {
+   "id": "beats1",
+   "type": "beats",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "grid": [
+     [
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    ],
+    "lane2": "hh",
+    "bank": "RolandTR909"
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 1,
+   "x": 30,
+   "params": {
+    "level0": 0.9,
+    "level1": 1.1
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 1,
+   "x": 46,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "melody1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pitch"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "in"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "lfo1",
+    "j": "cv"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "cv"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "filter1",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx1",
+    "j": "in"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "fx1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "beats1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "beats1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#f2c230"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}

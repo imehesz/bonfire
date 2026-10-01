@@ -1,0 +1,73 @@
+{
+  "id": "bonfire",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "name": "Bonfire",
+  "tagline": "toasted meringue & embers",
+  "description": "The house skin: cream meringue faceplates, caramel knobs, ember LEDs.",
+  "fonts": {
+    "google": [
+      "Barlow Condensed:wght@500;600;700",
+      "Share Tech Mono"
+    ]
+  },
+  "colors": {
+    "background": "#120c08",
+    "rack": "#1d140e",
+    "rail": "#9b8b76",
+    "panel": "#efe3cc",
+    "panelText": "#4a2a14",
+    "panelTextDim": "#8a6a4a",
+    "accent": "#f28c28",
+    "led": "#ff6a1a",
+    "ledOff": "#3a2414",
+    "knobPointer": "#fff3d6",
+    "display": "#1a0f08",
+    "displayText": "#ffb347",
+    "ui": "#1b120c",
+    "uiRaised": "#261a12",
+    "uiText": "#f5e6cc",
+    "uiDim": "#a08a6c",
+    "uiBorder": "#3d2b1d",
+    "code": "#120b07",
+    "codeText": "#f1e2c8",
+    "codeString": "#ffb347",
+    "codeNumber": "#7fd1c7",
+    "codeMethod": "#f28c28",
+    "codeComment": "#7a6650",
+    "scope": "#140a05",
+    "scopeLine": "#ffb347",
+    "jack": {
+      "pattern": "#f28c28",
+      "rhythm": "#e8483b",
+      "pitch": "#5bc864",
+      "cv": "#2ec4d6",
+      "clock": "#f2c230"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png"
+  },
+  "panel": {
+    "textureOpacity": 0.32,
+    "textureSize": "420px",
+    "blend": "multiply",
+    "radius": 3
+  },
+  "cables": {
+    "colors": [
+      "#2ec4d6",
+      "#e8483b",
+      "#f2c230",
+      "#5bc864",
+      "#f28c28",
+      "#b06ce0"
+    ],
+    "thickness": 5,
+    "sag": 1,
+    "opacity": 0.94
+  },
+  "backdropDim": 0.2
+}

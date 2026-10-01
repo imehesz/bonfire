@@ -1,0 +1,247 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Glass Garden",
+ "description": "Slow ambient: one MELODY feeds two VOICES (a kalimba and a warm pad an octave down), drowned in reverb and echo while an LFO drifts the kalimba across the stereo field.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 84
+   }
+  },
+  {
+   "id": "melody1",
+   "type": "melody",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "degrees": [
+     0,
+     4,
+     7,
+     9,
+     4,
+     11,
+     7,
+     2
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     0,
+     1,
+     1,
+     1
+    ],
+    "root": "D",
+    "scale": "major:pentatonic",
+    "octave": 4
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 0,
+   "x": 26,
+   "params": {
+    "mode": "sample",
+    "sound": "kalimba",
+    "release": 1.2
+   }
+  },
+  {
+   "id": "voice2",
+   "type": "voice",
+   "row": 0,
+   "x": 38,
+   "params": {
+    "mode": "sample",
+    "sound": "gm_pad_warm",
+    "tune": -12,
+    "attack": 0.6,
+    "release": 2.5,
+    "level": 0.55
+   }
+  },
+  {
+   "id": "euclid1",
+   "type": "euclid",
+   "row": 0,
+   "x": 50,
+   "params": {
+    "pulses": 2,
+    "steps": 8,
+    "rotate": 1
+   }
+  },
+  {
+   "id": "lfo1",
+   "type": "lfo",
+   "row": 0,
+   "x": 58,
+   "params": {
+    "shape": "sine",
+    "rate": 0.25
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "level1": 0.8
+   }
+  },
+  {
+   "id": "fx1",
+   "type": "fx",
+   "row": 1,
+   "x": 16,
+   "params": {
+    "room": 0.8,
+    "size": 8,
+    "delay": 0.4,
+    "time": 0.375,
+    "feedback": 0.6
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 1,
+   "x": 28,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x2"
+   },
+   "to": {
+    "m": "melody1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pitch"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice2",
+    "j": "pitch"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "clock1",
+    "j": "d1"
+   },
+   "to": {
+    "m": "euclid1",
+    "j": "clk"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "euclid1",
+    "j": "rhy"
+   },
+   "to": {
+    "m": "voice2",
+    "j": "gate"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "lfo1",
+    "j": "cv"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pan"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "voice2",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx1",
+    "j": "in"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c10",
+   "from": {
+    "m": "fx1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#5bc864"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}

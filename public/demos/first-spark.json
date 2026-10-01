@@ -1,0 +1,138 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "First Spark",
+ "description": "A four-on-the-floor house groove on a TR-909: the shortest possible patch.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 122
+   }
+  },
+  {
+   "id": "beats1",
+   "type": "beats",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "grid": [
+     [
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+     ]
+    ],
+    "lane1": "cp",
+    "lane2": "hh",
+    "lane3": "oh",
+    "bank": "RolandTR909"
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 0,
+   "x": 38,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "beats1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "beats1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#e8483b"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}

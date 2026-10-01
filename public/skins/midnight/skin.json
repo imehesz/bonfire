@@ -1,0 +1,77 @@
+{
+  "id": "midnight",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "name": "Midnight",
+  "tagline": "matte black, neon cyan",
+  "description": "Matte black anodised panels, cyan-ringed knobs, neon cables for late sessions.",
+  "fonts": {
+    "panel": "'Rajdhani', sans-serif",
+    "display": "'Share Tech Mono', monospace",
+    "google": [
+      "Rajdhani:wght@500;600;700",
+      "Share Tech Mono"
+    ]
+  },
+  "colors": {
+    "background": "#05070c",
+    "rack": "#0a0d14",
+    "rail": "#2a3140",
+    "panel": "#15181f",
+    "panelText": "#d6e4f0",
+    "panelTextDim": "#6f8296",
+    "accent": "#2ef2ff",
+    "led": "#2ef2ff",
+    "ledOff": "#0d2a30",
+    "knobPointer": "#2ef2ff",
+    "display": "#03080b",
+    "displayText": "#2ef2ff",
+    "jackNut": "#7d8794",
+    "ui": "#0a0c12",
+    "uiRaised": "#121621",
+    "uiText": "#dfe9f3",
+    "uiDim": "#71839a",
+    "uiBorder": "#1e2533",
+    "code": "#06080d",
+    "codeText": "#d8e6f2",
+    "codeString": "#ff4fd8",
+    "codeNumber": "#2ef2ff",
+    "codeMethod": "#8affc1",
+    "codeComment": "#4b5a6e",
+    "scope": "#02060a",
+    "scopeLine": "#2ef2ff",
+    "jack": {
+      "pattern": "#ff4fd8",
+      "rhythm": "#ff5d5d",
+      "pitch": "#8affc1",
+      "cv": "#2ef2ff",
+      "clock": "#ffe14f"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png"
+  },
+  "panel": {
+    "textureOpacity": 0.85,
+    "textureSize": "300px",
+    "blend": "normal",
+    "radius": 2
+  },
+  "cables": {
+    "colors": [
+      "#2ef2ff",
+      "#ff4fd8",
+      "#8affc1",
+      "#ffe14f",
+      "#a78bfa",
+      "#ff8f5a"
+    ],
+    "thickness": 4,
+    "sag": 0.9,
+    "opacity": 0.95
+  },
+  "backdropDim": 0.15,
+  "css": ".cable .c-main{filter:drop-shadow(0 0 4px var(--c))}"
+}

@@ -1,0 +1,391 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Vandal Breaks",
+ "description": "The Amen break looped by the SAMPLER, then chopped, thinned and stuttered by the VANDALIZER, with a random LFO deciding how much gets lost \u2014 over a quiet supersaw pad.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 165
+   }
+  },
+  {
+   "id": "sampler1",
+   "type": "sampler",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "sound": "brk",
+    "mode": "loop",
+    "bars": 2
+   }
+  },
+  {
+   "id": "vandal1",
+   "type": "vandal",
+   "row": 0,
+   "x": 20,
+   "params": {
+    "degrade": 0.35,
+    "sometimes": 0.3,
+    "trick": "ply",
+    "chop": 16
+   }
+  },
+  {
+   "id": "lfo1",
+   "type": "lfo",
+   "row": 0,
+   "x": 34,
+   "params": {
+    "shape": "rand",
+    "rate": 4,
+    "step": true
+   }
+  },
+  {
+   "id": "fx1",
+   "type": "fx",
+   "row": 0,
+   "x": 40,
+   "params": {
+    "room": 0.25,
+    "size": 3,
+    "crush": 8,
+    "drive": 0.2
+   }
+  },
+  {
+   "id": "euclid1",
+   "type": "euclid",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "pulses": 3,
+    "steps": 8,
+    "sound": "cp"
+   }
+  },
+  {
+   "id": "beats1",
+   "type": "beats",
+   "row": 1,
+   "x": 8,
+   "params": {
+    "grid": [
+     [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    ],
+    "bank": "RolandTR808"
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 1,
+   "x": 38,
+   "params": {
+    "level1": 0.3,
+    "level2": 1.2,
+    "level3": 0.35
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 1,
+   "x": 54,
+   "params": {}
+  },
+  {
+   "id": "melody1",
+   "type": "melody",
+   "row": 2,
+   "x": 0,
+   "params": {
+    "degrees": [
+     0,
+     5,
+     2,
+     6,
+     0,
+     0,
+     0,
+     0
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "length": 4,
+    "root": "D",
+    "scale": "minor",
+    "octave": 3
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 2,
+   "x": 18,
+   "params": {
+    "mode": "synth",
+    "wave": "supersaw",
+    "attack": 1.2,
+    "release": 2.5,
+    "level": 0.5
+   }
+  },
+  {
+   "id": "filter1",
+   "type": "filter",
+   "row": 2,
+   "x": 30,
+   "params": {
+    "type": "lp",
+    "cutoff": 800,
+    "res": 2
+   }
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "sampler1",
+    "j": "out"
+   },
+   "to": {
+    "m": "vandal1",
+    "j": "in"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "lfo1",
+    "j": "cv"
+   },
+   "to": {
+    "m": "vandal1",
+    "j": "cv"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "vandal1",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx1",
+    "j": "in"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "fx1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "clock1",
+    "j": "x2"
+   },
+   "to": {
+    "m": "euclid1",
+    "j": "clk"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "euclid1",
+    "j": "pat"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "beats1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "beats1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in2"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c10",
+   "from": {
+    "m": "clock1",
+    "j": "d4"
+   },
+   "to": {
+    "m": "melody1",
+    "j": "clk"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c11",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pitch"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c12",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "in"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c13",
+   "from": {
+    "m": "filter1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in3"
+   },
+   "color": "#f2c230"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}

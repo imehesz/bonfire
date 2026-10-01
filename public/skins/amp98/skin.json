@@ -1,0 +1,79 @@
+{
+  "id": "amp98",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "name": "Amp '98",
+  "tagline": "beige plastic, green LCD",
+  "description": "Late-90s desktop media-player nostalgia: beige plastic, chunky grey knobs, green LCDs.",
+  "fonts": {
+    "panel": "'Archivo Narrow', sans-serif",
+    "display": "'VT323', monospace",
+    "ui": "'Archivo Narrow', sans-serif",
+    "code": "'VT323', monospace",
+    "google": [
+      "Archivo Narrow:wght@500;700",
+      "VT323"
+    ]
+  },
+  "colors": {
+    "background": "#0d3b3f",
+    "rack": "#2b2a27",
+    "rail": "#9c988f",
+    "panel": "#cbc7be",
+    "panelText": "#1c1c1c",
+    "panelTextDim": "#5a5750",
+    "accent": "#3a6ea5",
+    "led": "#46ff46",
+    "ledOff": "#163016",
+    "knobPointer": "#1c1c1c",
+    "display": "#071107",
+    "displayText": "#46ff46",
+    "button": "#b9b5ac",
+    "ui": "#c0bdb5",
+    "uiRaised": "#d6d2c9",
+    "uiText": "#111111",
+    "uiDim": "#4a4740",
+    "uiBorder": "#7d7a73",
+    "code": "#020602",
+    "codeText": "#46ff46",
+    "codeString": "#e8ff6a",
+    "codeNumber": "#6af0ff",
+    "codeMethod": "#ffd84a",
+    "codeComment": "#2f8a2f",
+    "scope": "#020a02",
+    "scopeLine": "#46ff46",
+    "jack": {
+      "pattern": "#ff9a1f",
+      "rhythm": "#e0312b",
+      "pitch": "#2bb34a",
+      "cv": "#2b7de0",
+      "clock": "#e8c81f"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png"
+  },
+  "panel": {
+    "textureOpacity": 0.7,
+    "textureSize": "260px",
+    "blend": "multiply",
+    "radius": 0
+  },
+  "cables": {
+    "colors": [
+      "#e0312b",
+      "#2b7de0",
+      "#e8c81f",
+      "#2bb34a",
+      "#ff9a1f",
+      "#9b59b6"
+    ],
+    "thickness": 5,
+    "sag": 0.8,
+    "opacity": 1
+  },
+  "backdropDim": 0.1,
+  "css": ".code{font-size:17px;line-height:1.3}.tk-com{font-style:normal}"
+}
