@@ -1,0 +1,96 @@
+{
+  "id": "emily",
+  "name": "Emily",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "tagline": "blush pink, gold & Paris",
+  "description": "Parisian chic: blush-pink leather faceplates, gold-and-pearl knobs, a sunlit Haussmann street, and a wink of bleu-blanc-rouge.",
+  "fonts": {
+    "panel": "'Montserrat', sans-serif",
+    "ui": "'Montserrat', sans-serif",
+    "display": "'Share Tech Mono', monospace",
+    "google": [
+      "Montserrat:wght@500;600;700",
+      "Playfair Display:ital,wght@1,600;1,700",
+      "Share Tech Mono"
+    ]
+  },
+  "colors": {
+    "background": "#f7e6ea",
+    "rack": "#3a1a26",
+    "rail": "#c9a35a",
+    "railShadow": "rgba(90,16,40,.35)",
+    "panel": "#f6d3db",
+    "panelEdge": "rgba(90,16,40,.25)",
+    "panelText": "#5a1028",
+    "panelTextDim": "#a3576c",
+    "accent": "#e2336b",
+    "led": "#ff3d7f",
+    "ledOff": "#e9b3c2",
+    "knob": "#f4ece4",
+    "knobRing": "#c9a35a",
+    "knobPointer": "#5a1028",
+    "jackNut": "#e8d3a3",
+    "jackHole": "#2b0d17",
+    "display": "#3a0f1f",
+    "displayText": "#ffd1e0",
+    "ui": "#fff5f7",
+    "uiRaised": "#ffe4ea",
+    "uiText": "#3a0a1a",
+    "uiDim": "#9a5a6c",
+    "uiBorder": "#f0b8c6",
+    "code": "#fff8fa",
+    "codeText": "#3a0a1a",
+    "codeString": "#d81b60",
+    "codeNumber": "#1e4fa8",
+    "codeMethod": "#b0124f",
+    "codeComment": "#b08a96",
+    "scope": "#3a0f1f",
+    "scopeLine": "#ff8fb3",
+    "jack": {
+      "pattern": "#e2336b",
+      "rhythm": "#1e3a8a",
+      "pitch": "#2e8b6a",
+      "cv": "#6fa8dc",
+      "clock": "#c9a35a"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png"
+  },
+  "panel": {
+    "textureOpacity": 0.6,
+    "textureSize": "300px",
+    "blend": "multiply",
+    "radius": 6
+  },
+  "cables": {
+    "colors": [
+      "#ff5c8a",
+      "#1e3a8a",
+      "#c9a35a",
+      "#ffffff",
+      "#e11d48",
+      "#b48ce0"
+    ],
+    "thickness": 5,
+    "sag": 1.0,
+    "opacity": 0.95
+  },
+  "backdropDim": 0.0,
+  "modules": {
+    "clock": {
+      "panel": "#1e3a8a",
+      "panelText": "#ffffff",
+      "panelTextDim": "#b9c8f0"
+    },
+    "output": {
+      "panel": "#c8102e",
+      "panelText": "#ffffff",
+      "panelTextDim": "#ffc2cc"
+    }
+  },
+  "css": ".mod-name{font-family:'Playfair Display',serif;font-style:italic;font-weight:700;font-size:17px;letter-spacing:.04em;text-transform:none}.mod-foot{letter-spacing:.5em}.rack-row{background:rgba(255,240,245,.28);box-shadow:inset 0 0 30px rgba(90,16,40,.25)}.module{box-shadow:inset 1px 0 0 rgba(255,255,255,.5),0 8px 18px rgba(90,16,40,.35)}.transport.on,.btn.accent,.mc-add,.sw-pos.on,.pick-tabs button.on{color:#fff}.inspector{backdrop-filter:blur(10px)}.brand img{filter:drop-shadow(0 0 1px rgba(58,10,26,.75)) drop-shadow(0 1px 2px rgba(58,10,26,.75))}"
+}

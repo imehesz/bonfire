@@ -75,5 +75,5 @@
     "opacity": 1
   },
   "backdropDim": 0.1,
-  "css": ".code{font-size:17px;line-height:1.3}.tk-com{font-style:normal}"
+  "css": ".code{font-size:17px;line-height:1.3}.tk-com{font-style:normal}.brand img{filter:drop-shadow(0 0 1px rgba(0,0,0,.7)) drop-shadow(0 1px 2px rgba(0,0,0,.7))}"
 }
