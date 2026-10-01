@@ -2,7 +2,7 @@
  "format": "bonfire-stack",
  "version": 1,
  "name": "Industrial Furnace",
- "description": "Metal and anvils on a Euclidean grid, crushed to 4 bits and driven hard, over a distorted 808 \u2014 the bonfire at full blaze.",
+ "description": "A 909 kick and a crushed, driven snare under a bit-crushed cello stabbing out a Euclidean 5-in-8 rhythm through the furnace.",
  "modules": [
   {
    "id": "clock1",
@@ -10,7 +10,7 @@
    "row": 0,
    "x": 0,
    "params": {
-    "bpm": 138
+    "bpm": 120
    }
   },
   {
@@ -22,6 +22,7 @@
     "grid": [
      [
       1,
+      1,
       0,
       0,
       0,
@@ -29,7 +30,24 @@
       0,
       1,
       0,
+      0,
+      0,
+      0,
+      0,
+      0,
       1,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       0,
       0,
       0,
@@ -43,7 +61,6 @@
       0,
       0,
       0,
-      1,
       0,
       0,
       0,
@@ -51,28 +68,11 @@
       0,
       0,
       0,
-      1,
+      0,
+      0,
       0,
       0,
       0
-     ],
-     [
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
      ],
      [
       0,
@@ -95,18 +95,7 @@
     ],
     "lane1": "sd",
     "lane2": "hh",
-    "bank": "RolandTR808"
-   }
-  },
-  {
-   "id": "euclid1",
-   "type": "euclid",
-   "row": 0,
-   "x": 38,
-   "params": {
-    "pulses": 5,
-    "steps": 8,
-    "rotate": 2
+    "bank": "RolandTR909"
    }
   },
   {
@@ -116,8 +105,12 @@
    "x": 46,
    "params": {
     "mode": "sample",
-    "sound": "metal",
-    "tune": -5,
+    "sound": "gm_cello",
+    "tune": 2,
+    "attack": 0.01,
+    "decay": 0.018,
+    "sustain": 0.205,
+    "release": 0.36,
     "level": 0.8
    }
   },
@@ -127,10 +120,13 @@
    "row": 1,
    "x": 0,
    "params": {
-    "crush": 4,
-    "drive": 0.6,
     "room": 0.2,
-    "size": 2
+    "size": 2,
+    "delay": 0.22,
+    "time": 0.125,
+    "feedback": 0.5,
+    "crush": 6,
+    "drive": 0.6
    }
   },
   {
@@ -159,6 +155,113 @@
    "row": 1,
    "x": 36,
    "params": {}
+  },
+  {
+   "id": "beats2",
+   "type": "beats",
+   "row": 2,
+   "x": 0,
+   "params": {
+    "grid": [
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    ],
+    "lane1": "sd",
+    "bank": "RolandTR909"
+   }
+  },
+  {
+   "id": "fx2",
+   "type": "fx",
+   "row": 2,
+   "x": 30,
+   "params": {
+    "room": 0.11,
+    "size": 8.4,
+    "crush": 3,
+    "drive": 0.63
+   }
+  },
+  {
+   "id": "euclid1",
+   "type": "euclid",
+   "row": 0,
+   "x": 38,
+   "params": {
+    "pulses": 5,
+    "steps": 8,
+    "rotate": 2
+   }
   }
  ],
  "cables": [
@@ -173,30 +276,6 @@
     "j": "clk"
    },
    "color": "#2ec4d6"
-  },
-  {
-   "id": "c2",
-   "from": {
-    "m": "clock1",
-    "j": "x4"
-   },
-   "to": {
-    "m": "euclid1",
-    "j": "clk"
-   },
-   "color": "#e8483b"
-  },
-  {
-   "id": "c3",
-   "from": {
-    "m": "euclid1",
-    "j": "rhy"
-   },
-   "to": {
-    "m": "voice1",
-    "j": "gate"
-   },
-   "color": "#f2c230"
   },
   {
    "id": "c4",
@@ -255,6 +334,66 @@
    "to": {
     "m": "output1",
     "j": "r"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "beats2",
+    "j": "clk"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c10",
+   "from": {
+    "m": "beats2",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx2",
+    "j": "in"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c11",
+   "from": {
+    "m": "fx2",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in2"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "euclid1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "euclid1",
+    "j": "rhy"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "gate"
    },
    "color": "#e8483b"
   }
