@@ -230,7 +230,7 @@ function onPointerDown(e) {
   if (e.button !== 0) return;
   const socket = e.target.closest('.jack-socket');
   if (socket) return startCableDrag(e, jackInfo(socket));
-  if (e.target.closest('.ctl, button, input, canvas')) return;
+  if (e.target.closest('.ctl, button, input, canvas, .editable')) return;
   const modEl = e.target.closest('.module');
   if (modEl) startModuleDrag(e, modEl);
 }

@@ -24,8 +24,10 @@ export function mountInspector(host) {
   const lines = h('span', { class: 'insp-lines' });
   let code = '';
   let collapsed = false;
+  let side = 'bottom';
   try {
     collapsed = localStorage.getItem('bonfire.inspector') === 'closed';
+    side = localStorage.getItem('bonfire.dock') === 'right' ? 'right' : 'bottom';
   } catch { /* ignore */ }
   const copy = async () => {
     try {
@@ -47,19 +49,32 @@ export function mountInspector(host) {
         h('button', { class: 'btn', onclick: copy }, 'COPY CODE'),
         h('button', { class: 'btn accent', onclick: open, title: 'Opens this exact code in the strudel.cc REPL' }, 'OPEN IN STRUDEL ↗'))),
     h('div', { class: 'insp-body' }, pre));
+  // Body classes let the rack and drawers make room for the dock.
   const setCollapsed = (v) => {
     collapsed = v;
     dock.classList.toggle('collapsed', v);
-    toggleBtn.textContent = v ? '▲' : '▼';
+    document.body.classList.toggle('insp-collapsed', v);
+    toggleBtn.textContent = side === 'right' ? (v ? '◀' : '▶') : (v ? '▲' : '▼');
     try {
       localStorage.setItem('bonfire.inspector', v ? 'closed' : 'open');
     } catch { /* ignore */ }
   };
   toggleBtn.onclick = () => setCollapsed(!collapsed);
   dock.querySelector('.insp-title').onclick = () => setCollapsed(!collapsed);
-  setCollapsed(collapsed);
+  const setDock = (s) => {
+    side = s;
+    document.body.classList.toggle('dock-right', s === 'right');
+    setCollapsed(collapsed);
+    try {
+      localStorage.setItem('bonfire.dock', s);
+    } catch { /* ignore */ }
+    window.dispatchEvent(new Event('resize')); // cables re-measure jack positions
+  };
+  setDock(side);
   host.append(dock);
   return {
+    dockSide: () => side,
+    setDock,
     setCode(c) {
       if (c === code) return;
       code = c;

@@ -39,6 +39,46 @@ function fromNorm(p, t) {
   return v;
 }
 
+// Double-click popup: type an exact value (or pick an option) instead of dragging.
+export function editValue(anchor, p, current, commit) {
+  if (p.options) {
+    const list = h('div', { class: 'pick-list' }, p.options.map((o) => h('button', {
+      class: `pick ${optValue(o) === current ? 'active' : ''}`,
+      onclick: () => {
+        commit(optValue(o));
+        closePopover();
+      },
+    }, optLabel(o))));
+    popover(anchor, h('div', { class: 'value-edit' }, h('div', { class: 've-title' }, p.label), list), { className: 'pop-select' });
+    list.querySelector('.active')?.scrollIntoView({ block: 'center' });
+    return;
+  }
+  const unit = p.unit ?? '';
+  const input = h('input', {
+    type: 'number', class: 've-input', value: String(current), min: p.min, max: p.max, step: p.step ?? 'any',
+  });
+  const apply = () => {
+    let v = parseFloat(input.value);
+    if (!Number.isFinite(v)) return;
+    v = Math.min(p.max, Math.max(p.min, v));
+    v = p.step ? Math.round(v / p.step) * p.step : Math.round(v * 1000) / 1000;
+    commit(v);
+    closePopover();
+  };
+  const form = h('form', { class: 'value-edit', onsubmit: (e) => { e.preventDefault(); apply(); } },
+    h('div', { class: 've-title' }, p.label, h('span', {}, `${p.min} – ${p.max}${unit ? ` ${unit}` : ''}`)),
+    h('div', { class: 've-row' }, input, unit ? h('span', { class: 've-unit' }, unit) : null),
+    h('div', { class: 've-actions' },
+      h('button', { type: 'button', class: 'btn', onclick: () => { commit(structuredClone(p.default)); closePopover(); } }, 'DEFAULT'),
+      h('button', { type: 'submit', class: 'btn accent' }, 'SET')));
+  input.addEventListener('keydown', (e) => e.key === 'Escape' && closePopover());
+  popover(anchor, form, { className: 'pop-value' });
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 0);
+}
+
 // Vertical-drag behaviour shared by knobs and rotary switches.
 function dragValue(el, mod, key, p, onTip) {
   let start = 0;
@@ -75,7 +115,8 @@ function dragValue(el, mod, key, p, onTip) {
   el.addEventListener('pointercancel', end);
   el.addEventListener('dblclick', (e) => {
     e.stopPropagation();
-    setParam(mod.id, key, structuredClone(p.default));
+    hideTip();
+    editValue(el, p, findModule(mod.id).params[key], (v) => setParam(mod.id, key, v));
   });
   el.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -135,7 +176,11 @@ export function fader(mod, key, p) {
     track.releasePointerCapture(e.pointerId);
     hideTip();
   });
-  track.addEventListener('dblclick', () => setParam(mod.id, key, p.default));
+  track.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    hideTip();
+    editValue(capEl, p, findModule(mod.id).params[key], (v) => setParam(mod.id, key, v));
+  });
   return { el, update };
 }
 

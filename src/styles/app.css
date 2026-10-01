@@ -707,3 +707,56 @@ a { color: var(--accent); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--ui-border); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------- typed value entry ---------------- */
+.value-edit { display: flex; flex-direction: column; gap: 8px; padding: 6px; min-width: 190px; }
+.ve-title { display: flex; justify-content: space-between; gap: 12px; font-weight: 700; font-size: 12px; letter-spacing: 0.12em; }
+.ve-title span { font-weight: 400; letter-spacing: 0; color: var(--ui-dim); font-family: var(--font-display); }
+.ve-row { display: flex; align-items: center; gap: 6px; }
+.ve-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border-radius: 5px;
+  border: 1px solid var(--accent);
+  background: var(--display);
+  color: var(--display-text);
+  font-family: var(--font-display);
+  font-size: 18px;
+  outline: none;
+}
+.ve-unit { color: var(--ui-dim); font-family: var(--font-display); }
+.ve-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.lcd.editable { cursor: text; }
+
+/* ---------------- coffee link ---------------- */
+.tb.coffee { display: inline-grid; place-items: center; color: var(--accent); text-decoration: none; margin-left: 2px; }
+.tb.coffee:hover { color: var(--ui-text); }
+
+/* ---------------- code dock placement ---------------- */
+.insp-collapsed .rack-scroll { padding-bottom: 40px; }
+.dock-right { --insp-w: 440px; }
+.dock-right .rack-scroll { padding-bottom: 0; padding-right: var(--insp-w); }
+.dock-right.insp-collapsed .rack-scroll { padding-right: 44px; }
+.dock-right .inspector {
+  left: auto;
+  top: var(--topbar-h);
+  height: auto;
+  width: var(--insp-w);
+  border-top: 0;
+  border-left: 1px solid var(--ui-border);
+  box-shadow: -6px 0 20px rgba(0, 0, 0, 0.5);
+  transition: width 0.18s;
+}
+.dock-right .inspector header { height: auto; flex-wrap: wrap; row-gap: 6px; padding: 8px 10px; }
+.dock-right .insp-status { flex: 1 1 100%; order: 5; }
+.dock-right .insp-actions { margin-left: auto; }
+.dock-right .inspector.collapsed { width: 44px; height: auto; }
+.dock-right .inspector.collapsed header { flex-direction: column; flex-wrap: nowrap; border: 0; padding: 8px 0; }
+.dock-right .inspector.collapsed header > :not(.insp-toggle):not(.insp-title) { display: none; }
+.dock-right .inspector.collapsed .insp-title { writing-mode: vertical-rl; margin-top: 8px; }
+.dock-right .inspector.collapsed .insp-body { display: none; }
+.dock-right .drawer { bottom: 0; }
+.dock-right .drawer.right { right: 0; z-index: 26; }
+.dock-right .stage::before { right: var(--insp-w); bottom: 0; }
+.dock-right.insp-collapsed .stage::before { right: 44px; }

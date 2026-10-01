@@ -11,6 +11,7 @@ import { mountModuleDrawer, mountSampleDrawer } from './ui/drawers.js';
 import { h, menu, modal, toast } from './ui/dom.js';
 
 const SOURCE_URL = 'https://github.com/imehesz/bonfirestack';
+const COFFEE_URL = 'https://buymeacoffee.com/imehesz';
 
 const app = document.getElementById('app');
 let meta = {};
@@ -40,8 +41,12 @@ const topbar = h('header', { class: 'topbar' },
       h('button', { class: 'tb icon', title: 'Zoom out (Ctrl+wheel)', onclick: () => rack.setZoom(rack.rackSettings.zoom / 1.1) }, '−'),
       zoomLabel,
       h('button', { class: 'tb icon', title: 'Zoom in', onclick: () => rack.setZoom(rack.rackSettings.zoom * 1.1) }, '+')),
-    h('button', { class: 'tb', onclick: (e) => settingsMenu(e.currentTarget) }, '⚙'),
-    h('button', { class: 'tb', onclick: showHelp }, 'HELP')));
+    h('button', { class: 'tb', title: 'Settings', onclick: (e) => settingsMenu(e.currentTarget) }, '⚙'),
+    h('button', { class: 'tb', onclick: showHelp }, 'HELP'),
+    h('a', {
+      class: 'tb icon coffee', href: COFFEE_URL, target: '_blank', rel: 'noopener', title: 'Buy me a coffee',
+      html: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H16.5"/><path d="M8 3c0 1.5 1.2 1.5 1.2 3M12 3c0 1.5 1.2 1.5 1.2 3"/></svg>',
+    })));
 
 const main = h('main', { class: 'stage' });
 app.append(topbar, main);
@@ -174,7 +179,11 @@ async function skinMenu(anchor) {
 
 function settingsMenu(anchor) {
   const s = rack.rackSettings;
+  const side = inspector.dockSide();
   menu(anchor, [
+    { label: 'Code dock: bottom', active: side === 'bottom', action: () => inspector.setDock('bottom') },
+    { label: 'Code dock: right', active: side === 'right', action: () => inspector.setDock('right') },
+    '-',
     { label: `Cable opacity: ${Math.round(s.cableOpacity * 100)}%`, hint: 'click to cycle', action: () => {
       s.cableOpacity = s.cableOpacity <= 0.3 ? 1 : Math.round((s.cableOpacity - 0.25) * 100) / 100;
       localStorage.setItem('bonfire.rack', JSON.stringify(s));
@@ -206,7 +215,7 @@ function showHelp() {
       h('li', {}, 'Drag a cable off an input to move it; drop it in empty space to unplug. Double-click or right-click a cable to delete it.'),
       h('li', {}, 'Outputs can feed many inputs; each input takes one cable.'),
       h('li', {}, 'Drag a module by its panel to move it. Right-click a panel for duplicate / reset / delete.'),
-      h('li', {}, 'Knobs: drag up/down (Shift = fine), mouse wheel, double-click to reset.'),
+      h('li', {}, 'Knobs & faders: drag up/down (Shift = fine), mouse wheel, or double-click to type an exact value.'),
       h('li', {}, 'Sequencer steps: right-click to cycle ×2 / ×4 rolls.')),
     h('h3', {}, 'Keys'),
     h('ul', {},

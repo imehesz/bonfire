@@ -4,7 +4,7 @@ import { bjorklund } from '@strudel/core';
 import { analysers } from '../core/engine.js';
 import { DRUM_SOUNDS } from '../core/music.js';
 import { h, hideTip, s, showTip } from './dom.js';
-import { select } from './controls.js';
+import { editValue, select } from './controls.js';
 
 const stop = (e) => e.stopPropagation();
 const cycleState = (v) => (v + 1) % 4;
@@ -138,6 +138,15 @@ function melody(mod) {
       cap.releasePointerCapture(e.pointerId);
       hideTip();
     });
+    cap.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      hideTip();
+      editValue(cap, { label: `STEP ${i + 1} DEGREE`, min: 0, max: 14, step: 1, default: 0 }, findModule(mod.id).params.degrees[i], (v) => {
+        const d = [...findModule(mod.id).params.degrees];
+        d[i] = v;
+        setParam(mod.id, 'degrees', d);
+      });
+    });
     cap.addEventListener('wheel', (e) => {
       e.preventDefault();
       const d = [...findModule(mod.id).params.degrees];
@@ -196,8 +205,12 @@ function euclidRing(mod) {
   };
 }
 
-function bpmDisplay() {
-  const el = h('div', { class: 'lcd big bpm' });
+function bpmDisplay(mod, def) {
+  const el = h('div', { class: 'lcd big bpm editable', title: 'double-click to type a tempo' });
+  el.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    editValue(el, def.params.bpm, findModule(mod.id).params.bpm, (v) => setParam(mod.id, 'bpm', v));
+  });
   return { el, update: (p) => (el.textContent = `${Math.round(p.bpm)}`), tick() {} };
 }
 
