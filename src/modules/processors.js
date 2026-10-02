@@ -152,16 +152,21 @@ export const mixer = {
   title: '4-Channel Mixer',
   category: 'Mix',
   hp: 16,
-  description: 'Stacks up to four patterns so they play together, each with its own level, pan and mute.',
-  params: Object.fromEntries(CH.flatMap((i) => [
-    [`level${i}`, { kind: 'knob', label: `LVL ${i + 1}`, min: 0, max: 1.5, default: 1 }],
-    [`pan${i}`, { kind: 'knob', label: 'PAN', min: 0, max: 1, default: 0.5, size: 'sm' }],
-    [`mute${i}`, { kind: 'toggle', label: 'MUTE', default: false, structural: true }],
-  ])),
+  description: 'Stacks up to four patterns so they play together, each with its own level, pan and mute. ALL mutes the whole mix and leaves the channel mutes as they were.',
+  params: {
+    ...Object.fromEntries(CH.flatMap((i) => [
+      [`level${i}`, { kind: 'knob', label: `LVL ${i + 1}`, min: 0, max: 1.5, default: 1 }],
+      [`pan${i}`, { kind: 'knob', label: 'PAN', min: 0, max: 1, default: 0.5, size: 'sm' }],
+      [`mute${i}`, { kind: 'toggle', label: 'MUTE', default: false, structural: true }],
+    ])),
+    muteAll: { kind: 'toggle', label: 'ALL', default: false, structural: true },
+  },
   inputs: Object.fromEntries(CH.map((i) => [`in${i}`, { type: 'pattern', label: `IN ${i + 1}` }])),
   outputs: { out: { type: 'pattern', label: 'MIX' } },
-  layout: [CH.map((i) => `level${i}`), CH.map((i) => `pan${i}`), CH.map((i) => `mute${i}`), [...CH.map((i) => `in:in${i}`), 'out:out']],
+  // rows sit on a 5-column grid (CSS) so each channel lines up over its IN jack
+  layout: [CH.map((i) => `level${i}`), CH.map((i) => `pan${i}`), [...CH.map((i) => `mute${i}`), 'muteAll'], [...CH.map((i) => `in:in${i}`), 'out:out']],
   compile(ctx) {
+    if (ctx.p.muteAll) return { out: ident('silence') };
     const parts = [];
     for (const i of CH) {
       let e = ctx.in(`in${i}`);
