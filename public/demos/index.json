@@ -34,5 +34,11 @@
   "name": "Industrial Furnace",
   "description": "A 909 kick and a crushed, driven snare under a bit-crushed cello stabbing out a Euclidean 5-in-8 rhythm through the furnace.",
   "cover": "demos/industrial-furnace.jpg"
+ },
+ {
+  "id": "odyssey",
+  "name": "Odyssey",
+  "description": "144 BPM psy-trance in E phrygian: a 909 four-on-the-floor, a rolling SEQ-16 bassline that ducks out of the kick, a squelchy acid riff swept by a 4-bar LFO with dotted echoes, and a supersaw drone floating in a huge reverb.",
+  "cover": "demos/odyssey.jpg"
  }
 ]

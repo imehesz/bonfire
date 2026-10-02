@@ -1,0 +1,513 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Odyssey",
+ "description": "144 BPM psy-trance in E phrygian: a 909 four-on-the-floor, a rolling SEQ-16 bassline that ducks out of the kick, a squelchy acid riff swept by a 4-bar LFO with dotted echoes, and a supersaw drone floating in a huge reverb.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 144
+   }
+  },
+  {
+   "id": "beats1",
+   "type": "beats",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "grid": [
+     [
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0
+     ],
+     [
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1
+     ]
+    ],
+    "lane0": "bd",
+    "lane1": "cp",
+    "lane2": "oh",
+    "lane3": "hh",
+    "bank": "RolandTR909"
+   }
+  },
+  {
+   "id": "seq1",
+   "type": "seq",
+   "row": 0,
+   "x": 38,
+   "params": {
+    "steps": [
+     0,
+     1,
+     1,
+     1,
+     0,
+     1,
+     1,
+     1,
+     0,
+     1,
+     1,
+     1,
+     0,
+     1,
+     1,
+     1
+    ],
+    "sound": "bd"
+   }
+  },
+  {
+   "id": "melody1",
+   "type": "melody",
+   "row": 0,
+   "x": 56,
+   "params": {
+    "degrees": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "root": "E",
+    "scale": "phrygian",
+    "octave": 2
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 0,
+   "x": 74,
+   "params": {
+    "wave": "sawtooth",
+    "decay": 0.12,
+    "sustain": 0,
+    "release": 0.05
+   }
+  },
+  {
+   "id": "filter1",
+   "type": "filter",
+   "row": 0,
+   "x": 86,
+   "params": {
+    "cutoff": 900,
+    "res": 4
+   }
+  },
+  {
+   "id": "melody2",
+   "type": "melody",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "degrees": [
+     0,
+     7,
+     1,
+     7,
+     0,
+     9,
+     1,
+     4
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "root": "E",
+    "scale": "phrygian",
+    "octave": 4
+   }
+  },
+  {
+   "id": "voice2",
+   "type": "voice",
+   "row": 1,
+   "x": 18,
+   "params": {
+    "wave": "sawtooth",
+    "decay": 0.12,
+    "sustain": 0.2,
+    "release": 0.08,
+    "level": 0.7
+   }
+  },
+  {
+   "id": "filter2",
+   "type": "filter",
+   "row": 1,
+   "x": 30,
+   "params": {
+    "cutoff": 500,
+    "res": 15,
+    "amt": 0.7
+   }
+  },
+  {
+   "id": "lfo1",
+   "type": "lfo",
+   "row": 1,
+   "x": 38,
+   "params": {
+    "shape": "sine",
+    "rate": 0.25
+   }
+  },
+  {
+   "id": "fx1",
+   "type": "fx",
+   "row": 1,
+   "x": 44,
+   "params": {
+    "room": 0.2,
+    "size": 3,
+    "delay": 0.4,
+    "time": 0.1875,
+    "feedback": 0.5
+   }
+  },
+  {
+   "id": "voice3",
+   "type": "voice",
+   "row": 1,
+   "x": 56,
+   "params": {
+    "wave": "supersaw",
+    "tune": 4,
+    "attack": 0.8,
+    "sustain": 1,
+    "release": 2,
+    "level": 0.5
+   }
+  },
+  {
+   "id": "fx2",
+   "type": "fx",
+   "row": 1,
+   "x": 68,
+   "params": {
+    "room": 0.9,
+    "size": 8
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 1,
+   "x": 80,
+   "params": {
+    "level0": 1,
+    "level1": 0.9,
+    "level2": 0.55,
+    "level3": 0.4
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 2,
+   "x": 0,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "beats1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "seq1",
+    "j": "clk"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "melody1",
+    "j": "clk"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "melody2",
+    "j": "clk"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "seq1",
+    "j": "rhy"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "gate"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pitch"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "in"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "melody2",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice2",
+    "j": "pitch"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "voice2",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter2",
+    "j": "in"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c10",
+   "from": {
+    "m": "lfo1",
+    "j": "cv"
+   },
+   "to": {
+    "m": "filter2",
+    "j": "cv"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c11",
+   "from": {
+    "m": "filter2",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx1",
+    "j": "in"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c12",
+   "from": {
+    "m": "voice3",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx2",
+    "j": "in"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c13",
+   "from": {
+    "m": "beats1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c14",
+   "from": {
+    "m": "filter1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c15",
+   "from": {
+    "m": "fx1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in2"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c16",
+   "from": {
+    "m": "fx2",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in3"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c17",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#f28c28"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}
