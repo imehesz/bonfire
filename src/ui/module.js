@@ -44,7 +44,7 @@ export function buildModule(mod) {
       return c.el;
     }
     if (def.actions?.[spec]) {
-      return button(mod, spec, def.actions[spec], () => spec === 'tap' && tapTempo(mod)).el;
+      return button(mod, spec, def.actions[spec], () => (spec === 'tap' ? tapTempo(mod) : widgets.forEach((w) => w.action?.(spec)))).el;
     }
     const p = def.params[spec];
     const c = FACTORIES[p.kind](mod, spec, p);

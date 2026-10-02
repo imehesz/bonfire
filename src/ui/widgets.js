@@ -262,53 +262,246 @@ function lfoScope() {
   };
 }
 
+// OUTPUT scope: five looks (STYLE knob), optional COLOR override, FULL = fullscreen.
+const LOG_LO = Math.log(30);
+const LOG_HI = Math.log(16000);
+const freqBin = (an, f) => Math.min(an.frequencyBinCount - 1, Math.round((f / (an.context.sampleRate / 2)) * an.frequencyBinCount));
+
 function scope() {
-  const c = h('canvas', { class: 'w-scope', width: 400, height: 200 });
+  const c = h('canvas', { class: 'w-scope', width: 400, height: 156 });
+  const wrap = h('div', { class: 'w-scope-wrap' }, c, h('div', { class: 'scope-hint' }, 'click or Esc to exit'));
   const g = c.getContext('2d');
-  let buf = null;
-  let idle = false;
-  return {
-    el: c,
-    update() {},
-    tick() {
-      const st = analysers();
-      const w = c.width;
-      const ht = c.height;
-      const cs = getComputedStyle(c);
-      g.fillStyle = cs.getPropertyValue('--scope').trim() || '#06120f';
+  const bufs = {};
+  let style = 'trace';
+  let colour = '';
+  let peaks = [];
+  let spin = 0;
+  let gain = 1; // ORBIT / HALO auto-gain, so quiet mixes still fill the screen
+  let fresh = true; // repaint the background fully on the next frame
+  let fake = null; // { parent, next } when faking fullscreen (iPhone has no element fullscreen)
+
+  const isFull = () => document.fullscreenElement === wrap || !!fake;
+  const enter = () => {
+    if (wrap.requestFullscreen) {
+      wrap.requestFullscreen().catch(() => {});
+    } else {
+      fake = { parent: wrap.parentNode, next: wrap.nextSibling };
+      document.body.append(wrap);
+      wrap.classList.add('full');
+    }
+  };
+  const exit = () => {
+    if (document.fullscreenElement === wrap) document.exitFullscreen();
+    if (fake) {
+      fake.parent.insertBefore(wrap, fake.next);
+      wrap.classList.remove('full');
+      fake = null;
+      fresh = true;
+    }
+  };
+  document.addEventListener('fullscreenchange', () => (fresh = true));
+  wrap.addEventListener('pointerdown', (e) => isFull() && e.stopPropagation());
+  wrap.addEventListener('click', () => isFull() && exit());
+
+  const time = (an, key) => {
+    bufs[key] ??= new Float32Array(an.fftSize);
+    an.getFloatTimeDomainData(bufs[key]);
+    return bufs[key];
+  };
+  const freq = (an) => {
+    bufs.f ??= new Uint8Array(an.frequencyBinCount);
+    an.getByteFrequencyData(bufs.f);
+    return bufs.f;
+  };
+  const autoGain = (buf) => {
+    let peak = 0;
+    for (let i = 0; i < buf.length; i += 4) peak = Math.max(peak, Math.abs(buf[i]));
+    const want = 0.9 / Math.max(peak, 0.08);
+    gain += (want - gain) * (want < gain ? 0.3 : 0.04);
+    return gain;
+  };
+  // rising zero crossing, so periodic waves stand still
+  const trigger = (buf) => {
+    for (let i = 1; i < buf.length / 2; i++) if (buf[i - 1] < 0 && buf[i] >= 0) return i;
+    return 0;
+  };
+  // energy of the log-spaced band [t0, t1) of 30 Hz..16 kHz, 0..1
+  const band = (an, f, t0, t1) => {
+    const a = freqBin(an, Math.exp(LOG_LO + (LOG_HI - LOG_LO) * t0));
+    const b = Math.max(a + 1, freqBin(an, Math.exp(LOG_LO + (LOG_HI - LOG_LO) * t1)));
+    let m = 0;
+    for (let i = a; i < b; i++) m = Math.max(m, f[i]);
+    return m / 255;
+  };
+
+  const fit = () => {
+    const full = isFull();
+    const dpr = full ? Math.min(2, window.devicePixelRatio || 1) : 1;
+    const w = full ? Math.round(wrap.clientWidth * dpr) : 400;
+    const ht = full ? Math.round(wrap.clientHeight * dpr) : 156;
+    if (w && ht && (c.width !== w || c.height !== ht)) {
+      c.width = w;
+      c.height = ht;
+      fresh = true;
+    }
+  };
+
+  const STYLES = {
+    // classic triggered waveform over a graticule
+    trace(st, w, ht, k, bg) {
+      g.fillStyle = bg;
       g.fillRect(0, 0, w, ht);
       g.strokeStyle = 'rgba(255,255,255,0.07)';
-      g.lineWidth = 1;
+      g.lineWidth = k;
       for (let i = 1; i < 8; i++) {
         g.beginPath(); g.moveTo((i * w) / 8, 0); g.lineTo((i * w) / 8, ht); g.stroke();
       }
       for (let i = 1; i < 4; i++) {
         g.beginPath(); g.moveTo(0, (i * ht) / 4); g.lineTo(w, (i * ht) / 4); g.stroke();
       }
-      g.strokeStyle = cs.getPropertyValue('--scope-line').trim() || '#5bff9a';
-      g.lineWidth = 3;
-      g.shadowColor = g.strokeStyle;
-      g.shadowBlur = 8;
+      g.lineWidth = 3 * k;
+      g.shadowBlur = 8 * k;
       g.beginPath();
       if (st) {
-        buf ??= new Float32Array(st.mono.fftSize);
-        st.mono.getFloatTimeDomainData(buf);
-        // trigger on a rising zero crossing so the trace stands still
-        let start = 0;
-        for (let i = 1; i < buf.length / 2; i++) if (buf[i - 1] < 0 && buf[i] >= 0) { start = i; break; }
+        const buf = time(st.mono, 'm');
+        const start = trigger(buf);
         const n = Math.min(buf.length - start, 1024);
         for (let i = 0; i < n; i++) {
           const x = (i / n) * w;
           const y = ht / 2 - buf[start + i] * ht * 0.45;
           i ? g.lineTo(x, y) : g.moveTo(x, y);
         }
-        idle = false;
-      } else if (!idle) {
+      } else {
         g.moveTo(0, ht / 2);
         g.lineTo(w, ht / 2);
       }
       g.stroke();
-      g.shadowBlur = 0;
+    },
+    // phosphor X/Y: signal against itself a few samples later, with afterglow
+    orbit(st, w, ht, k, bg) {
+      g.globalAlpha = 0.18;
+      g.fillStyle = bg;
+      g.fillRect(0, 0, w, ht);
+      g.globalAlpha = 1;
+      if (!st) return;
+      const buf = time(st.mono, 'm');
+      const lag = 90;
+      const r = Math.min(w, ht) * 0.45 * autoGain(buf);
+      g.lineWidth = 1.4 * k;
+      g.shadowBlur = 6 * k;
+      g.globalAlpha = 0.85;
+      g.beginPath();
+      for (let i = 0; i < buf.length - lag; i += 2) {
+        const x = w / 2 + (buf[i] - buf[i + lag]) * r * 0.75 * (w / ht > 1.4 ? 1.6 : 1);
+        const y = ht / 2 - (buf[i] + buf[i + lag]) * r * 0.5;
+        i ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+      g.globalAlpha = 1;
+    },
+    // log-spaced spectrum analyser with falling peak caps
+    bars(st, w, ht, k, bg, col) {
+      g.fillStyle = bg;
+      g.fillRect(0, 0, w, ht);
+      g.fillStyle = col;
+      const n = Math.max(24, Math.min(96, Math.round(w / (8 * k))));
+      if (peaks.length !== n) peaks = new Array(n).fill(0);
+      const f = st ? freq(st.mono) : null;
+      const bw = w / n;
+      const cap = 2 * k;
+      for (let i = 0; i < n; i++) {
+        const v = f ? band(st.mono, f, i / n, (i + 1) / n) : 0;
+        peaks[i] = Math.max(v, peaks[i] - 0.012);
+        const bh = v * (ht - cap * 3);
+        const x = i * bw + bw * 0.12;
+        g.globalAlpha = 0.35 + 0.65 * v;
+        g.fillRect(x, ht - bh, bw * 0.76, bh);
+        g.globalAlpha = 1;
+        if (peaks[i] > 0.01) g.fillRect(x, ht - peaks[i] * (ht - cap * 3) - cap * 2, bw * 0.76, cap);
+      }
+    },
+    // waveform wrapped around a slowly turning ring, mirrored inside
+    halo(st, w, ht, k, bg) {
+      g.globalAlpha = 0.3;
+      g.fillStyle = bg;
+      g.fillRect(0, 0, w, ht);
+      g.globalAlpha = 1;
+      const buf = st ? time(st.mono, 'm') : null;
+      const r0 = Math.min(w, ht) * 0.27;
+      const amp = Math.min(w, ht) * 0.2 * (buf ? autoGain(buf) : 1);
+      const start = buf ? trigger(buf) : 0;
+      const n = 360;
+      spin += 0.004;
+      g.lineWidth = 2.2 * k;
+      g.shadowBlur = 12 * k;
+      for (const dir of [1, -0.55]) {
+        g.beginPath();
+        for (let i = 0; i <= n; i++) {
+          const v = buf ? buf[start + (i % n) * 2] : 0;
+          const a = (i / n) * Math.PI * 2 + spin;
+          const r = r0 + v * amp * dir;
+          const x = w / 2 + Math.cos(a) * r;
+          const y = ht / 2 + Math.sin(a) * r;
+          i ? g.lineTo(x, y) : g.moveTo(x, y);
+        }
+        g.globalAlpha = dir > 0 ? 1 : 0.5;
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+    },
+    // scrolling spectrogram: low notes at the bottom, time flows left
+    fall(st, w, ht, k, bg, col) {
+      const sw = Math.max(1, Math.round(2 * k));
+      if (fresh) {
+        g.fillStyle = bg;
+        g.fillRect(0, 0, w, ht);
+      }
+      g.drawImage(c, sw, 0, w - sw, ht, 0, 0, w - sw, ht);
+      g.fillStyle = bg;
+      g.fillRect(w - sw, 0, sw, ht);
+      if (!st) return;
+      const f = freq(st.mono);
+      const rows = Math.min(160, Math.round(ht / (2 * k)));
+      const rh = ht / rows;
+      g.fillStyle = col;
+      for (let i = 0; i < rows; i++) {
+        const v = band(st.mono, f, i / rows, (i + 1) / rows);
+        if (v < 0.04) continue;
+        g.globalAlpha = v * v;
+        g.fillRect(w - sw, ht - (i + 1) * rh, sw, rh + 0.5);
+      }
+      g.globalAlpha = 1;
+    },
+  };
+
+  return {
+    el: wrap,
+    update(p) {
+      if (p.style !== style || p.color !== colour) fresh = true;
+      style = p.style;
+      colour = p.color;
+    },
+    action(id) {
+      if (id === 'full') isFull() ? exit() : enter();
+    },
+    tick() {
+      fit();
+      const st = analysers();
+      const w = c.width;
+      const ht = c.height;
+      const k = Math.max(1, ht / 156);
+      const cs = getComputedStyle(c);
+      const bg = cs.getPropertyValue('--scope').trim() || '#06120f';
+      const col = colour || cs.getPropertyValue('--scope-line').trim() || '#5bff9a';
+      if (fresh && style !== 'fall') {
+        g.fillStyle = bg;
+        g.fillRect(0, 0, w, ht);
+      }
+      g.strokeStyle = g.fillStyle = g.shadowColor = col;
+      g.save();
+      (STYLES[style] ?? STYLES.trace)(st, w, ht, k, bg, col);
+      g.restore();
+      fresh = false;
     },
   };
 }

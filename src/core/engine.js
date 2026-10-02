@@ -146,6 +146,8 @@ function attachOutputStage() {
   stage.node = node;
   stage.mono = ctx.createAnalyser();
   stage.mono.fftSize = 2048;
+  stage.mono.minDecibels = -90; // spectrum scope range; a full mix sits well inside it
+  stage.mono.maxDecibels = -6;
   stage.left = ctx.createAnalyser();
   stage.right = ctx.createAnalyser();
   stage.left.fftSize = stage.right.fftSize = 1024;

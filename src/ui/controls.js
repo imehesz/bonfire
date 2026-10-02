@@ -299,8 +299,39 @@ export function sound(mod, key, p) {
   return { el, update };
 }
 
+// Swatch over a native colour input. '' = follow the skin; right-click goes back to it.
+export function color(mod, key, p) {
+  const input = h('input', { type: 'color', class: 'color-in', tabindex: -1 });
+  const sw = h('button', {
+    class: 'swatch',
+    title: 'click to pick · right-click for the skin colour',
+    onpointerdown: (e) => e.stopPropagation(),
+    onclick: () => {
+      checkpoint();
+      input.click();
+    },
+    oncontextmenu: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setParam(mod.id, key, p.default);
+    },
+  });
+  input.addEventListener('input', () => setParam(mod.id, key, input.value, { record: false }));
+  const el = h('div', { class: 'ctl color' }, h('div', { class: 'swatch-body' }, sw, input), h('label', {}, p.label));
+  const update = (v) => {
+    sw.style.background = v || 'var(--scope-line)';
+    sw.classList.toggle('skin', !v);
+    const cur = v || getComputedStyle(sw).getPropertyValue('--scope-line').trim();
+    if (/^#[0-9a-f]{6}$/i.test(cur)) input.value = cur;
+  };
+  return { el, update };
+}
+
 export function button(mod, key, a, onPress) {
-  const btn = h('button', { class: 'push', onpointerdown: (e) => { e.stopPropagation(); onPress?.(); } });
+  // click-fired actions (FULL) need a real user activation, which touch pointerdown isn't
+  const btn = a.click
+    ? h('button', { class: 'push', onpointerdown: (e) => e.stopPropagation(), onclick: () => onPress?.() })
+    : h('button', { class: 'push', onpointerdown: (e) => { e.stopPropagation(); onPress?.(); } });
   return { el: h('div', { class: 'ctl button' }, btn, h('label', {}, a.label)), update() {} };
 }
 
@@ -315,4 +346,4 @@ export function led(mod, id) {
   return { el: h('div', { class: 'ctl ledbox' }, h('span', { class: 'led big', dataset: { led: id } }), h('label', {}, id === 'beat' ? 'RUN' : id)), update() {} };
 }
 
-export const FACTORIES = { knob, rotary: knob, fader, switch: switcher, toggle, select, sound };
+export const FACTORIES = { knob, rotary: knob, fader, switch: switcher, toggle, select, sound, color };
