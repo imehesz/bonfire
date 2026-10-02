@@ -797,6 +797,22 @@ a { color: var(--accent); }
 .w-scope-wrap:fullscreen, .w-scope-wrap.full { background: var(--scope); cursor: zoom-out; }
 .w-scope-wrap.full { position: fixed; inset: 0; z-index: 9999; }
 .w-scope-wrap:fullscreen .w-scope, .w-scope-wrap.full .w-scope { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+.w-scope-wrap.back:not(:fullscreen):not(.full) { position: absolute; inset: 0; opacity: var(--scope-back-opacity, 0.5); pointer-events: none; }
+.w-scope-wrap.back:not(:fullscreen):not(.full) .w-scope { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+.scope-hold {
+  width: 186px;
+  height: 72px;
+  border-radius: 4px;
+  background: var(--scope);
+  box-shadow: inset 0 1px 6px #000, 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: grid;
+  place-items: center;
+  font: 600 10px var(--font-display);
+  letter-spacing: 0.3em;
+  color: var(--scope-line);
+  opacity: 0.7;
+}
+.module.scope-back [data-action='back'] .led { background: var(--led); box-shadow: 0 0 6px var(--led), 0 0 12px color-mix(in srgb, var(--led) 60%, transparent); }
 .scope-hint { display: none; }
 .w-scope-wrap:fullscreen .scope-hint, .w-scope-wrap.full .scope-hint {
   display: block;
@@ -814,4 +830,5 @@ a { color: var(--accent); }
   pointer-events: none;
 }
 @keyframes scope-hint { 0%, 60% { opacity: 0.8; } 100% { opacity: 0; } }
+.module[data-type='output'] .mod-row:nth-child(2) { align-items: center; } /* COLOR / BACK / FULL level with the STYLE knob */
 .module[data-type='output'] .mod-row:nth-child(3) { margin-top: 11px; } /* fader's +6 mark pokes above its row */

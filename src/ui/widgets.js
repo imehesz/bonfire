@@ -262,9 +262,11 @@ function lfoScope() {
   };
 }
 
-// OUTPUT scope: five looks (STYLE knob), optional COLOR override, FULL = fullscreen.
+// OUTPUT scope: five looks (STYLE knob), optional COLOR override, FULL = fullscreen,
+// BACK = drawn big behind the rack (see-through, click-through) while you keep patching.
 const LOG_LO = Math.log(30);
 const LOG_HI = Math.log(16000);
+let backdropOn = false; // sticky across rebuilds (demo load), so a fresh OUTPUT goes straight back up
 const freqBin = (an, f) => Math.min(an.frequencyBinCount - 1, Math.round((f / (an.context.sampleRate / 2)) * an.frequencyBinCount));
 
 function scope() {
@@ -279,8 +281,31 @@ function scope() {
   let gain = 1; // ORBIT / HALO auto-gain, so quiet mixes still fill the screen
   let fresh = true; // repaint the background fully on the next frame
   let fake = null; // { parent, next } when faking fullscreen (iPhone has no element fullscreen)
+  const hold = h('div', { class: 'scope-hold' }, 'BACKDROP'); // keeps the panel's shape while the scope is on the stage
+  let watch = 0;
 
   const isFull = () => document.fullscreenElement === wrap || !!fake;
+  const isBack = () => hold.isConnected && wrap.classList.contains('back');
+  const lightBack = (on) => hold.closest('.module')?.classList.toggle('scope-back', on);
+  const toBack = () => {
+    const stage = document.querySelector('.stage');
+    if (!stage || !wrap.isConnected || isFull()) return;
+    wrap.replaceWith(hold);
+    stage.prepend(wrap); // after .stage::before (the backdrop art), before .rack-scroll
+    wrap.classList.add('back');
+    lightBack(true);
+    fresh = true;
+    // this OUTPUT got deleted or rebuilt: take the stranded scope off the stage
+    watch = setInterval(() => !hold.isConnected && fromBack(), 500);
+  };
+  const fromBack = () => {
+    clearInterval(watch);
+    if (isFull()) exit();
+    lightBack(false);
+    wrap.classList.remove('back');
+    hold.isConnected ? hold.replaceWith(wrap) : wrap.remove();
+    fresh = true;
+  };
   const enter = () => {
     if (wrap.requestFullscreen) {
       wrap.requestFullscreen().catch(() => {});
@@ -335,7 +360,7 @@ function scope() {
   };
 
   const fit = () => {
-    const full = isFull();
+    const full = isFull() || isBack();
     const dpr = full ? Math.min(2, window.devicePixelRatio || 1) : 1;
     const w = full ? Math.round(wrap.clientWidth * dpr) : 400;
     const ht = full ? Math.round(wrap.clientHeight * dpr) : 156;
@@ -484,8 +509,13 @@ function scope() {
     },
     action(id) {
       if (id === 'full') isFull() ? exit() : enter();
+      if (id === 'back') {
+        backdropOn = !isBack();
+        backdropOn ? toBack() : fromBack();
+      }
     },
     tick() {
+      if (backdropOn && !isBack() && !isFull()) toBack();
       fit();
       const st = analysers();
       const w = c.width;

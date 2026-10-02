@@ -329,10 +329,13 @@ export function color(mod, key, p) {
 
 export function button(mod, key, a, onPress) {
   // click-fired actions (FULL) need a real user activation, which touch pointerdown isn't
+  // led: looks like a toggle (MIXER MUTE); the widget lights it through the module's classes
+  const cls = a.led ? 'tgl' : 'push';
+  const kids = a.led ? [h('span', { class: 'led' })] : [];
   const btn = a.click
-    ? h('button', { class: 'push', onpointerdown: (e) => e.stopPropagation(), onclick: () => onPress?.() })
-    : h('button', { class: 'push', onpointerdown: (e) => { e.stopPropagation(); onPress?.(); } });
-  return { el: h('div', { class: 'ctl button' }, btn, h('label', {}, a.label)), update() {} };
+    ? h('button', { class: cls, onpointerdown: (e) => e.stopPropagation(), onclick: () => onPress?.() }, kids)
+    : h('button', { class: cls, onpointerdown: (e) => { e.stopPropagation(); onPress?.(); } }, kids);
+  return { el: h('div', { class: 'ctl button', dataset: { action: key } }, btn, h('label', {}, a.label)), update() {} };
 }
 
 export function jack(mod, id, j, dir) {

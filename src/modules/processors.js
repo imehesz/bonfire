@@ -254,7 +254,7 @@ export const output = {
   category: 'Mix',
   hp: 14,
   singleton: true,
-  description: 'Where everything ends up. One cable = mono; L and R both patched = hard left/right. VOLUME and MUTE are your speakers, not part of the music, so they never show up in the code. STYLE picks the scope look, COLOR tints it (right-click for the skin colour), FULL blows the scope up to the whole screen.',
+  description: 'Where everything ends up. One cable = mono; L and R both patched = hard left/right. VOLUME and MUTE are your speakers, not part of the music, so they never show up in the code. STYLE picks the scope look, COLOR tints it (right-click for the skin colour), FULL blows the scope up to the whole screen; BACK puts it behind the rack instead, see-through, so you can keep tweaking while it plays.',
   params: {
     style: { kind: 'rotary', label: 'STYLE', size: 'sm', hardware: true, default: 'trace', options: [
       { v: 'trace', l: 'TRACE' }, { v: 'orbit', l: 'ORBIT' }, { v: 'bars', l: 'BARS' }, { v: 'halo', l: 'HALO' }, { v: 'fall', l: 'FALL' },
@@ -265,8 +265,8 @@ export const output = {
   },
   inputs: { l: { type: 'pattern', label: 'L' }, r: { type: 'pattern', label: 'R/MONO' } },
   outputs: {},
-  actions: { full: { label: 'FULL', click: true } },
-  layout: [['widget:scope'], ['style', 'color', 'full'], ['widget:meters', 'volume'], ['mute', 'in:l', 'in:r']],
+  actions: { back: { label: 'BACK', click: true, led: true }, full: { label: 'FULL', click: true, led: true } },
+  layout: [['widget:scope'], ['style', 'color', 'back', 'full'], ['widget:meters', 'volume'], ['mute', 'in:l', 'in:r']],
   compile(ctx) {
     const l = ctx.in('l');
     const r = ctx.in('r');
