@@ -111,6 +111,11 @@ a { color: var(--accent); }
   font-size: 15px;
 }
 .patch-name:hover, .patch-name:focus { border-color: var(--ui-border); background: var(--ui-raised); outline: none; }
+.tb.dice { display: inline-grid; place-items: center; color: var(--ui-text); margin-left: -8px; }
+.tb.dice:hover { color: var(--accent); }
+.modal-confirm { width: min(420px, 92vw); padding: 22px 26px; }
+.confirm p { margin: 0 0 18px; font-size: 15px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .tb-nav, .tb-right { display: flex; gap: 4px; align-items: center; }
 .tb-right { margin-left: auto; }
 .tb {

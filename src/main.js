@@ -9,6 +9,7 @@ import * as rack from './ui/rack.js';
 import { mountInspector } from './ui/inspector.js';
 import { mountModuleDrawer, mountSampleDrawer } from './ui/drawers.js';
 import { h, menu, modal, toast } from './ui/dom.js';
+import { randomName } from './core/names.js';
 
 const SOURCE_URL = 'https://github.com/imehesz/bonfirestack';
 const COFFEE_URL = 'https://buymeacoffee.com/imehesz';
@@ -24,10 +25,24 @@ nameInput.addEventListener('change', () => store.setName(nameInput.value.trim() 
 nameInput.addEventListener('keydown', (e) => e.key === 'Enter' && nameInput.blur());
 const zoomLabel = h('span', { class: 'zoom-val' });
 
+// dice: untitled patches just get a name; a named one asks before it's replaced
+const DIE_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><g fill="currentColor" stroke="none"><circle cx="8" cy="8" r="1.6"/><circle cx="16" cy="8" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="8" cy="16" r="1.6"/><circle cx="16" cy="16" r="1.6"/></g></svg>';
+function rollName() {
+  const cur = (store.getPatch().name ?? '').trim();
+  const next = randomName();
+  if (!cur || cur === 'Untitled') return store.setName(next);
+  const dlg = modal(h('div', { class: 'confirm' },
+    h('p', {}, 'Replace the name ', h('b', {}, `“${cur}”`), ' with ', h('b', {}, `“${next}”`), '?'),
+    h('div', { class: 'confirm-actions' },
+      h('button', { class: 'btn', onclick: () => dlg.close() }, 'KEEP'),
+      h('button', { class: 'btn accent', onclick: () => { store.setName(next); dlg.close(); } }, 'REPLACE'))), { className: 'modal-confirm' });
+}
+
 const topbar = h('header', { class: 'topbar' },
   h('button', { class: 'brand', title: 'About Bonfire STACK', onclick: () => showSplash() }, h('img', { src: 'brand/logo.png', alt: 'Bonfire STACK' })),
   playBtn,
   nameInput,
+  h('button', { class: 'tb icon dice', title: 'Random name', onclick: rollName, html: DIE_SVG }),
   h('nav', { class: 'tb-nav' },
     h('button', { class: 'tb', onclick: () => toggleDrawer('left') }, 'MODULES'),
     h('button', { class: 'tb', onclick: () => toggleDrawer('right') }, 'SAMPLES'),
