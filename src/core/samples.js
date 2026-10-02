@@ -55,13 +55,18 @@ export function library() {
 
 export const packState = () => [...packStatus.entries()];
 
-export async function loadPack(url) {
+// Status key + label for a pack: its URL, or "name: url" for a { name: url } map.
+export const packKey = (pack) => (typeof pack === 'string' ? pack
+  : Object.entries(pack).map(([n, u]) => `${n}: ${u}`).join(', '));
+
+export async function loadPack(pack) {
+  const url = packKey(pack);
   if (packStatus.get(url) === 'ok' || packStatus.get(url) === 'loading') return;
   packStatus.set(url, 'loading');
   emit();
   const before = new Set(Object.keys(listSounds()));
   try {
-    await samples(url);
+    await samples(pack);
     packSounds.set(url, Object.keys(listSounds()).filter((k) => !before.has(k)));
     packStatus.set(url, 'ok');
   } catch (e) {
@@ -70,7 +75,8 @@ export async function loadPack(url) {
   emit();
 }
 
-export function forgetPack(url) {
+export function forgetPack(pack) {
+  const url = packKey(pack);
   packSounds.delete(url);
   packStatus.delete(url);
   emit();

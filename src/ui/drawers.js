@@ -3,7 +3,7 @@ import { CATEGORY_ORDER, MODULES } from '../modules/index.js';
 import { addModule, addSamplePack, getPatch, removeSamplePack } from '../core/store.js';
 import { audition } from '../core/engine.js';
 import {
-  GROUP_ORDER, addLocalFiles, forgetPack, getLocalNames, library, loadPack, onLibrary, packState, removeLocalSound,
+  GROUP_ORDER, addLocalFiles, forgetPack, getLocalNames, library, loadPack, onLibrary, packKey, packState, removeLocalSound,
 } from '../core/samples.js';
 import { prettySound } from '../core/music.js';
 import { h, toast } from './dom.js';
@@ -115,12 +115,13 @@ export function mountSampleDrawer(host) {
 
   function renderPacks() {
     const states = new Map(packState());
-    packList.replaceChildren(...getPatch().samplePacks.map((url) => {
+    packList.replaceChildren(...getPatch().samplePacks.map((pack) => {
+      const url = packKey(pack);
       const st = states.get(url) ?? 'not loaded';
       return h('div', { class: `pack ${st === 'ok' ? 'ok' : st === 'loading' ? 'loading' : 'bad'}` },
         h('span', { class: 'pack-url', title: url }, url),
         h('span', { class: 'pack-st' }, st === 'ok' ? '✓' : st === 'loading' ? '…' : '!'),
-        h('button', { class: 'snd-del', title: 'remove pack', onclick: () => { removeSamplePack(url); forgetPack(url); } }, '×'));
+        h('button', { class: 'snd-del', title: 'remove pack', onclick: () => { removeSamplePack(pack); forgetPack(pack); } }, '×'));
     }));
   }
 

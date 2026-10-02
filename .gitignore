@@ -4,3 +4,5 @@ dist/
 requirements/
 *.log
 .DS_Store
+deployScriptPROD.sh
+rsync_exclude.txt

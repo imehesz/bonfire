@@ -1,0 +1,295 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Torched Meringue",
+ "description": "140 BPM half-time dubstep in D minor: a real wobble-bass loop from Freesound (\u201c1 bar dubstep bass loop\u201d by shitefromaheight, CC0) stretched to 4 bars by the SAMPLER, under a 909 kick, a stacked snare on beat 3 and a square-wave hook bouncing through dotted echoes.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 140
+   }
+  },
+  {
+   "id": "beats1",
+   "type": "beats",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "grid": [
+     [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      3,
+      0
+     ]
+    ],
+    "lane0": "bd",
+    "lane1": "sd",
+    "lane2": "cp",
+    "lane3": "hh",
+    "bank": "RolandTR909"
+   }
+  },
+  {
+   "id": "sampler1",
+   "type": "sampler",
+   "row": 0,
+   "x": 38,
+   "params": {
+    "sound": "grit_wobble",
+    "mode": "loop",
+    "bars": 4,
+    "level": 0.9
+   }
+  },
+  {
+   "id": "melody2",
+   "type": "melody",
+   "row": 0,
+   "x": 50,
+   "params": {
+    "degrees": [
+     7,
+     0,
+     6,
+     7,
+     0,
+     4,
+     6,
+     0
+    ],
+    "gates": [
+     1,
+     0,
+     1,
+     1,
+     0,
+     1,
+     1,
+     0
+    ],
+    "root": "D",
+    "scale": "minor",
+    "octave": 4
+   }
+  },
+  {
+   "id": "voice3",
+   "type": "voice",
+   "row": 0,
+   "x": 68,
+   "params": {
+    "wave": "square",
+    "decay": 0.15,
+    "sustain": 0,
+    "release": 0.1,
+    "level": 0.5
+   }
+  },
+  {
+   "id": "fx2",
+   "type": "fx",
+   "row": 0,
+   "x": 80,
+   "params": {
+    "room": 0.35,
+    "size": 4,
+    "delay": 0.45,
+    "time": 0.1875,
+    "feedback": 0.45
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "level0": 1,
+    "level1": 0.85,
+    "level2": 0.45
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 1,
+   "x": 16,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "beats1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "clock1",
+    "j": "x2"
+   },
+   "to": {
+    "m": "melody2",
+    "j": "clk"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "melody2",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice3",
+    "j": "pitch"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "voice3",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx2",
+    "j": "in"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "beats1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "sampler1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "fx2",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in2"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#e8483b"
+  }
+ ],
+ "samplePacks": [
+  {
+   "grit_wobble": "https://cdn.freesound.org/previews/128/128254_1492425-hq.mp3"
+  }
+ ],
+ "localSounds": []
+}

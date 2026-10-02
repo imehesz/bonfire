@@ -40,5 +40,11 @@
   "name": "Odyssey",
   "description": "144 BPM psy-trance in E phrygian: a 909 four-on-the-floor, a rolling SEQ-16 bassline that ducks out of the kick, a squelchy acid riff swept by a 4-bar LFO with dotted echoes, and a supersaw drone floating in a huge reverb.",
   "cover": "demos/odyssey.jpg"
+ },
+ {
+  "id": "torched-meringue",
+  "name": "Torched Meringue",
+  "description": "140 BPM half-time dubstep in D minor: a real wobble-bass loop from Freesound (\u201c1 bar dubstep bass loop\u201d by shitefromaheight, CC0) stretched to 4 bars by the SAMPLER, under a 909 kick, a stacked snare on beat 3 and a square-wave hook bouncing through dotted echoes.",
+  "cover": "demos/torched-meringue.jpg"
  }
 ]

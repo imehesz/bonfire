@@ -77,5 +77,6 @@ The schema is in [public/skins/README.md](public/skins/README.md). Users can loa
 
 - Sound engine: [Strudel](https://codeberg.org/uzu/strudel) (AGPL-3.0). Samples are streamed from the
   strudel.cc CDN (Dirt-Samples, VCSL (CC0), tidal-drum-machines, Salamander piano (CC-BY), GM soundfonts).
+- The Torched Meringue demo streams its wobble loop from Freesound: [“1 bar dubstep bass loop”](https://freesound.org/people/shitefromaheight/sounds/128254/) by shitefromaheight (CC0).
 - Artwork generated with Higgsfield for this project.
 - Bonfire STACK is free software under the **GNU AGPL-3.0**. See `LICENSE`.

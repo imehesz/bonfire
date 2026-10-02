@@ -95,7 +95,11 @@ export function compilePatch(patch) {
   for (const m of patch.modules) compileModule(m.id);
 
   const lines = [`// Bonfire STACK${patch.name ? ` · ${patch.name}` : ''}`];
-  for (const pack of patch.samplePacks ?? []) lines.push(`samples('${pack}')`);
+  // a pack is a strudel.json URL, or a { name: audioUrl } map for loose files
+  for (const pack of patch.samplePacks ?? []) {
+    lines.push(typeof pack === 'string' ? `samples('${pack}')`
+      : `samples({ ${Object.entries(pack).map(([n, u]) => `${n}: '${u}'`).join(', ')} })`);
+  }
   lines.push(`setcpm(${bpm}/4)`, '');
   if (decls.length) lines.push(...decls, '');
   if (main) {
