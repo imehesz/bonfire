@@ -95,10 +95,14 @@ export function compilePatch(patch) {
   for (const m of patch.modules) compileModule(m.id);
 
   const lines = [`// Bonfire STACK${patch.name ? ` · ${patch.name}` : ''}`];
-  // a pack is a strudel.json URL, or a { name: audioUrl } map for loose files
+  // a pack is a strudel.json URL, or a { name: audioUrl } map for loose files.
+  // Relative audio URLs (files in public/samples/) are printed absolute against
+  // the page, so the code still finds them when pasted into strudel.cc.
+  const absUrl = (u) => (/^[a-z][a-z0-9+.-]*:/i.test(u) || typeof document === 'undefined' ? u
+    : new URL(u, document.baseURI).href);
   for (const pack of patch.samplePacks ?? []) {
     lines.push(typeof pack === 'string' ? `samples('${pack}')`
-      : `samples({ ${Object.entries(pack).map(([n, u]) => `${n}: '${u}'`).join(', ')} })`);
+      : `samples({ ${Object.entries(pack).map(([n, u]) => `${n}: '${absUrl(u)}'`).join(', ')} })`);
   }
   lines.push(`setcpm(${bpm}/4)`, '');
   if (decls.length) lines.push(...decls, '');

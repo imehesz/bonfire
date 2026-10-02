@@ -64,12 +64,16 @@ export async function patchFromHash() {
   }
 }
 
+// Demo JSON lives in public/ (no content hash), so tag it with the build
+// version or browsers keep serving a heuristically cached copy.
+const BUST = `?v=${__APP_VERSION__}`;
+
 export async function fetchDemo(id) {
-  const r = await fetch(`demos/${id}.json`);
+  const r = await fetch(`demos/${id}.json${BUST}`);
   if (!r.ok) throw new Error(`demo ${id} not found`);
   return r.json();
 }
 
 export async function fetchDemoIndex() {
-  return (await fetch('demos/index.json')).json();
+  return (await fetch(`demos/index.json${BUST}`)).json();
 }

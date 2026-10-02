@@ -194,6 +194,8 @@ function settingsMenu(anchor) {
       localStorage.setItem('bonfire.rack', JSON.stringify(s));
     } },
     { label: 'Reset zoom', action: () => rack.setZoom(1) },
+    '-',
+    { label: 'Version', hint: __APP_VERSION__, disabled: true, action: () => {} },
   ]);
 }
 

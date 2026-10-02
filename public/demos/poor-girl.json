@@ -1,0 +1,670 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Poor Girl",
+ "description": "80 BPM lofi in C major for a rainy night in: an SP-12 boom-bap beat, two Rhodes lines walking down Fmaj7, Em7, Dm7, Cmaj7, a soft bass, vinyl crackle, and every eight bars a voice reminds you that true romance means being humble.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 80
+   }
+  },
+  {
+   "id": "beats1",
+   "type": "beats",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "grid": [
+     [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+     ],
+     [
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      1
+     ],
+     [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0
+     ]
+    ],
+    "lane0": "bd",
+    "lane1": "sd",
+    "lane2": "hh",
+    "lane3": "rim",
+    "bank": "EmuSP12"
+   }
+  },
+  {
+   "id": "seq1",
+   "type": "seq",
+   "row": 0,
+   "x": 38,
+   "params": {
+    "steps": [
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "length": 4,
+    "sound": "bd"
+   }
+  },
+  {
+   "id": "sampler1",
+   "type": "sampler",
+   "row": 0,
+   "x": 56,
+   "params": {
+    "sound": "poor_girl",
+    "mode": "one",
+    "level": 1.1
+   }
+  },
+  {
+   "id": "filter1",
+   "type": "filter",
+   "row": 0,
+   "x": 68,
+   "params": {
+    "type": "hp",
+    "cutoff": 280,
+    "res": 2
+   }
+  },
+  {
+   "id": "fx1",
+   "type": "fx",
+   "row": 0,
+   "x": 76,
+   "params": {
+    "room": 0.4,
+    "size": 4,
+    "delay": 0.2,
+    "time": 0.125,
+    "feedback": 0.3
+   }
+  },
+  {
+   "id": "seq2",
+   "type": "seq",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "steps": [
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "sound": "bd"
+   }
+  },
+  {
+   "id": "melody1",
+   "type": "melody",
+   "row": 1,
+   "x": 18,
+   "params": {
+    "degrees": [
+     3,
+     2,
+     1,
+     0,
+     3,
+     2,
+     1,
+     4
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "root": "C",
+    "scale": "major",
+    "octave": 2
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 1,
+   "x": 36,
+   "params": {
+    "wave": "triangle",
+    "release": 0.45,
+    "level": 0.9
+   }
+  },
+  {
+   "id": "melody2",
+   "type": "melody",
+   "row": 1,
+   "x": 48,
+   "params": {
+    "degrees": [
+     5,
+     4,
+     3,
+     2,
+     5,
+     4,
+     3,
+     3
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "root": "C",
+    "scale": "major",
+    "octave": 4
+   }
+  },
+  {
+   "id": "melody3",
+   "type": "melody",
+   "row": 1,
+   "x": 66,
+   "params": {
+    "degrees": [
+     9,
+     8,
+     7,
+     6,
+     9,
+     8,
+     7,
+     6
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "root": "C",
+    "scale": "major",
+    "octave": 4
+   }
+  },
+  {
+   "id": "voice2",
+   "type": "voice",
+   "row": 2,
+   "x": 0,
+   "params": {
+    "mode": "sample",
+    "sound": "gm_epiano1",
+    "release": 0.8,
+    "level": 0.8
+   }
+  },
+  {
+   "id": "voice3",
+   "type": "voice",
+   "row": 2,
+   "x": 12,
+   "params": {
+    "mode": "sample",
+    "sound": "gm_epiano1",
+    "release": 0.8,
+    "level": 0.7
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 2,
+   "x": 24,
+   "params": {
+    "level0": 0.8,
+    "level1": 0.8,
+    "level2": 0.6,
+    "level3": 0.6,
+    "pan2": 0.4,
+    "pan3": 0.6
+   }
+  },
+  {
+   "id": "filter2",
+   "type": "filter",
+   "row": 2,
+   "x": 40,
+   "params": {
+    "cutoff": 2800,
+    "res": 1
+   }
+  },
+  {
+   "id": "fx2",
+   "type": "fx",
+   "row": 2,
+   "x": 48,
+   "params": {
+    "room": 0.3,
+    "size": 3,
+    "crush": 12
+   }
+  },
+  {
+   "id": "voice4",
+   "type": "voice",
+   "row": 2,
+   "x": 60,
+   "params": {
+    "mode": "sample",
+    "sound": "crackle",
+    "level": 0.5
+   }
+  },
+  {
+   "id": "mixer2",
+   "type": "mixer",
+   "row": 2,
+   "x": 72,
+   "params": {
+    "level0": 1,
+    "level1": 1,
+    "level2": 0.25
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 3,
+   "x": 0,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "beats1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "clock1",
+    "j": "d8"
+   },
+   "to": {
+    "m": "seq1",
+    "j": "clk"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "seq2",
+    "j": "clk"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "clock1",
+    "j": "d4"
+   },
+   "to": {
+    "m": "melody1",
+    "j": "clk"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "clock1",
+    "j": "d4"
+   },
+   "to": {
+    "m": "melody2",
+    "j": "clk"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "clock1",
+    "j": "d4"
+   },
+   "to": {
+    "m": "melody3",
+    "j": "clk"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "seq1",
+    "j": "rhy"
+   },
+   "to": {
+    "m": "sampler1",
+    "j": "gate"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "sampler1",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "in"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "filter1",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx1",
+    "j": "in"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c10",
+   "from": {
+    "m": "seq2",
+    "j": "rhy"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "gate"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c11",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pitch"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c12",
+   "from": {
+    "m": "melody2",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice2",
+    "j": "pitch"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c13",
+   "from": {
+    "m": "melody3",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice3",
+    "j": "pitch"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c14",
+   "from": {
+    "m": "beats1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c15",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c16",
+   "from": {
+    "m": "voice2",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in2"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c17",
+   "from": {
+    "m": "voice3",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in3"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c18",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter2",
+    "j": "in"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c19",
+   "from": {
+    "m": "filter2",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx2",
+    "j": "in"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c20",
+   "from": {
+    "m": "fx2",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer2",
+    "j": "in0"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c21",
+   "from": {
+    "m": "fx1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer2",
+    "j": "in1"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c22",
+   "from": {
+    "m": "voice4",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer2",
+    "j": "in2"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c23",
+   "from": {
+    "m": "mixer2",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#f28c28"
+  }
+ ],
+ "samplePacks": [
+  {
+   "poor_girl": "samples/poor-girl.mp3"
+  }
+ ],
+ "localSounds": []
+}

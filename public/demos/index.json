@@ -46,5 +46,11 @@
   "name": "Torched Meringue",
   "description": "140 BPM half-time dubstep in D minor: a real wobble-bass loop from Freesound (\u201c1 bar dubstep bass loop\u201d by shitefromaheight, CC0) stretched to 4 bars by the SAMPLER, under a 909 kick, a stacked snare on beat 3 and a square-wave hook bouncing through dotted echoes.",
   "cover": "demos/torched-meringue.jpg"
+ },
+ {
+  "id": "poor-girl",
+  "name": "Poor Girl",
+  "description": "80 BPM lofi in C major for a rainy night in: an SP-12 boom-bap beat, two Rhodes lines walking down Fmaj7, Em7, Dm7, Cmaj7, a soft bass, vinyl crackle, and every eight bars a voice reminds you that true romance means being humble.",
+  "cover": "demos/poor-girl.jpg"
  }
 ]
