@@ -541,4 +541,51 @@ function meters() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, euclidRing, bpmDisplay, lfoScope, scope, meters };
+// TAPE: two reels turning with the transport, tape running past three heads.
+// Shorter TIME = faster tape, as on a real tape echo; active heads glow and
+// pulse once per echo.
+const DECK = { w: 212, h: 96, reelY: 34, reelL: 40, reelR: 172, pack: 20, tapeY: 82, heads: [76, 106, 136] };
+
+function tapeDeck() {
+  const { w, h: ht, reelY, reelL, reelR, pack, tapeY, heads } = DECK;
+  const path = `M ${reelL} ${reelY + pack} L ${heads[0] - 14} ${tapeY} L ${heads[2] + 14} ${tapeY} L ${reelR} ${reelY + pack}`;
+  const tape = s('svg', { class: 'tape-path', viewBox: `0 0 ${w} ${ht}`, width: w, height: ht });
+  tape.append(s('path', { d: path, class: 'tape-band' }));
+  const flow = s('path', { d: path, class: 'tape-flow' });
+  tape.append(flow);
+  const reel = (x) => h('img', { class: 'tape-reel', src: 'brand/tape-reel.png', alt: '', draggable: 'false', style: { left: `${x - 31}px`, top: `${reelY - 31}px` } });
+  const reels = [reel(reelL), reel(reelR)];
+  const glows = [];
+  const headEls = heads.map((x, i) => {
+    const glow = h('span', { class: 'tape-glow' });
+    glows.push(glow);
+    return h('div', { class: 'tape-head', style: { left: `${x - 10}px` } }, glow, h('img', { src: 'brand/tape-head.png', alt: '', draggable: 'false' }), h('em', {}, i + 1));
+  });
+  const el = h('div', { class: 'w-tape' }, tape, ...reels, ...headEls);
+  let time = 3 / 16;
+  let active = [1];
+  let last = 0;
+  return {
+    el,
+    update(p) {
+      time = p.time;
+      active = String(p.heads).split('+').map(Number);
+      headEls.forEach((hd, i) => hd.classList.toggle('on', active.includes(i + 1)));
+    },
+    tick(cycle) {
+      if (cycle == null) cycle = last;
+      last = cycle;
+      const revs = cycle * (0.125 / time);
+      const deg = (revs * 360) % 360;
+      for (const r of reels) r.style.transform = `rotate(${deg}deg)`;
+      flow.style.strokeDashoffset = String(-(revs * 2 * Math.PI * pack) % 24);
+      glows.forEach((g, i) => {
+        const span = time * (i + 1);
+        const ph = ((cycle % span) + span) % span / span;
+        g.style.opacity = active.includes(i + 1) ? String(0.35 + 0.65 * (1 - ph) ** 3) : '0';
+      });
+    },
+  };
+}
+
+export const WIDGETS = { steps, grid, melody, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };

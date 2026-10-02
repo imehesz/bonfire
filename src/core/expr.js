@@ -39,6 +39,8 @@ export function num(v, digits = 3) {
 
 // Arrow function argument, e.g. x => x.fast(2)
 export const lambda = (bodyFromX) => ({ lambda: bodyFromX(ident('x')) });
+// Arrow function with named params, e.g. (e, n) => e.gain(n)
+export const arrow = (params, body) => ({ arrow: params, body });
 
 const INDENT = '  ';
 const MAX_INLINE = 64;
@@ -47,6 +49,7 @@ function argText(a, depth) {
   if (a instanceof Raw) return a.text;
   if (a instanceof Expr) return printExpr(a, depth);
   if (a && a.lambda) return `x => ${printExpr(a.lambda, depth)}`;
+  if (a && a.arrow) return `(${a.arrow}) => ${printExpr(a.body, depth)}`;
   if (typeof a === 'number') return num(a).text;
   if (typeof a === 'string') return JSON.stringify(a);
   return String(a);

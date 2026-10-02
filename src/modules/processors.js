@@ -1,5 +1,5 @@
-// Pattern processors: VANDALIZER, FILTER, FX, LFO, MIXER, OUTPUT.
-import { fn, ident, lambda, num } from '../core/expr.js';
+// Pattern processors: VANDALIZER, FILTER, FX, TAPE, LFO, MIXER, OUTPUT.
+import { arrow, fn, ident, lambda, num, printExpr, raw } from '../core/expr.js';
 import { RATES, rated, setIf } from './helpers.js';
 
 const SOMETIMES = {
@@ -113,6 +113,73 @@ export const fx = {
     e = e.callIf(p.crush < 16, 'crush', num(p.crush));
     e = setIf(e, 'shape', p.drive, 0, 2);
     return { out: e };
+  },
+};
+
+// TAPE: a multi-head tape echo built from pattern echoes, not the orbit delay.
+// Each repeat is a re-triggered copy of the event that comes back quieter,
+// darker and wobblier than the one before, the way a worn tape loop does.
+const TAPE_TIMES = [
+  { v: 1 / 16, l: '1/16' }, { v: 1 / 8, l: '1/8' }, { v: 3 / 16, l: '3/16' }, { v: 1 / 4, l: '1/4' },
+  { v: 3 / 8, l: '3/8' }, { v: 1 / 2, l: '1/2' }, { v: 3 / 4, l: '3/4' }, { v: 1, l: '1 BAR' },
+];
+const TAPE_HEADS = ['1', '2', '3', '1+2', '2+3', '1+3', '1+2+3'];
+const TAPE_MAX_ECHOES = 12; // per input event, shared by the active heads
+
+export const tape = {
+  type: 'tape',
+  name: 'TAPE',
+  title: 'Tape Echo',
+  category: 'Shape',
+  hp: 16,
+  description: 'A three-head tape echo. TIME is the spacing of head 1; heads 2 and 3 sit at twice and three times that, and HEADS picks which ones play. Every repeat comes back quieter (REPEATS), darker (TONE, then AGE per pass), saturated (SAT) and warbling (WOW). ECHO is the wet level; the dry signal always passes. If the input already has a lowpass, the echoes keep it and AGE darkens it further. CV swells the ECHO level.',
+  params: {
+    time: { kind: 'rotary', label: 'TIME', options: TAPE_TIMES, default: 3 / 16, size: 'sm', structural: true },
+    heads: { kind: 'rotary', label: 'HEADS', options: TAPE_HEADS.map((v) => ({ v, l: v })), default: '1', size: 'sm', structural: true },
+    repeats: { kind: 'knob', label: 'REPEATS', min: 0, max: 0.95, default: 0.5, size: 'sm' },
+    echo: { kind: 'knob', label: 'ECHO', min: 0, max: 1, default: 0.6, size: 'sm' },
+    tone: { kind: 'knob', label: 'TONE', min: 300, max: 20000, default: 3200, curve: 'log', size: 'sm', unit: 'Hz' },
+    age: { kind: 'knob', label: 'AGE', min: 0, max: 1, default: 0.4, size: 'sm' },
+    sat: { kind: 'knob', label: 'SAT', min: 0, max: 0.9, default: 0.25, size: 'sm' },
+    wow: { kind: 'knob', label: 'WOW', min: 0, max: 1, default: 0.3, size: 'sm' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' }, cv: { type: 'cv', label: 'CV' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['widget:tapeDeck'], ['time', 'heads'], ['repeats', 'echo', 'tone'], ['age', 'sat', 'wow'], ['in:in', 'in:cv', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    const p = ctx.p;
+    const heads = String(p.heads).split('+').map(Number);
+    ctx.meta({ time: p.time, heads });
+    if (!e) return { out: null };
+    if (p.echo < 0.005) return { out: e };
+    const fb = p.repeats;
+    const cap = Math.floor(TAPE_MAX_ECHOES / heads.length);
+    const wanted = fb < 0.02 ? 1 : Math.ceil(Math.log(0.03) / Math.log(fb));
+    const count = Math.max(1, Math.min(cap, wanted));
+    // a tail cut short by the cap fades out instead of stopping dead
+    const taper = wanted > count ? ` * (1 - n / ${count})` : '';
+    const level = p.echo / Math.sqrt(heads.length);
+    const hasLpf = /\.lpf\(/.test(printExpr(e));
+    const darken = 1 - p.age * 0.5;
+    const cv = ctx.in('cv');
+    const n6 = (v) => num(v, 6).text;
+
+    const head = (k) => lambda((x) => {
+      const spacing = num(p.time * k, 6);
+      let w = x.call('late', spacing);
+      if (cv) w = w.call('velocity', cv.call('range', num(0), num(level, 3)));
+      w = w.callIf(p.sat > 0.005, 'shape', num(p.sat, 2));
+      w = w.callIf(p.wow > 0.005, 'vib', num(3.5));
+      let r = ident('e');
+      const gain = `${fb > 0 ? `${n6(fb)} ** n` : '(n ? 0 : 1)'}${taper}`;
+      r = cv ? r.call('mul', fn('velocity', raw(gain))) : r.call('velocity', raw(`${n6(level)} * ${gain}`));
+      if (hasLpf) r = r.callIf(darken < 0.999, 'mul', fn('lpf', raw(`${n6(darken)} ** n`)));
+      else if (p.tone < 19999) r = r.call('lpf', raw(`${Math.round(p.tone)}${darken < 0.999 ? ` * ${n6(darken)} ** n` : ''}`));
+      if (p.wow > 0.005) r = r.call('vibmod', raw(`${n6(p.wow * 0.35)} * (1 + n * 0.3)`));
+      return w.call('echoWith', num(count), spacing, arrow('e, n', r));
+    });
+    return { out: e.call('superimpose', ...heads.map(head)) };
   },
 };
 
