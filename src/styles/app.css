@@ -795,4 +795,4 @@ a { color: var(--accent); }
   pointer-events: none;
 }
 @keyframes scope-hint { 0%, 60% { opacity: 0.8; } 100% { opacity: 0; } }
-.module[data-type='output'] .mod-row:nth-child(3) { margin-top: 8px; } /* fader's +6 mark pokes above its row */
+.module[data-type='output'] .mod-row:nth-child(3) { margin-top: 11px; } /* fader's +6 mark pokes above its row */

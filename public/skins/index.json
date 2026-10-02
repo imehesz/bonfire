@@ -33,5 +33,10 @@
     "id": "emily",
     "name": "Emily",
     "tagline": "blush pink, gold & Paris"
+  },
+  {
+    "id": "fallout",
+    "name": "Fallout",
+    "tagline": "wasteland steel & green phosphor"
   }
 ]

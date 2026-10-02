@@ -1,0 +1,98 @@
+{
+  "id": "fallout",
+  "name": "Fallout",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "tagline": "wasteland steel & green phosphor",
+  "description": "Atomic-age wasteland: chipped olive-drab military steel, Bakelite radio knobs, green-phosphor CRT screens, and a vault-blue-and-yellow jumpsuit on the CLOCK and OUTPUT.",
+  "fonts": {
+    "panel": "'Oswald', sans-serif",
+    "ui": "'Oswald', sans-serif",
+    "display": "'VT323', monospace",
+    "code": "'VT323', monospace",
+    "google": [
+      "Oswald:wght@400;500;600",
+      "Saira Stencil One",
+      "VT323"
+    ]
+  },
+  "colors": {
+    "background": "#120f08",
+    "rack": "#1a1810",
+    "rail": "#6e6a5a",
+    "railShadow": "rgba(0,0,0,.6)",
+    "panel": "#5a5f3a",
+    "panelEdge": "rgba(0,0,0,.55)",
+    "panelText": "#ece4c2",
+    "panelTextDim": "#c2bb94",
+    "accent": "#f2b632",
+    "led": "#2cff7a",
+    "ledOff": "#10301c",
+    "knob": "#3a2414",
+    "knobRing": "#b08a4a",
+    "knobPointer": "#f2e6c4",
+    "jackNut": "#a8a48f",
+    "jackHole": "#0a0905",
+    "display": "#031a0c",
+    "displayText": "#2cff7a",
+    "button": "#4a4e30",
+    "ui": "#14160f",
+    "uiRaised": "#1f2318",
+    "uiText": "#c8f5c0",
+    "uiDim": "#7f9a72",
+    "uiBorder": "#39402c",
+    "code": "#020c05",
+    "codeText": "#2cff7a",
+    "codeString": "#b6ff6a",
+    "codeNumber": "#f2b632",
+    "codeMethod": "#e2ffe0",
+    "codeComment": "#1c8a45",
+    "scope": "#021208",
+    "scopeLine": "#2cff7a",
+    "jack": {
+      "pattern": "#f2b632",
+      "rhythm": "#c8432b",
+      "pitch": "#2cff7a",
+      "cv": "#3a7bd0",
+      "clock": "#ece4c2"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png"
+  },
+  "panel": {
+    "textureOpacity": 0.85,
+    "textureSize": "300px",
+    "blend": "normal",
+    "radius": 2
+  },
+  "cables": {
+    "colors": [
+      "#f2b632",
+      "#3a7bd0",
+      "#c8432b",
+      "#2cff7a",
+      "#d8d0b0",
+      "#7a5a2a"
+    ],
+    "thickness": 5,
+    "sag": 1.1,
+    "opacity": 0.95
+  },
+  "backdropDim": 0.2,
+  "modules": {
+    "clock": {
+      "panel": "#1f4e8c",
+      "panelText": "#f6c935",
+      "panelTextDim": "#d9c27a"
+    },
+    "output": {
+      "panel": "#1f4e8c",
+      "panelText": "#f6c935",
+      "panelTextDim": "#d9c27a"
+    }
+  },
+  "css": ".mod-name{font-family:'Saira Stencil One',sans-serif;font-weight:400;font-size:16px;letter-spacing:.08em}.module[data-type=clock] .mod-tex,.module[data-type=output] .mod-tex{opacity:.35;mix-blend-mode:multiply}.lcd{text-shadow:0 0 6px rgba(44,255,122,.75),0 0 14px rgba(44,255,122,.3)}.w-scope-wrap::after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:4px;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.55))}.w-scope-wrap:fullscreen::after{border-radius:0}.code{font-size:17px;line-height:1.3;text-shadow:0 0 5px rgba(44,255,122,.35)}.tk-com{font-style:normal}.led.on{box-shadow:0 0 6px #2cff7a,0 0 14px rgba(44,255,122,.55)}.brand img{filter:drop-shadow(0 0 1px rgba(0,0,0,.8)) drop-shadow(0 1px 2px rgba(0,0,0,.8))}.rack-row{background:rgba(20,18,10,.35)}"
+}
