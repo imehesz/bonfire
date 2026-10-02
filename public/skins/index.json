@@ -38,5 +38,10 @@
     "id": "fallout",
     "name": "Fallout",
     "tagline": "wasteland steel & green phosphor"
+  },
+  {
+    "id": "jeff",
+    "name": "Jeff",
+    "tagline": "grey pads, green LCD, golden-era boom bap"
   }
 ]

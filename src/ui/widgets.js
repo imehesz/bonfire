@@ -351,7 +351,7 @@ function scope() {
     trace(st, w, ht, k, bg) {
       g.fillStyle = bg;
       g.fillRect(0, 0, w, ht);
-      g.strokeStyle = 'rgba(255,255,255,0.07)';
+      g.globalAlpha = 0.12;
       g.lineWidth = k;
       for (let i = 1; i < 8; i++) {
         g.beginPath(); g.moveTo((i * w) / 8, 0); g.lineTo((i * w) / 8, ht); g.stroke();
@@ -359,6 +359,7 @@ function scope() {
       for (let i = 1; i < 4; i++) {
         g.beginPath(); g.moveTo(0, (i * ht) / 4); g.lineTo(w, (i * ht) / 4); g.stroke();
       }
+      g.globalAlpha = 1;
       g.lineWidth = 3 * k;
       g.shadowBlur = 8 * k;
       g.beginPath();
