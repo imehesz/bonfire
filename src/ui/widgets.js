@@ -2,7 +2,8 @@
 import { checkpoint, findModule, setParam } from '../core/store.js';
 import { bjorklund } from '@strudel/core';
 import { analysers } from '../core/engine.js';
-import { DRUM_SOUNDS } from '../core/music.js';
+import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
+import { ARP_SLOTS, arpOrder } from '../modules/sources.js';
 import { h, hideTip, s, showTip } from './dom.js';
 import { editValue, select } from './controls.js';
 
@@ -101,12 +102,57 @@ function grid(mod) {
   };
 }
 
+// One small knob editing params[key][i]: drag, wheel, or double-click to type.
+function degreeKnob(mod, key, i, max, label) {
+  const cap = h('div', { class: 'knob-cap' }, h('div', { class: 'knob-img' }), h('div', { class: 'knob-ptr' }));
+  const set = (v, opts) => {
+    const d = [...findModule(mod.id).params[key]];
+    if (d[i] === v) return;
+    d[i] = v;
+    setParam(mod.id, key, d, opts);
+  };
+  let startY = 0;
+  let start = 0;
+  cap.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    cap.setPointerCapture(e.pointerId);
+    checkpoint();
+    startY = e.clientY;
+    start = findModule(mod.id).params[key][i];
+  });
+  cap.addEventListener('pointermove', (e) => {
+    if (!cap.hasPointerCapture(e.pointerId)) return;
+    const v = Math.max(0, Math.min(max, Math.round(start + (startY - e.clientY) / 10)));
+    set(v, { record: false });
+    const r = cap.getBoundingClientRect();
+    showTip(`${label} · DEGREE ${v}`, r.left + r.width / 2, r.top - 6);
+  });
+  cap.addEventListener('pointerup', (e) => {
+    cap.releasePointerCapture(e.pointerId);
+    hideTip();
+  });
+  cap.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    hideTip();
+    editValue(cap, { label: `${label} DEGREE`, min: 0, max, step: 1, default: 0 }, findModule(mod.id).params[key][i], (v) => set(v));
+  });
+  cap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const v = findModule(mod.id).params[key][i];
+    set(Math.max(0, Math.min(max, v + (e.deltaY < 0 ? 1 : -1))));
+  }, { passive: false });
+  return {
+    el: h('div', { class: 'knob knob-sm' }, h('div', { class: 'knob-scale' }, cap)),
+    update: (v) => cap.style.setProperty('--rot', `${-135 + (v / max) * 270}deg`),
+  };
+}
+
 // MELODY: 8 columns of (degree knob, gate)
 function melody(mod) {
   const cols = [];
   const el = h('div', { class: 'w-melody' });
   for (let i = 0; i < 8; i++) {
-    const cap = h('div', { class: 'knob-cap' }, h('div', { class: 'knob-img' }), h('div', { class: 'knob-ptr' }));
+    const knob = degreeKnob(mod, 'degrees', i, 14, `STEP ${i + 1}`);
     const num = h('div', { class: 'deg lcd' });
     const gate = h('button', { class: 'step gate', onpointerdown: stop }, h('span', { class: 'led' }));
     gate.addEventListener('click', () => {
@@ -114,54 +160,15 @@ function melody(mod) {
       g[i] = g[i] ? 0 : 1;
       setParam(mod.id, 'gates', g);
     });
-    let startY = 0;
-    let start = 0;
-    cap.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      cap.setPointerCapture(e.pointerId);
-      checkpoint();
-      startY = e.clientY;
-      start = findModule(mod.id).params.degrees[i];
-    });
-    cap.addEventListener('pointermove', (e) => {
-      if (!cap.hasPointerCapture(e.pointerId)) return;
-      const v = Math.max(0, Math.min(14, Math.round(start + (startY - e.clientY) / 10)));
-      const d = [...findModule(mod.id).params.degrees];
-      if (d[i] !== v) {
-        d[i] = v;
-        setParam(mod.id, 'degrees', d, { record: false });
-      }
-      const r = cap.getBoundingClientRect();
-      showTip(`STEP ${i + 1} · DEGREE ${v}`, r.left + r.width / 2, r.top - 6);
-    });
-    cap.addEventListener('pointerup', (e) => {
-      cap.releasePointerCapture(e.pointerId);
-      hideTip();
-    });
-    cap.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      hideTip();
-      editValue(cap, { label: `STEP ${i + 1} DEGREE`, min: 0, max: 14, step: 1, default: 0 }, findModule(mod.id).params.degrees[i], (v) => {
-        const d = [...findModule(mod.id).params.degrees];
-        d[i] = v;
-        setParam(mod.id, 'degrees', d);
-      });
-    });
-    cap.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const d = [...findModule(mod.id).params.degrees];
-      d[i] = Math.max(0, Math.min(14, d[i] + (e.deltaY < 0 ? 1 : -1)));
-      setParam(mod.id, 'degrees', d);
-    }, { passive: false });
-    const col = h('div', { class: 'mel-col' }, h('div', { class: 'knob knob-sm' }, h('div', { class: 'knob-scale' }, cap)), num, gate);
-    cols.push({ col, cap, num, gate });
+    const col = h('div', { class: 'mel-col' }, knob.el, num, gate);
+    cols.push({ col, knob, num, gate });
     el.append(col);
   }
   return {
     el,
     update(p) {
       cols.forEach((c, i) => {
-        c.cap.style.setProperty('--rot', `${-135 + (p.degrees[i] / 14) * 270}deg`);
+        c.knob.update(p.degrees[i]);
         c.num.textContent = p.gates[i] ? p.degrees[i] : '–';
         c.gate.classList.toggle('on', !!p.gates[i]);
         c.col.classList.toggle('off-len', i >= p.length);
@@ -170,6 +177,51 @@ function melody(mod) {
     tick(cycle, meta) {
       const k = stepIndex(cycle, meta);
       cols.forEach((c, i) => c.col.classList.toggle('play', i === k));
+    },
+  };
+}
+
+// ARP: a ladder of the note order (one bar per step, height = pitch) over the
+// chord slots. The playhead lights the chord and the step that are sounding.
+const LADDER = { w: 240, h: 44 };
+function arp(mod) {
+  const ladder = s('svg', { viewBox: `0 0 ${LADDER.w} ${LADDER.h}`, class: 'arp-ladder', preserveAspectRatio: 'none' });
+  const slots = [];
+  const row = h('div', { class: 'arp-slots' });
+  for (let i = 0; i < ARP_SLOTS; i++) {
+    const knob = degreeKnob(mod, 'degrees', i, 6, `CHORD ${i + 1}`);
+    const lcd = h('div', { class: 'deg lcd' });
+    const col = h('div', { class: 'mel-col' }, knob.el, lcd);
+    slots.push({ col, knob, lcd });
+    row.append(col);
+  }
+  let bars = [];
+  return {
+    el: h('div', { class: 'w-arp' }, ladder, row),
+    update(p) {
+      slots.forEach((c, i) => {
+        c.knob.update(p.degrees[i]);
+        c.lcd.textContent = chordNumeral(p.scale, p.degrees[i]);
+        c.col.classList.toggle('off-len', i >= p.chords);
+      });
+      const order = arpOrder(p.shape, p.range, p.mode, p.scale);
+      const top = Math.max(1, ...order);
+      const w = LADDER.w / order.length;
+      ladder.classList.toggle('rand', p.mode === 'rand');
+      bars = order.map((d, i) => {
+        const bh = 6 + (d / top) * (LADDER.h - 8);
+        return s('rect', { x: i * w + 1, y: LADDER.h - bh, width: Math.max(1, w - 2), height: bh, rx: Math.min(2, w / 4), class: 'arp-bar' });
+      });
+      ladder.replaceChildren(...bars);
+    },
+    tick(cycle, meta) {
+      const on = cycle != null && meta?.order?.length;
+      const mod1 = (v, n) => ((v % n) + n) % n;
+      const ci = on ? mod1(Math.floor(cycle / meta.chordDur), meta.roots.length) : -1;
+      const t = on && meta.retrig ? mod1(cycle, meta.chordDur) : cycle;
+      const si = on && !meta.rand ? mod1(Math.floor(t / meta.step + 1e-6), meta.order.length) : -1;
+      slots.forEach((c, i) => c.col.classList.toggle('play', i === ci));
+      bars.forEach((b, i) => b.classList.toggle('play', i === si));
     },
   };
 }
@@ -618,4 +670,4 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };
+export const WIDGETS = { steps, grid, melody, arp, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };

@@ -1,5 +1,5 @@
 // The rack: rows + rails, module placement/dragging, and the SVG cable layer.
-import { MODULES, compatible } from '../modules/index.js';
+import { MODULES, compatible, defaultParams } from '../modules/index.js';
 import {
   HP_PX, addModule, connect, disconnect, duplicateModule, findModule, fits, getPatch, moveModule, nearestFree,
   rackRows, rackWidthHp, removeModule, resetModule,
@@ -369,7 +369,7 @@ function onContext(e) {
   const anchor = h('div', { style: { position: 'fixed', left: `${e.clientX}px`, top: `${e.clientY}px`, width: '1px', height: '1px' } });
   document.body.append(anchor);
   menu(anchor, [
-    { label: `About ${def.name}`, action: () => showModuleHelp(def) },
+    { label: `About ${def.name}`, action: () => showModuleHelp(def, findModule(id)) },
     '-',
     { label: 'Duplicate', hint: 'Ctrl+D', action: () => { const r = duplicateModule(id); if (r.error) toast(r.error, 'warn'); } },
     { label: 'Reset knobs', action: () => resetModule(id) },
@@ -380,10 +380,23 @@ function onContext(e) {
   anchor.remove();
 }
 
-export function showModuleHelp(def) {
+// The help dialog shows the real faceplate, built in the current skin: a fresh
+// one from the module browser, or the module's own knob settings from the rack.
+function modulePreview(def, mod) {
+  const params = { ...defaultParams(def.type), ...structuredClone(mod?.params ?? {}) };
+  const face = buildModule({ id: mod?.id ?? `${def.type}1`, type: def.type, params }, { preview: true }).el;
+  face.inert = true;
+  const w = def.hp * HP_PX;
+  return h('div', { class: 'help-face', style: { '--face-w': `${w}px` } }, face);
+}
+
+export function showModuleHelp(def, mod = null) {
   const jackList = (o, dir) => Object.values(o).map((j) => h('li', {}, h('span', { class: `jt jt-${j.type}` }), `${j.label} — ${dir} (${j.type})`));
   modal(h('div', { class: 'help' },
     h('h2', {}, def.name, h('small', {}, ` ${def.title} · ${def.hp} HP`)),
-    h('p', {}, def.description),
-    h('ul', { class: 'jack-help' }, jackList(def.inputs, 'input'), jackList(def.outputs, 'output'))), { className: 'modal-help' });
+    h('div', { class: 'help-mod' },
+      modulePreview(def, mod),
+      h('div', { class: 'help-text' },
+        h('p', {}, def.description),
+        h('ul', { class: 'jack-help' }, jackList(def.inputs, 'input'), jackList(def.outputs, 'output'))))), { className: 'modal-help modal-help-mod' });
 }

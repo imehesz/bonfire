@@ -23,6 +23,40 @@ export const SCALES = [
   ['chromatic', 'CHROMA'],
 ];
 
+// Semitone steps of each scale, for labelling chords built on its degrees.
+const SCALE_STEPS = {
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+  dorian: [0, 2, 3, 5, 7, 9, 10],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+  lydian: [0, 2, 4, 6, 7, 9, 11],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  'harmonic minor': [0, 2, 3, 5, 7, 8, 11],
+  'minor:pentatonic': [0, 3, 5, 7, 10],
+  'major:pentatonic': [0, 2, 4, 7, 9],
+  blues: [0, 3, 5, 6, 7, 10],
+  chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+};
+export const scaleLength = (scale) => (SCALE_STEPS[scale] ?? SCALE_STEPS.major).length;
+
+// "C3:harmonic:minor" — Strudel reads ':' as a space, and a real space would
+// split the mini-notation string.
+export const scaleArg = (root, octave, scale) => `${root}${octave}:${scale.replace(/ /g, ':')}`;
+
+const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+
+// Roman numeral of the triad stacked on a scale degree: case from its third,
+// ° for a diminished fifth, + for augmented. Non-7-note scales get the degree.
+export function chordNumeral(scale, degree) {
+  const steps = SCALE_STEPS[scale] ?? SCALE_STEPS.major;
+  if (steps.length !== 7) return String(degree + 1);
+  const semi = (d) => steps[d % 7] + 12 * Math.floor(d / 7);
+  const third = semi(degree + 2) - semi(degree);
+  const fifth = semi(degree + 4) - semi(degree);
+  const n = NUMERALS[degree % 7];
+  return (third === 4 ? n : n.toLowerCase()) + (fifth === 6 ? '°' : fifth === 8 ? '+' : '');
+}
+
 export const WAVES = [
   ['sine', 'SIN'],
   ['triangle', 'TRI'],

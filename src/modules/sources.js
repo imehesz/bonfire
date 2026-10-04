@@ -1,7 +1,7 @@
-// Timing + event sources: CLOCK, SEQ-16, BEATS, MELODY, EUCLID.
+// Timing + event sources: CLOCK, SEQ-16, BEATS, MELODY, ARP, EUCLID.
 import { fn, mini } from '../core/expr.js';
-import { BANKS, DRUM_SOUNDS, ROOTS, SCALES, bankLabel } from '../core/music.js';
-import { miniExpr, stepToken, timed } from './helpers.js';
+import { BANKS, DRUM_SOUNDS, ROOTS, SCALES, bankLabel, scaleArg, scaleLength } from '../core/music.js';
+import { miniExpr, num, setIf, stepToken, timed } from './helpers.js';
 
 const CLOCK_OUTS = [
   ['x4', 'x4', 1 / 16], ['x2', 'x2', 1 / 8], ['d1', '/1', 1 / 4],
@@ -132,8 +132,94 @@ export const melody = {
     const tokens = [];
     for (let i = 0; i < length; i++) tokens.push(gates[i] ? String(degrees[i]) : '~');
     if (!tokens.some((t) => t !== '~')) return { pitch: null };
-    const e = fn('n', mini(tokens.join(' '))).call('scale', mini(`${root}${octave}:${scale}`));
+    const e = fn('n', mini(tokens.join(' '))).call('scale', mini(scaleArg(root, octave, scale)));
     return { pitch: timed(e, dur) };
+  },
+};
+
+// Chord shapes as scale-degree offsets, so every chord is stacked in key.
+const ARP_SHAPES = {
+  triad: { l: 'TRIAD', d: [0, 2, 4] },
+  sev: { l: '7TH', d: [0, 2, 4, 6] },
+  nine: { l: '9TH', d: [0, 2, 4, 6, 8] },
+  sus2: { l: 'SUS2', d: [0, 1, 4] },
+  sus4: { l: 'SUS4', d: [0, 3, 4] },
+  fifth: { l: '5TH', d: [0, 4] },
+  oct: { l: 'OCT', d: [0] },
+};
+const ARP_MODES = [
+  { v: 'up', l: 'UP' }, { v: 'down', l: 'DOWN' }, { v: 'updn', l: 'UP-DN' },
+  { v: 'dnup', l: 'DN-UP' }, { v: 'conv', l: 'CONV' }, { v: 'rand', l: 'RAND' },
+];
+const ARP_RATES = [{ v: 0.5, l: '1/2' }, { v: 1, l: '1 BAR' }, { v: 2, l: '2 BAR' }, { v: 4, l: '4 BAR' }];
+export const ARP_SLOTS = 4;
+
+// The note order one chord plays, as degree offsets from its root.
+export function arpOrder(shape, range, mode, scale) {
+  const span = scaleLength(scale);
+  const up = [];
+  for (let o = 0; o < range; o++) for (const d of ARP_SHAPES[shape].d) up.push(d + o * span);
+  const down = [...up].reverse();
+  if (up.length < 3) return mode === 'down' || mode === 'dnup' ? down : up;
+  if (mode === 'down') return down;
+  if (mode === 'updn') return [...up, ...down.slice(1, -1)];
+  if (mode === 'dnup') return [...down, ...up.slice(1, -1)];
+  if (mode === 'conv') return up.map((_, i) => (i % 2 ? up[up.length - 1 - (i >> 1)] : up[i >> 1]));
+  return up; // up, and the pool rand picks from
+}
+
+export const arp = {
+  type: 'arp',
+  name: 'ARP',
+  title: 'Arpeggiator',
+  category: 'Pitch',
+  hp: 18,
+  description: 'Plays chords one note at a time. The four slots are a chord progression: each knob picks the scale degree a chord is built on, and the chord is stacked in key (the numeral shows what you get). SHAPE is the chord, MODE the note order, RANGE how many octaves it climbs, CHORD how long each chord lasts. CLK sets the note speed (16ths by default). GATE shortens the notes, SWING shuffles them, RETRIG starts the pattern from the bottom on every chord change. Patch PITCH into a VOICE.',
+  params: {
+    degrees: { kind: 'data', default: [0, 5, 3, 4], structural: true },
+    chords: { kind: 'knob', label: 'CHORDS', min: 1, max: ARP_SLOTS, default: 4, step: 1, size: 'sm', structural: true },
+    root: { kind: 'select', label: 'ROOT', options: ROOTS, default: 'C', structural: true },
+    scale: { kind: 'select', label: 'SCALE', options: SCALES.map(([v, l]) => ({ v, l })), default: 'minor', structural: true },
+    shape: { kind: 'rotary', label: 'SHAPE', options: Object.entries(ARP_SHAPES).map(([v, o]) => ({ v, l: o.l })), default: 'triad', size: 'sm', structural: true },
+    mode: { kind: 'rotary', label: 'MODE', options: ARP_MODES, default: 'up', size: 'sm', structural: true },
+    rate: { kind: 'rotary', label: 'CHORD', options: ARP_RATES, default: 1, size: 'sm', structural: true },
+    octave: { kind: 'knob', label: 'OCT', min: 1, max: 6, default: 4, step: 1, size: 'sm', structural: true },
+    range: { kind: 'knob', label: 'RANGE', min: 1, max: 4, default: 2, step: 1, size: 'sm', structural: true },
+    gate: { kind: 'knob', label: 'GATE', min: 0.05, max: 1, default: 0.6, size: 'sm' },
+    swing: { kind: 'knob', label: 'SWING', min: 0, max: 0.6, default: 0, size: 'sm' },
+    retrig: { kind: 'toggle', label: 'RETRIG', default: true, structural: true },
+  },
+  inputs: { clk: { type: 'clock', label: 'CLK' } },
+  outputs: { pitch: { type: 'pitch', label: 'PITCH' } },
+  layout: [['widget:arp'], ['root', 'scale'], ['shape', 'mode', 'rate'], ['octave', 'range', 'chords', 'gate', 'swing'], ['retrig', 'in:clk', 'out:pitch']],
+  compile(ctx) {
+    const p = ctx.p;
+    const step = ctx.in('clk') ?? 1 / 16;
+    const order = arpOrder(p.shape, p.range, p.mode, p.scale);
+    const roots = p.degrees.slice(0, p.chords);
+    const per = 1 / step; // steps per cycle
+    const whole = Math.abs(per - Math.round(per)) < 1e-9;
+    const k = whole ? Math.round(per) : 1;
+    // RETRIG only changes anything when the order doesn't divide a chord evenly
+    const chordSteps = p.rate / step;
+    const retrig = p.retrig && p.mode !== 'rand' && roots.length > 1 && chordSteps >= 1
+      && Math.abs(chordSteps / order.length - Math.round(chordSteps / order.length)) > 1e-9;
+    ctx.meta({ step, order, roots, chordDur: p.rate, retrig, rand: p.mode === 'rand' });
+
+    let notes = p.mode === 'rand'
+      ? miniExpr(`[${order.join('|')}]${k > 1 ? `*${k}` : ''}`)
+      : miniExpr(`{${order.join(' ')}}%${k}`);
+    if (!whole) notes = timed(notes, step);
+    if (retrig) notes = notes.call('restart', timed(miniExpr('x'), p.rate));
+    if (roots.some((d) => d !== 0)) {
+      const prog = roots.length === 1 ? num(roots[0]) : timed(miniExpr(`<${roots.join(' ')}>`), p.rate);
+      notes = notes.call('add', prog);
+    }
+    let e = fn('n', notes).call('scale', mini(scaleArg(p.root, p.octave, p.scale)));
+    e = setIf(e, 'clip', p.gate, 1, 2);
+    // swing shuffles every second step, so it needs pairs of steps in a cycle
+    if (p.swing > 0.005 && whole && k >= 2 && k % 2 === 0) e = e.call('swingBy', num(p.swing, 2), num(k / 2));
+    return { pitch: e };
   },
 };
 

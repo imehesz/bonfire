@@ -18,8 +18,10 @@ function tapTempo(mod) {
   setParam(mod.id, 'bpm', Math.min(240, Math.max(40, bpm)));
 }
 
-export function buildModule(mod) {
+// preview: a look-only faceplate (help dialog) that reads mod.params instead of the store.
+export function buildModule(mod, { preview = false } = {}) {
   const def = MODULES[mod.type];
+  const params = () => (preview ? mod.params : findModule(mod.id)?.params);
   const controls = {};
   const widgets = [];
   const jacks = {};
@@ -68,7 +70,7 @@ export function buildModule(mod) {
   h('div', { class: 'mod-foot' }, 'BONFIRE'));
 
   const update = () => {
-    const p = findModule(mod.id)?.params;
+    const p = params();
     if (!p) return;
     for (const [k, c] of Object.entries(controls)) c.update(p[k]);
     for (const w of widgets) w.update(p);
@@ -85,7 +87,7 @@ export function buildModule(mod) {
     el,
     update,
     updateParam: (key) => {
-      const p = findModule(mod.id)?.params;
+      const p = params();
       if (!p) return;
       if (controls[key]) controls[key].update(p[key]);
       widgets.forEach((w) => w.update(p));

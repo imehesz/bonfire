@@ -60,7 +60,7 @@ entry to `index.json`.
 
   "backdropDim": 0.25,           // darken the backdrop (0–1)
 
-  // Per-module overrides, keyed by module type (clock, seq, beats, euclid, melody, voice,
+  // Per-module overrides, keyed by module type (clock, seq, beats, euclid, melody, arp, voice,
   // sampler, vandal, filter, fx, lfo, mixer, output). Any colour key above, plus "image".
   "modules": {
     "output": { "panel": "#f3e6c8", "panelText": "#9e1b1b", "image": "output-panel.jpg" }

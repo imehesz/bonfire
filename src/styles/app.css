@@ -445,6 +445,13 @@ a { color: var(--accent); }
 .mel-col .knob-scale { padding: 2px; }
 .mel-col .knob-scale::before { display: none; }
 .step.gate { width: 22px; height: 22px; }
+.w-arp { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.arp-ladder { width: 240px; height: 44px; border-radius: 4px; background: rgba(0, 0, 0, 0.12); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2); }
+.arp-bar { fill: var(--panel-dim); opacity: 0.55; }
+.arp-ladder.rand .arp-bar { opacity: 0.3; }
+.arp-bar.play { fill: var(--led); opacity: 1; filter: drop-shadow(0 0 3px var(--led)); }
+.arp-slots { display: grid; grid-template-columns: repeat(4, 52px); gap: 6px; }
+.arp-slots .deg { width: 34px; }
 
 .w-euclid { width: 96px; height: 96px; }
 .eu-ring { fill: none; stroke: var(--panel-dim); stroke-width: 1.5; opacity: 0.5; }
@@ -682,6 +689,14 @@ a { color: var(--accent); }
 .help p, .help li { line-height: 1.5; font-size: 14.5px; }
 .help ul { padding-left: 18px; }
 .jack-help { list-style: none; padding: 0 !important; }
+/* module help: the live faceplate beside the text, stacked when it's too wide */
+.modal-help-mod { width: min(780px, 92vw); }
+.help-mod { display: flex; flex-wrap: wrap; gap: 18px 24px; align-items: flex-start; }
+.help-face { --face-scale: 0.8; flex: none; width: calc(var(--face-w) * var(--face-scale)); height: calc(380px * var(--face-scale)); margin: 0 auto; }
+.help-face > .module { position: relative; transform: scale(var(--face-scale)); transform-origin: 0 0; cursor: default; }
+.help-text { flex: 1 1 240px; min-width: 0; }
+.help-text p:first-child { margin-top: 0; }
+@media (max-width: 640px) { .help-face { --face-scale: 0.58; } }
 .jt { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; border: 3px solid; }
 .jt-pattern { border-color: var(--jack-pattern); }
 .jt-rhythm { border-color: var(--jack-rhythm); }
