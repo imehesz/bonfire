@@ -1,5 +1,5 @@
-// Timing + event sources: CLOCK, SEQ-16, BEATS, MELODY, ARP, EUCLID.
-import { fn, mini } from '../core/expr.js';
+// Timing + event sources: CLOCK, SEQ-16, BEATS, MELODY, ARP, EUCLID, CHAIN.
+import { fn, mini, obj } from '../core/expr.js';
 import { BANKS, DRUM_SOUNDS, ROOTS, SCALES, bankLabel, scaleArg, scaleLength } from '../core/music.js';
 import { miniExpr, num, setIf, stepToken, timed } from './helpers.js';
 
@@ -253,3 +253,40 @@ export const euclid = {
   },
 };
 
+
+export const CHAIN_INPUTS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+export const CHAIN_SLOTS = 32;
+
+export const chain = {
+  type: 'chain',
+  name: 'CHAIN',
+  title: 'Song Chain',
+  category: 'Time',
+  hp: 18,
+  description: 'Song mode. Patch up to eight parts into A-H (a MELODY, a VOICE, a whole drum group...) and write the order they play in, one slot per step: click a slot to step through A-H and rest, right-click to go back. CLK sets how long a slot lasts (1 bar by default). RESTART plays a part from its start every time its slot comes round; off, parts keep running in song time and the chain just picks which one you hear. OUT carries notes, so it can go into a VOICE\'s PITCH or anywhere a pattern goes.',
+  params: {
+    order: { kind: 'data', default: [0, 0, 1, 1, ...Array(CHAIN_SLOTS - 4).fill(-1)], structural: true },
+    length: { kind: 'knob', label: 'LENGTH', min: 1, max: CHAIN_SLOTS, default: 4, step: 1, structural: true },
+    restart: { kind: 'toggle', label: 'RESTART', default: true, structural: true },
+  },
+  inputs: {
+    ...Object.fromEntries(CHAIN_INPUTS.map((k) => [k, { type: 'pattern', label: k.toUpperCase() }])),
+    clk: { type: 'clock', label: 'CLK' },
+  },
+  outputs: { out: { type: 'pitch', label: 'OUT' } },
+  layout: [['widget:chain'], ['length', 'restart', 'in:clk', 'out:out'],
+    CHAIN_INPUTS.slice(0, 4).map((k) => `in:${k}`), CHAIN_INPUTS.slice(4).map((k) => `in:${k}`)],
+  compile(ctx) {
+    const { order, length, restart } = ctx.p;
+    const step = ctx.in('clk') ?? 1;
+    const dur = step * length;
+    ctx.meta({ steps: length, dur });
+    const parts = Object.fromEntries(CHAIN_INPUTS.map((k) => [k, ctx.in(k)]).filter(([, e]) => e));
+    // a slot pointing at an unpatched input is a rest
+    const tokens = order.slice(0, length).map((v) => (CHAIN_INPUTS[v] in parts ? CHAIN_INPUTS[v] : '~'));
+    const used = CHAIN_INPUTS.filter((k) => tokens.includes(k));
+    if (!used.length) return { out: null };
+    const sel = Math.abs(step - 1) < 1e-9 ? miniExpr(`<${tokens.join(' ')}>`) : timed(miniExpr(tokens.join(' ')), dur);
+    return { out: sel.call(restart ? 'pickRestart' : 'pick', obj(used.map((k) => [k, parts[k]]))) };
+  },
+};

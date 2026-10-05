@@ -41,6 +41,8 @@ export function num(v, digits = 3) {
 export const lambda = (bodyFromX) => ({ lambda: bodyFromX(ident('x')) });
 // Arrow function with named params, e.g. (e, n) => e.gain(n)
 export const arrow = (params, body) => ({ arrow: params, body });
+// Object literal argument, e.g. { a: note("c"), b: note("e") }
+export const obj = (entries) => ({ obj: entries });
 
 const INDENT = '  ';
 const MAX_INLINE = 64;
@@ -50,6 +52,12 @@ function argText(a, depth) {
   if (a instanceof Expr) return printExpr(a, depth);
   if (a && a.lambda) return `x => ${printExpr(a.lambda, depth)}`;
   if (a && a.arrow) return `(${a.arrow}) => ${printExpr(a.body, depth)}`;
+  if (a && a.obj) {
+    const parts = a.obj.map(([k, v]) => `${k}: ${argText(v, depth + 1)}`);
+    const inline = `{ ${parts.join(', ')} }`;
+    if (!inline.includes('\n') && inline.length <= MAX_INLINE) return inline;
+    return `{\n${parts.map((p) => INDENT.repeat(depth + 1) + p).join(',\n')}\n${INDENT.repeat(depth)}}`;
+  }
   if (typeof a === 'number') return num(a).text;
   if (typeof a === 'string') return JSON.stringify(a);
   return String(a);

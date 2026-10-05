@@ -3,7 +3,7 @@ import { checkpoint, findModule, setParam } from '../core/store.js';
 import { bjorklund } from '@strudel/core';
 import { analysers } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
-import { ARP_SLOTS, arpOrder } from '../modules/sources.js';
+import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, arpOrder } from '../modules/sources.js';
 import { h, hideTip, s, showTip } from './dom.js';
 import { editValue, select } from './controls.js';
 
@@ -222,6 +222,46 @@ function arp(mod) {
       const si = on && !meta.rand ? mod1(Math.floor(t / meta.step + 1e-6), meta.order.length) : -1;
       slots.forEach((c, i) => c.col.classList.toggle('play', i === ci));
       bars.forEach((b, i) => b.classList.toggle('play', i === si));
+    },
+  };
+}
+
+// CHAIN: 4 x 8 song slots; click steps forward through A-H and rest, right-click back
+function chain(mod) {
+  const n = CHAIN_INPUTS.length + 1; // the letters, then rest
+  const btns = [];
+  const el = h('div', { class: 'w-chain' });
+  const bump = (i, by) => {
+    const next = [...findModule(mod.id).params.order];
+    const cur = next[i] < 0 ? n - 1 : next[i];
+    const v = (cur + by + n) % n;
+    next[i] = v === n - 1 ? -1 : v;
+    setParam(mod.id, 'order', next);
+  };
+  for (let i = 0; i < CHAIN_SLOTS; i++) {
+    const b = h('button', { class: `step slot ${i % 8 === 4 ? 'bar' : ''}`, onpointerdown: stop }, h('b'));
+    b.addEventListener('click', () => bump(i, 1));
+    b.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      bump(i, -1);
+    });
+    btns.push(b);
+    el.append(b);
+  }
+  return {
+    el,
+    update(p) {
+      btns.forEach((b, i) => {
+        const v = p.order[i];
+        b.classList.toggle('on', v >= 0);
+        b.classList.toggle('off-len', i >= p.length);
+        b.querySelector('b').textContent = v >= 0 ? CHAIN_INPUTS[v].toUpperCase() : '·';
+      });
+    },
+    tick(cycle, meta) {
+      const k = stepIndex(cycle, meta);
+      btns.forEach((b, i) => b.classList.toggle('play', i === k));
     },
   };
 }
@@ -670,4 +710,4 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, arp, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };
+export const WIDGETS = { steps, grid, melody, arp, chain, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };

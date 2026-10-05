@@ -453,6 +453,12 @@ a { color: var(--accent); }
 .arp-slots { display: grid; grid-template-columns: repeat(4, 52px); gap: 6px; }
 .arp-slots .deg { width: 34px; }
 
+.w-chain { display: grid; grid-template-columns: repeat(8, 28px); gap: 5px; }
+.step.slot { height: 24px; }
+.step.slot.bar::before { content: ''; position: absolute; left: -3px; top: 4px; bottom: 4px; width: 1px; background: var(--panel-dim); opacity: 0.6; }
+.step.slot b { font-family: var(--font-display); font-size: 12px; font-weight: normal; color: var(--display-text); opacity: 0.45; }
+.step.slot.on b { color: var(--led); opacity: 1; text-shadow: 0 0 6px var(--led); }
+
 .w-euclid { width: 96px; height: 96px; }
 .eu-ring { fill: none; stroke: var(--panel-dim); stroke-width: 1.5; opacity: 0.5; }
 .eu-hit { fill: var(--led); }
