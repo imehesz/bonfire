@@ -38,6 +38,14 @@ function rollName() {
       h('button', { class: 'btn accent', onclick: () => { store.setName(next); dlg.close(); } }, 'REPLACE'))), { className: 'modal-confirm' });
 }
 
+const cablesLed = h('span', { class: 'led' });
+const syncCablesBtn = () => cablesLed.classList.toggle('on', !rack.rackSettings.hideCables);
+const cablesBtn = h('button', {
+  class: 'tb cables-toggle', title: 'Show / hide the cables (patching still works)',
+  onclick: () => { rack.setCablesHidden(!rack.rackSettings.hideCables); syncCablesBtn(); },
+}, cablesLed, 'CABLES');
+syncCablesBtn();
+
 const topbar = h('header', { class: 'topbar' },
   h('button', { class: 'brand', title: 'About Bonfire STACK', onclick: () => showSplash() }, h('img', { src: 'brand/logo.png', alt: 'Bonfire STACK' })),
   playBtn,
@@ -48,7 +56,8 @@ const topbar = h('header', { class: 'topbar' },
     h('button', { class: 'tb', onclick: () => toggleDrawer('right') }, 'SAMPLES'),
     h('button', { class: 'tb', onclick: (e) => patchMenu(e.currentTarget) }, 'PATCH ▾'),
     h('button', { class: 'tb', onclick: (e) => demoMenu(e.currentTarget) }, 'DEMOS ▾'),
-    h('button', { class: 'tb', onclick: (e) => skinMenu(e.currentTarget) }, 'SKIN ▾')),
+    h('button', { class: 'tb', onclick: (e) => skinMenu(e.currentTarget) }, 'SKIN ▾'),
+    cablesBtn),
   h('div', { class: 'tb-right' },
     h('button', { class: 'tb icon', title: 'Undo (Ctrl+Z)', onclick: store.undoChange }, '↶'),
     h('button', { class: 'tb icon', title: 'Redo (Ctrl+Shift+Z)', onclick: store.redoChange }, '↷'),

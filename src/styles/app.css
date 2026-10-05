@@ -395,6 +395,8 @@ a { color: var(--accent); }
 .cabling, .cabling * { cursor: crosshair !important; }
 
 /* cables */
+.cables-patched.hidden { display: none; }
+.tb.cables-toggle { display: inline-flex; align-items: center; gap: 6px; }
 .cable path { fill: none; stroke-linecap: round; }
 .cable .c-shadow { stroke: rgba(0, 0, 0, 0.35); stroke-width: calc(var(--cable-width) + 3px); transform: translate(2px, 5px); }
 .cable .c-main { stroke: var(--c); stroke-width: var(--cable-width); opacity: var(--cable-opacity); pointer-events: stroke; cursor: pointer; }

@@ -11,7 +11,7 @@ import { buildModule } from './module.js';
 import { h, menu, modal, s, toast } from './dom.js';
 
 export const ROW_H = 380;
-const settings = { zoom: 1, snap: 26, cableOpacity: 1 };
+const settings = { zoom: 1, snap: 26, cableOpacity: 1, hideCables: false };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('bonfire.rack') ?? '{}'));
 } catch { /* ignore */ }
@@ -40,7 +40,8 @@ export function mountRack(host) {
   rowsLayer = h('div', { class: 'rows-layer' });
   modLayer = h('div', { class: 'modules-layer' });
   svg = s('svg', { class: 'cables-layer' });
-  cableLayer = s('g');
+  cableLayer = s('g', { class: 'cables-patched' });
+  cableLayer.classList.toggle('hidden', settings.hideCables);
   dragLayer = s('g');
   svg.append(cableLayer, dragLayer);
   inner = h('div', { class: 'rack-inner' }, rowsLayer, modLayer, svg);
@@ -183,6 +184,13 @@ function cableEl(a, b, color, id) {
     s('circle', { cx: b.x, cy: b.y, r: 7, class: 'plug' }),
   );
   return g;
+}
+
+// Hide every patched cable (the patch is untouched; a cable being dragged still shows).
+export function setCablesHidden(on) {
+  settings.hideCables = on;
+  cableLayer?.classList.toggle('hidden', on);
+  saveSettings();
 }
 
 export function drawCables(hideId) {
