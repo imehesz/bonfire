@@ -23,6 +23,11 @@ export function s(tag, attrs = {}) {
   return el;
 }
 
+// ---- topbar parameter readout: the knob/fader under the pointer ----
+const READOUT_IDLE = `Bonfire STACK - version: ${typeof __APP_VERSION__ === 'undefined' ? 'dev' : __APP_VERSION__}`;
+export const readout = h('div', { class: 'lcd tb-readout', title: 'Value of the knob or fader under the pointer' }, READOUT_IDLE);
+export const setReadout = (text) => (readout.textContent = text ?? READOUT_IDLE);
+
 // ---- floating value tooltip ----
 let tip;
 export function showTip(text, x, y) {

@@ -3,9 +3,9 @@ import { checkpoint, findModule, setParam } from '../core/store.js';
 import { bjorklund } from '@strudel/core';
 import { analysers } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
-import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, arpOrder } from '../modules/sources.js';
+import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, arpOrder, beats } from '../modules/sources.js';
 import { h, hideTip, s, showTip } from './dom.js';
-import { editValue, select } from './controls.js';
+import { editValue, knob, select } from './controls.js';
 
 const stop = (e) => e.stopPropagation();
 const cycleState = (v) => (v + 1) % 4;
@@ -59,11 +59,14 @@ function steps(mod) {
 function grid(mod) {
   const cells = [];
   const lanes = [];
+  const levels = [];
   const el = h('div', { class: 'w-grid' });
   for (let l = 0; l < 4; l++) {
     const sel = select(mod, `lane${l}`, { label: '', options: DRUM_SOUNDS });
+    const lvl = knob(mod, `level${l}`, beats.params[`level${l}`]);
     lanes.push(sel);
-    const row = h('div', { class: 'grid-row' }, h('div', { class: 'grid-lane' }, sel.el));
+    levels.push(lvl);
+    const row = h('div', { class: 'grid-row' }, h('div', { class: 'grid-lane' }, sel.el, lvl.el));
     const rowCells = [];
     for (let i = 0; i < 16; i++) {
       const c = h('button', { class: `cell ${i % 4 === 0 ? 'beat' : ''}`, onpointerdown: stop }, h('em'));
@@ -89,6 +92,7 @@ function grid(mod) {
     el,
     update(p) {
       lanes.forEach((s, l) => s.update(p[`lane${l}`]));
+      levels.forEach((k, l) => k.update(p[`level${l}`]));
       cells.forEach((row, l) => row.forEach((c, i) => {
         c.classList.toggle('on', p.grid[l][i] > 0);
         c.classList.toggle('off-len', i >= p.length);

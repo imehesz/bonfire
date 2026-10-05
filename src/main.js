@@ -8,7 +8,7 @@ import { currentSkin, fetchSkinIndex, restoreSkin, useCustomSkin, useSkin } from
 import * as rack from './ui/rack.js';
 import { mountInspector } from './ui/inspector.js';
 import { mountModuleDrawer, mountSampleDrawer } from './ui/drawers.js';
-import { h, menu, modal, toast } from './ui/dom.js';
+import { h, menu, modal, readout, toast } from './ui/dom.js';
 import { randomName } from './core/names.js';
 
 const SOURCE_URL = 'https://github.com/imehesz/bonfirestack';
@@ -57,7 +57,8 @@ const topbar = h('header', { class: 'topbar' },
     h('button', { class: 'tb', onclick: (e) => patchMenu(e.currentTarget) }, 'PATCH ▾'),
     h('button', { class: 'tb', onclick: (e) => demoMenu(e.currentTarget) }, 'DEMOS ▾'),
     h('button', { class: 'tb', onclick: (e) => skinMenu(e.currentTarget) }, 'SKIN ▾'),
-    cablesBtn),
+    cablesBtn,
+    readout),
   h('div', { class: 'tb-right' },
     h('button', { class: 'tb icon', title: 'Undo (Ctrl+Z)', onclick: store.undoChange }, '↶'),
     h('button', { class: 'tb icon', title: 'Redo (Ctrl+Shift+Z)', onclick: store.redoChange }, '↷'),

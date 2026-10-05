@@ -67,7 +67,7 @@ export const beats = {
   title: 'Drum Grid',
   category: 'Rhythm',
   hp: 30,
-  description: 'Four-lane, sixteen-step drum machine. Each lane picks a drum sound, the BANK picks the machine (808, 909, LinnDrum...). Right-click a step for x2 / x4 rolls.',
+  description: 'Four-lane, sixteen-step drum machine. Each lane picks a drum sound and has its own small LEVEL knob; the BANK picks the machine (808, 909, LinnDrum...). Right-click a step for x2 / x4 rolls.',
   params: {
     grid: {
       kind: 'data',
@@ -84,6 +84,10 @@ export const beats = {
     lane2: { kind: 'select', label: 'L3', options: DRUM_SOUNDS, default: 'hh', structural: true },
     lane3: { kind: 'select', label: 'L4', options: DRUM_SOUNDS, default: 'oh', structural: true },
     bank: { kind: 'select', label: 'BANK', options: BANKS.map((b) => ({ v: b, l: bankLabel(b) })), default: 'RolandTR909', structural: true },
+    level0: { kind: 'knob', label: 'L1 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
+    level1: { kind: 'knob', label: 'L2 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
+    level2: { kind: 'knob', label: 'L3 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
+    level3: { kind: 'knob', label: 'L4 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
     length: { kind: 'knob', label: 'LENGTH', min: 1, max: 16, default: 16, step: 1, structural: true },
   },
   inputs: { clk: { type: 'clock', label: 'CLK' } },
@@ -97,7 +101,7 @@ export const beats = {
     for (let i = 0; i < LANES; i++) {
       const row = grid[i].slice(0, length);
       if (!row.some(Boolean)) continue;
-      lanes.push(fn('s', mini(row.map((s) => stepToken(s, ctx.p[`lane${i}`])).join(' '))));
+      lanes.push(setIf(fn('s', mini(row.map((s) => stepToken(s, ctx.p[`lane${i}`])).join(' '))), 'gain', ctx.p[`level${i}`], 1));
     }
     if (!lanes.length) return { out: null };
     let out = lanes.length === 1 ? lanes[0] : fn('stack', ...lanes);

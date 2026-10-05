@@ -4,10 +4,24 @@ import { checkpoint, findModule, setParam } from '../core/store.js';
 import { SOUND_CATEGORIES, prettySound } from '../core/music.js';
 import { audition } from '../core/engine.js';
 import { GROUP_ORDER, getLocalNames, library } from '../core/samples.js';
-import { closePopover, h, hideTip, popover, showTip } from './dom.js';
+import { closePopover, h, hideTip, popover, setReadout, showTip } from './dom.js';
 
 const optValue = (o) => (typeof o === 'object' ? o.v : o);
 const optLabel = (o) => (typeof o === 'object' ? o.l : String(o).toUpperCase());
+
+// Feed the topbar readout while the pointer is over (or dragging) a control.
+function hookReadout(el, mod, key, p) {
+  const show = () => {
+    const v = findModule(mod.id)?.params[key];
+    if (v !== undefined) setReadout(`${formatValue(p, v)} · ${p.label} · ${mod.id.toUpperCase()}`); // value first: survives truncation
+  };
+  const later = () => setTimeout(show); // after the control's own handler has set the value
+  el.addEventListener('pointerenter', later);
+  el.addEventListener('pointermove', later);
+  el.addEventListener('wheel', later);
+  el.addEventListener('pointerleave', (e) => !el.hasPointerCapture(e.pointerId) && setReadout(null));
+  el.addEventListener('lostpointercapture', () => !el.matches(':hover') && setReadout(null));
+}
 
 export function formatValue(p, v) {
   if (p.options) {
@@ -81,6 +95,7 @@ export function editValue(anchor, p, current, commit) {
 
 // Vertical-drag behaviour shared by knobs and rotary switches.
 function dragValue(el, mod, key, p, onTip) {
+  hookReadout(el, mod, key, p);
   let start = 0;
   let startY = 0;
   let acc = 0;
@@ -172,6 +187,7 @@ export function fader(mod, key, p) {
     set(e);
   });
   track.addEventListener('pointermove', (e) => track.hasPointerCapture(e.pointerId) && set(e));
+  hookReadout(track, mod, key, p);
   track.addEventListener('pointerup', (e) => {
     track.releasePointerCapture(e.pointerId);
     hideTip();
