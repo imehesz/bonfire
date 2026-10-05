@@ -51,6 +51,14 @@ export function mountRack(host) {
 
   modLayer.addEventListener('pointerdown', onPointerDown);
   modLayer.addEventListener('contextmenu', onContext);
+  // double-click on a module's bare panel (not a control) opens its help
+  modLayer.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.jack-socket, .jack, .ctl, button, input, select, textarea, canvas, .editable, .step, .cell, [data-action]')) return;
+    const modEl = e.target.closest('.module');
+    if (!modEl) return;
+    const m = findModule(modEl.dataset.id);
+    if (m) showModuleHelp(MODULES[m.type], m);
+  });
   modLayer.addEventListener('pointerover', (e) => {
     hovered = e.target.closest('.module')?.dataset.id ?? null;
   });
