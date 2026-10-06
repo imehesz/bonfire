@@ -1,6 +1,6 @@
 // Pattern processors: VANDALIZER, FILTER, FX, TAPE, LFO, MIXER, OUTPUT.
 import { arrow, fn, ident, lambda, num, printExpr, raw } from '../core/expr.js';
-import { RATES, rated, setIf } from './helpers.js';
+import { RATES, isDefault, rated, setIf } from './helpers.js';
 
 const SOMETIMES = {
   fast: { l: 'FAST', f: (x) => x.call('fast', num(2)) },
@@ -213,17 +213,29 @@ export const lfo = {
 };
 
 const CH = [0, 1, 2, 3];
+// MIXER LO/HI CUT. Nothing upstream filters: a plain .hpf()/.lpf(). Something does (FILTER, TAPE):
+// limit it per event instead of overwriting it, so its sweeps / tone / echo darkening keep working.
+// Strudel stores lpf as `cutoff`, hpf as `hcutoff`.
+function cutLimit(e, name, value, off) {
+  if (isDefault(value, off)) return e;
+  const hz = Math.round(value);
+  if (!new RegExp(`\\b${name}\\(`).test(printExpr(e))) return e.call(name, num(hz, 0));
+  const [key, pick] = name === 'lpf' ? ['cutoff', 'min'] : ['hcutoff', 'max'];
+  return e.call('withValue', raw(`v => ({ ...v, ${key}: Math.${pick}(v.${key} ?? ${hz}, ${hz}) })`));
+}
 export const mixer = {
   type: 'mixer',
   name: 'MIXER',
   title: '4-Channel Mixer',
   category: 'Mix',
   hp: 16,
-  description: 'Stacks up to four patterns so they play together, each with its own level, pan and mute. ALL mutes the whole mix and leaves the channel mutes as they were.',
+  description: 'Stacks up to four patterns so they play together, each with its own level, pan and mute. LO CUT trims the rumble below its frequency (keep it down on kick and bass, turn it up on everything else so the low end stays clean); HI CUT tames harsh tops. Fully counter-clockwise LO CUT / fully clockwise HI CUT = off; the little LED lights while a cut is on. A cut is a limit, not an override: if a FILTER or TAPE earlier in the chain already filters, it keeps working, but HI CUT never lets it get brighter than its setting, and LO CUT never lets it reach lower. ALL mutes the whole mix and leaves the channel mutes as they were.',
   params: {
     ...Object.fromEntries(CH.flatMap((i) => [
       [`level${i}`, { kind: 'knob', label: `LVL ${i + 1}`, min: 0, max: 1.5, default: 1 }],
       [`pan${i}`, { kind: 'knob', label: 'PAN', min: 0, max: 1, default: 0.5, size: 'sm' }],
+      [`locut${i}`, { kind: 'knob', label: 'LO CUT', min: 20, max: 2000, default: 20, curve: 'log', size: 'sm', unit: 'Hz', led: true }],
+      [`hicut${i}`, { kind: 'knob', label: 'HI CUT', min: 500, max: 20000, default: 20000, curve: 'log', size: 'sm', unit: 'Hz', led: true }],
       [`mute${i}`, { kind: 'toggle', label: 'MUTE', default: false, structural: true }],
     ])),
     muteAll: { kind: 'toggle', label: 'ALL', default: false, structural: true },
@@ -231,7 +243,7 @@ export const mixer = {
   inputs: Object.fromEntries(CH.map((i) => [`in${i}`, { type: 'pattern', label: `IN ${i + 1}` }])),
   outputs: { out: { type: 'pattern', label: 'MIX' } },
   // rows sit on a 5-column grid (CSS) so each channel lines up over its IN jack
-  layout: [CH.map((i) => `level${i}`), CH.map((i) => `pan${i}`), [...CH.map((i) => `mute${i}`), 'muteAll'], [...CH.map((i) => `in:in${i}`), 'out:out']],
+  layout: [CH.map((i) => `level${i}`), CH.map((i) => `pan${i}`), CH.map((i) => `locut${i}`), CH.map((i) => `hicut${i}`), [...CH.map((i) => `mute${i}`), 'muteAll'], [...CH.map((i) => `in:in${i}`), 'out:out']],
   compile(ctx) {
     if (ctx.p.muteAll) return { out: ident('silence') };
     const parts = [];
@@ -240,6 +252,8 @@ export const mixer = {
       if (!e || ctx.p[`mute${i}`]) continue;
       e = setIf(e, 'postgain', ctx.p[`level${i}`], 1, 2);
       e = setIf(e, 'pan', ctx.p[`pan${i}`], 0.5, 2);
+      e = cutLimit(e, 'hpf', ctx.p[`locut${i}`], 20);
+      e = cutLimit(e, 'lpf', ctx.p[`hicut${i}`], 20000);
       parts.push(e);
     }
     if (!parts.length) return { out: null };

@@ -151,11 +151,14 @@ export function knob(mod, key, p) {
   const ptr = h('div', { class: 'knob-ptr' });
   const cap = h('div', { class: 'knob-cap' }, h('div', { class: 'knob-img' }), ptr);
   const val = p.options ? h('div', { class: 'knob-val' }) : null;
+  // p.led: a small LED that lights whenever the knob is away from its default ("this is doing something")
+  const ledEl = p.led ? h('span', { class: 'led knob-led' }) : null;
   const el = h('div', { class: `ctl knob knob-${size} ${p.options ? 'rotary' : ''}`, title: '' },
-    h('div', { class: 'knob-scale' }, cap), val, h('label', {}, p.label));
+    h('div', { class: 'knob-scale' }, cap, ledEl), val, h('label', {}, p.label));
   const update = (v) => {
     const t = toNorm(p, v);
     cap.style.setProperty('--rot', `${-135 + t * 270}deg`);
+    ledEl?.classList.toggle('on', Math.abs(v - p.default) > 1e-6);
     if (val) val.textContent = formatValue(p, v);
   };
   dragValue(cap, mod, key, p, () => {
