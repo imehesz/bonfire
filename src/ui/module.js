@@ -55,8 +55,14 @@ export function buildModule(mod, { preview = false } = {}) {
     return c.el;
   };
 
+  // the trailing jack rows sit in their own block, pinned to the bottom of every faceplate
+  const isJackRow = (row) => row.some((r) => r.startsWith('in:') || r.startsWith('out:'));
+  let split = def.layout.length;
+  while (split > 0 && isJackRow(def.layout[split - 1])) split--;
+  const row = (r) => h('div', { class: `mod-row ${isJackRow(r) ? 'jacks' : ''}` }, r.map(item));
   const body = h('div', { class: 'mod-body' },
-    def.layout.map((row) => h('div', { class: `mod-row ${row.some((r) => r.startsWith('in:') || r.startsWith('out:')) ? 'jacks' : ''}` }, row.map(item))));
+    h('div', { class: 'mod-ctls' }, def.layout.slice(0, split).map(row)),
+    h('div', { class: 'mod-jacks' }, def.layout.slice(split).map(row)));
 
   const el = h('div', {
     class: 'module',

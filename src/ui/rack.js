@@ -11,7 +11,8 @@ import { buildModule } from './module.js';
 import { h, menu, modal, s, toast } from './dom.js';
 
 export const ROW_H = 380;
-const settings = { zoom: 1, snap: 26, cableOpacity: 1, hideCables: false };
+const COLLAPSED_H = 118; // head + one jack row + foot
+const settings = { zoom: 1, snap: 26, cableOpacity: 1, hideCables: false, collapsedRows: [] };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('bonfire.rack') ?? '{}'));
 } catch { /* ignore */ }
@@ -34,6 +35,35 @@ let cableLayer;
 let dragLayer;
 
 export const rackSettings = settings;
+
+// ---------------- row geometry (collapsed rows are short) ----------------
+const isCollapsed = (i) => settings.collapsedRows.includes(i);
+const rowH = (i) => (isCollapsed(i) ? COLLAPSED_H : ROW_H);
+const rowTop = (i) => {
+  let y = 0;
+  for (let r = 0; r < i; r++) y += rowH(r);
+  return y;
+};
+// the row whose band contains y (rows past the last one are full height)
+function rowAt(y) {
+  let top = 0;
+  for (let r = 0; ; r++) {
+    if (y < top + rowH(r)) return Math.max(0, r);
+    top += rowH(r);
+  }
+}
+// the row whose top is nearest y (module dragging snaps by top edge)
+function nearestRow(y) {
+  let best = 0;
+  for (let r = 0, top = 0; r <= rackRows() + 1; top += rowH(r), r++) if (Math.abs(top - y) < Math.abs(rowTop(best) - y)) best = r;
+  return best;
+}
+
+export function toggleRow(i) {
+  settings.collapsedRows = isCollapsed(i) ? settings.collapsedRows.filter((r) => r !== i) : [...settings.collapsedRows, i];
+  saveSettings();
+  layout();
+}
 export const hoveredModule = () => hovered;
 
 export function mountRack(host) {
@@ -78,7 +108,7 @@ export function mountRack(host) {
     if (type) {
       e.preventDefault();
       const p = toLocal(e.clientX, e.clientY);
-      const res = addModule(type, { row: Math.max(0, Math.floor(p.y / ROW_H)), x: Math.max(0, Math.round(p.x / HP_PX - MODULES[type].hp / 2)) });
+      const res = addModule(type, { row: rowAt(Math.max(0, p.y)), x: Math.max(0, Math.round(p.x / HP_PX - MODULES[type].hp / 2)) });
       if (res.error) toast(res.error, 'warn');
       return;
     }
@@ -107,7 +137,7 @@ function toLocal(cx, cy) {
 function layout() {
   const rows = rackRows();
   const w = rackWidthHp() * HP_PX;
-  const hgt = rows * ROW_H;
+  const hgt = rowTop(rows);
   inner.style.width = `${w}px`;
   inner.style.height = `${hgt}px`;
   inner.style.transform = `scale(${settings.zoom})`;
@@ -115,17 +145,25 @@ function layout() {
   sizer.style.height = `${hgt * settings.zoom}px`;
   svg.setAttribute('width', w);
   svg.setAttribute('height', hgt);
-  if (rowsLayer.children.length !== rows) {
-    rowsLayer.replaceChildren(...Array.from({ length: rows }, (_, i) => h('div', { class: 'rack-row', style: { top: `${i * ROW_H}px` } },
-      h('div', { class: 'rail top' }), h('div', { class: 'rail bottom' }))));
-  }
+  rowsLayer.replaceChildren(...Array.from({ length: rows }, (_, i) => h('div', {
+    class: `rack-row${isCollapsed(i) ? ' collapsed' : ''}`,
+    style: { top: `${rowTop(i)}px`, height: `${rowH(i)}px` },
+  },
+  h('div', { class: 'rail top' }), h('div', { class: 'rail bottom' }),
+  h('button', { class: 'row-toggle', title: isCollapsed(i) ? 'Expand this row' : 'Collapse this row (keeps the jacks)', onclick: () => toggleRow(i) }))));
   for (const [id, v] of views) {
     const m = findModule(id);
     if (!m) continue;
-    v.el.style.left = `${m.x * HP_PX}px`;
-    v.el.style.top = `${m.row * ROW_H}px`;
+    placeModule(v.el, m.row, m.x);
   }
   drawCables();
+}
+
+function placeModule(el, row, x) {
+  el.style.left = `${x * HP_PX}px`;
+  el.style.top = `${rowTop(row)}px`;
+  el.style.height = `${rowH(row)}px`;
+  el.classList.toggle('collapsed', isCollapsed(row));
 }
 
 export function rebuild() {
@@ -332,7 +370,7 @@ function startModuleDrag(e, modEl) {
   const def = MODULES[m.type];
   const p0 = toLocal(e.clientX, e.clientY);
   const offX = p0.x - m.x * HP_PX;
-  const offY = p0.y - m.row * ROW_H;
+  const offY = p0.y - rowTop(m.row);
   let moved = false;
   let pos = { row: m.row, x: m.x };
   modEl.setPointerCapture(e.pointerId);
@@ -341,11 +379,10 @@ function startModuleDrag(e, modEl) {
     if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) < 4) return;
     moved = true;
     modEl.classList.add('dragging');
-    const row = Math.max(0, Math.round((p.y - offY) / ROW_H));
+    const row = nearestRow(p.y - offY);
     const x = Math.max(0, Math.round((p.x - offX) / HP_PX));
     pos = { row, x };
-    modEl.style.left = `${x * HP_PX}px`;
-    modEl.style.top = `${row * ROW_H}px`;
+    placeModule(modEl, row, x);
     modEl.classList.toggle('blocked', !fits({ type: m.type, row, x }, id));
     drawCables();
   };
