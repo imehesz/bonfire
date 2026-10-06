@@ -61,6 +61,7 @@ export function compilePatch(patch) {
     const def = MODULES[mod.type];
     results[id] = {}; // guard against cycles sneaking in through a bad file
     const ctx = {
+      id,
       p: { ...defaultParams(mod.type), ...mod.params },
       global,
       in: (jack) => resolve(inputs[id]?.[jack]),

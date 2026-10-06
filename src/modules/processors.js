@@ -1,4 +1,4 @@
-// Pattern processors: VANDALIZER, FILTER, FX, TAPE, LFO, MIXER, OUTPUT.
+// Pattern processors: VANDALIZER, FILTER, FX, TAPE, LFO, DUCK, MIXER, OUTPUT.
 import { arrow, fn, ident, lambda, num, printExpr, raw } from '../core/expr.js';
 import { RATES, isDefault, rated, setIf } from './helpers.js';
 
@@ -209,6 +209,34 @@ export const lfo = {
     if (ctx.p.step) e = e.call('segment', num(16));
     ctx.meta({ shape: ctx.p.shape, rate: ctx.p.rate, step: ctx.p.step });
     return { cv: e };
+  },
+};
+
+// DUCK: Strudel ducks a whole orbit, so IN moves onto an orbit of its own (orbit 1 is
+// everything else) and a silent copy of TRIG (postgain 0) fires the ducking.
+export const duck = {
+  type: 'duck',
+  name: 'DUCK',
+  title: 'Sidechain Ducker',
+  category: 'Mix',
+  hp: 8,
+  description: 'The house / techno pump: IN dips in volume every time TRIG hits, then swells back, so pads and bass breathe with the kick. Patch the kick into TRIG as well as into your mix (the trigger copy is silent). Everything on TRIG ducks, so give it a BEATS with just the kick. DEPTH is how far it dips, RELEASE how long it takes to come back (seconds).',
+  params: {
+    depth: { kind: 'knob', label: 'DEPTH', min: 0, max: 1, default: 0.8, size: 'lg' },
+    release: { kind: 'knob', label: 'RELEASE', min: 0.02, max: 1, default: 0.2, curve: 'log', unit: 's' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' }, trig: { type: 'pattern', label: 'TRIG' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['depth'], ['release'], ['in:in', 'in:trig', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    if (!e) return { out: null };
+    const trig = ctx.in('trig');
+    if (!trig) return { out: e };
+    const orbit = 1 + (parseInt(ctx.id.replace(/\D/g, ''), 10) || 1); // duck1 -> orbit 2
+    const ducker = trig.call('duckorbit', num(orbit)).call('duckonset', num(0.005, 3))
+      .call('duckattack', num(ctx.p.release, 3)).call('duckdepth', num(ctx.p.depth, 2)).call('postgain', num(0));
+    return { out: fn('stack', e.call('orbit', num(orbit)), ducker) };
   },
 };
 

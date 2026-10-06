@@ -4,10 +4,10 @@
 // See README.md "Writing a module" for the full contract.
 import { arp, beats, chain, clock, euclid, melody, seq } from './sources.js';
 import { sampler, voice } from './voices.js';
-import { filter, fx, lfo, mixer, output, tape, vandal } from './processors.js';
+import { duck, filter, fx, lfo, mixer, output, tape, vandal } from './processors.js';
 
 export const MODULES = Object.fromEntries(
-  [clock, chain, seq, beats, euclid, melody, arp, voice, sampler, vandal, filter, fx, tape, lfo, mixer, output].map((m) => [m.type, m]),
+  [clock, chain, seq, beats, euclid, melody, arp, voice, sampler, vandal, filter, fx, tape, lfo, duck, mixer, output].map((m) => [m.type, m]),
 );
 
 export const CATEGORY_ORDER = ['Time', 'Rhythm', 'Pitch', 'Sound', 'Mangle', 'Shape', 'Modulate', 'Mix'];
