@@ -2,6 +2,7 @@ import './styles/app.css';
 import * as store from './core/store.js';
 import { compilePatch } from './core/compile.js';
 import * as engine from './core/engine.js';
+import * as recorder from './core/recorder.js';
 import { initLocal, loadPack } from './core/samples.js';
 import { downloadPatch, fetchDemo, fetchDemoIndex, loadLocal, patchFromHash, pickPatchFile, saveLocal, shareUrl } from './core/persist.js';
 import { currentSkin, fetchSkinIndex, restoreSkin, useCustomSkin, useSkin } from './core/skins.js';
@@ -20,6 +21,49 @@ let compiled = null;
 
 // ---------------- layout ----------------
 const playBtn = h('button', { class: 'transport', title: 'Play / stop (Space)', onclick: () => engine.togglePlay() });
+
+// ---------------- WAV recording ----------------
+const recBtn = h('button', { class: 'transport rec', title: 'Record a WAV: starts on the next bar, press again to stop and download', onclick: () => toggleRecord() });
+let recBusy = false;
+let recTimer = null;
+const showRec = () => {
+  const t = recorder.elapsed();
+  recBtn.classList.toggle('on', t != null);
+  recBtn.classList.toggle('armed', t != null && t < 0);
+  if (t == null) recBtn.innerHTML = '<span>●</span> REC';
+  else if (t < 0) recBtn.innerHTML = '<span>●</span> WAIT';
+  else recBtn.innerHTML = `<span>●</span> ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+};
+async function toggleRecord() {
+  if (recBusy) return;
+  recBusy = true;
+  try {
+    if (recorder.isRecording()) await finishRecording();
+    else {
+      if (!engine.isPlaying()) await engine.play();
+      await recorder.startRecording(await engine.nextBarTime());
+      recTimer = setInterval(showRec, 250);
+    }
+  } catch (e) {
+    toast(`Recording failed: ${e.message}`, 'warn');
+  } finally {
+    recBusy = false;
+    showRec();
+  }
+}
+async function finishRecording() {
+  clearInterval(recTimer);
+  const blob = await recorder.stopRecording();
+  showRec();
+  if (!blob) return toast('Nothing recorded — stopped before the first bar', 'warn');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(store.getPatch().name || 'bonfire').replace(/[^\w-]+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.wav`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Saved ${a.download}`);
+}
+showRec();
 const nameInput = h('input', { class: 'patch-name', spellcheck: 'false', title: 'Patch name' });
 nameInput.addEventListener('change', () => store.setName(nameInput.value.trim() || 'Untitled'));
 nameInput.addEventListener('keydown', (e) => e.key === 'Enter' && nameInput.blur());
@@ -49,6 +93,7 @@ syncCablesBtn();
 const topbar = h('header', { class: 'topbar' },
   h('button', { class: 'brand', title: 'About Bonfire STACK', onclick: () => showSplash() }, h('img', { src: 'brand/logo.png', alt: 'Bonfire STACK' })),
   playBtn,
+  recBtn,
   nameInput,
   h('button', { class: 'tb icon dice', title: 'Random name', onclick: rollName, html: DIE_SVG }),
   h('nav', { class: 'tb-nav' },
@@ -116,6 +161,7 @@ function refreshStatus() {
 engine.onEngine((s) => {
   engineState = s;
   refreshStatus();
+  if (!s.playing && recorder.isRecording() && !recBusy) toggleRecord(); // STOP also ends the take
 });
 
 store.subscribe((kind, detail) => {
@@ -241,9 +287,10 @@ function showHelp() {
       h('li', {}, 'Drag from a jack to a jack. Only matching colours light up.'),
       h('li', {}, 'Drag a cable off an input to move it; drop it in empty space to unplug. Double-click a cable to pick up its nearer end: click another jack to replug it, anywhere else to unplug. Right-click a cable to delete it.'),
       h('li', {}, 'Outputs can feed many inputs; each input takes one cable.'),
-      h('li', {}, 'Drag a module by its panel to move it. Right-click a panel for duplicate / reset / delete.'),
+      h('li', {}, 'Drag a module by its panel to move it. Right-click a panel for settings (name, colour) / duplicate / reset / delete.'),
       h('li', {}, 'Knobs & faders: drag up/down (Shift = fine), mouse wheel, or double-click to type an exact value.'),
-      h('li', {}, 'Sequencer steps: right-click to cycle ×2 / ×4 rolls.')),
+      h('li', {}, 'Sequencer steps: right-click to cycle ×2 / ×4 rolls.'),
+      h('li', {}, '● REC records a WAV from the next bar line (starting playback if needed); press it again, or STOP, to download. It records the music before OUTPUT VOLUME / MUTE.')),
     h('h3', {}, 'Keys'),
     h('ul', {},
       h('li', {}, 'Space — play / stop'),

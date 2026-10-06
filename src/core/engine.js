@@ -147,6 +147,19 @@ export function activeRanges(code) {
   return out;
 }
 
+// AudioContext time at which the next bar (cycle) starts sounding, mirroring the
+// scheduler's own targetTime maths. Waits for the scheduler's first tick after PLAY.
+export async function nextBarTime() {
+  const sch = repl?.scheduler;
+  if (!playing || !sch) return null;
+  for (let i = 0; i < 100 && !sch.num_ticks_since_cps_change; i++) await new Promise((r) => setTimeout(r, 20));
+  const at = (c) => (c - sch.num_cycles_at_cps_change) / sch.cps + sch.seconds_at_cps_change + sch.latency;
+  const t = getAudioContext().currentTime + 0.05;
+  let c = Math.max(0, Math.floor(sch.now()));
+  while (at(c) < t) c++;
+  return at(c);
+}
+
 // Audition a single sound from the library.
 export async function audition(value) {
   await unlockAudio();
