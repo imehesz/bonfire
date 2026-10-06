@@ -13,7 +13,7 @@ const optLabel = (o) => (typeof o === 'object' ? o.l : String(o).toUpperCase());
 function hookReadout(el, mod, key, p) {
   const show = () => {
     const v = findModule(mod.id)?.params[key];
-    if (v !== undefined) setReadout(`${formatValue(p, v)} · ${p.label} · ${mod.id.toUpperCase()}`); // value first: survives truncation
+    if (v !== undefined) setReadout(`${formatValue(p, v)} · ${p.label} · ${(findModule(mod.id)?.label || mod.id).toUpperCase()}`); // value first: survives truncation
   };
   const later = () => setTimeout(show); // after the control's own handler has set the value
   el.addEventListener('pointerenter', later);

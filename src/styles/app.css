@@ -116,6 +116,17 @@ a { color: var(--accent); }
 .modal-confirm { width: min(420px, 92vw); padding: 22px 26px; }
 .confirm p { margin: 0 0 18px; font-size: 15px; line-height: 1.5; }
 .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.mod-settings h2 { margin: 0 0 16px; font-size: 18px; letter-spacing: 0.12em; }
+.mod-settings h2 small { color: var(--ui-dim); font-size: 12px; letter-spacing: 0.08em; font-weight: 400; }
+.set-label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: var(--ui-dim); }
+.set-name { font: inherit; font-size: 15px; letter-spacing: 0.04em; padding: 8px 10px; border-radius: 5px; border: 1px solid var(--ui-border); background: var(--ui-raised); color: var(--ui-text); }
+.set-name:focus { outline: none; border-color: var(--accent); }
+.set-colors { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.set-picker { width: 44px; height: 44px; padding: 0; border: 1px solid var(--ui-border); border-radius: 6px; background: none; cursor: pointer; }
+.set-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--ui-border); padding: 0; cursor: pointer; }
+.swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.swatch.none { background: linear-gradient(135deg, transparent 45%, #e8483b 45%, #e8483b 55%, transparent 55%), var(--ui-raised); }
 .tb-nav, .tb-right { display: flex; gap: 4px; align-items: center; }
 .tb-right { margin-left: auto; }
 .tb {
@@ -221,6 +232,8 @@ a { color: var(--accent); }
   pointer-events: none;
 }
 .module > * { position: relative; }
+/* custom panel colour: some skins' textures are near-opaque, so multiply them over the colour instead */
+.module.tinted .mod-tex { mix-blend-mode: multiply; opacity: min(var(--panel-texture-opacity), 0.45); }
 .screw {
   position: absolute;
   width: 11px;

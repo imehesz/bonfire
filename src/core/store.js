@@ -145,9 +145,22 @@ export function duplicateModule(id) {
   const res = addModule(src.type, { row: src.row, x: src.x + MODULES[src.type].hp });
   if (res.module) {
     res.module.params = structuredClone(src.params);
+    if (src.color) res.module.color = src.color; // a copy stays in its colour group
     emit('reset');
   }
   return res;
+}
+
+// Display name + panel colour. The id never changes: cables and the generated code use it.
+export function setModuleLook(id, { label, color }) {
+  const m = findModule(id);
+  if (!m) return;
+  checkpoint();
+  if (label) m.label = label;
+  else delete m.label;
+  if (color) m.color = color;
+  else delete m.color;
+  emit('reset');
 }
 
 export function removeModule(id) {

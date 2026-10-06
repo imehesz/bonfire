@@ -19,6 +19,20 @@ function tapTempo(mod) {
 }
 
 // preview: a look-only faceplate (help dialog) that reads mod.params instead of the store.
+// A custom panel colour, with label ink picked for contrast; null = back to the skin's.
+export function paintPanel(el, color) {
+  for (const k of ['--panel', '--panel-text', '--panel-dim']) el.style.removeProperty(k);
+  el.classList.toggle('tinted', !!color);
+  if (!color) return;
+  const n = parseInt(color.slice(1), 16);
+  const lin = (c) => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const lum = 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  const dark = lum > 0.35;
+  el.style.setProperty('--panel', color);
+  el.style.setProperty('--panel-text', dark ? '#16130f' : '#f4f1ea');
+  el.style.setProperty('--panel-dim', dark ? 'rgba(22, 19, 15, 0.6)' : 'rgba(244, 241, 234, 0.6)');
+}
+
 export function buildModule(mod, { preview = false } = {}) {
   const def = MODULES[mod.type];
   const params = () => (preview ? mod.params : findModule(mod.id)?.params);
@@ -71,9 +85,11 @@ export function buildModule(mod, { preview = false } = {}) {
   },
   h('div', { class: 'mod-tex' }),
   h('i', { class: 'screw tl' }), h('i', { class: 'screw tr' }), h('i', { class: 'screw bl' }), h('i', { class: 'screw br' }),
-  h('div', { class: 'mod-head' }, h('div', { class: 'mod-name' }, def.name), h('div', { class: 'mod-id' }, mod.id)),
+  h('div', { class: 'mod-head' }, h('div', { class: 'mod-name' }, def.name), h('div', { class: 'mod-id' }, mod.label || mod.id)),
   body,
   h('div', { class: 'mod-foot' }, 'BONFIRE'));
+
+  paintPanel(el, mod.color);
 
   const update = () => {
     const p = params();

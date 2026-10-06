@@ -2,12 +2,12 @@
 import { MODULES, compatible, defaultParams } from '../modules/index.js';
 import {
   HP_PX, addModule, connect, disconnect, duplicateModule, findModule, fits, getPatch, moveModule, nearestFree,
-  rackRows, rackWidthHp, removeModule, resetModule,
+  rackRows, rackWidthHp, removeModule, resetModule, setModuleLook,
 } from '../core/store.js';
 import { wouldCycle } from '../core/compile.js';
 import { skinCableSag } from '../core/skins.js';
 import { addLocalFiles } from '../core/samples.js';
-import { buildModule } from './module.js';
+import { buildModule, paintPanel } from './module.js';
 import { h, menu, modal, s, toast } from './dom.js';
 
 export const ROW_H = 380;
@@ -476,6 +476,7 @@ function onContext(e) {
   document.body.append(anchor);
   menu(anchor, [
     { label: `About ${def.name}`, action: () => showModuleHelp(def, findModule(id)) },
+    { label: 'Settings…', action: () => showModuleSettings(id) },
     '-',
     { label: 'Duplicate', hint: 'Ctrl+D', action: () => { const r = duplicateModule(id); if (r.error) toast(r.error, 'warn'); } },
     { label: 'Reset knobs', action: () => resetModule(id) },
@@ -484,6 +485,64 @@ function onContext(e) {
     { label: 'Delete', hint: 'Del', action: () => removeModule(id) },
   ]);
   anchor.remove();
+}
+
+// ---------------- module settings: name + panel colour ----------------
+const RECENT_KEY = 'bonfire.recentColors';
+function recentColors() {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENT_KEY));
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+function rememberColor(c) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([c, ...recentColors().filter((x) => x !== c)].slice(0, 10)));
+  } catch { /* ignore */ }
+}
+
+function showModuleSettings(id) {
+  const m = findModule(id);
+  const def = MODULES[m.type];
+  const modEl = modLayer.querySelector(`.module[data-id="${id}"]`);
+  let color = m.color ?? null;
+  let saved = false;
+  const name = h('input', { class: 'set-name', value: m.label ?? '', placeholder: m.id, maxlength: 24, spellcheck: 'false' });
+  const picker = h('input', { type: 'color', class: 'set-picker', value: color ?? '#5a5048', title: 'Pick any colour' });
+  const swatches = h('div', { class: 'set-swatches' });
+  const pick = (c) => {
+    color = c;
+    if (c) picker.value = c;
+    if (modEl) paintPanel(modEl, c); // live preview on the rack
+    drawSwatches();
+  };
+  const drawSwatches = () => swatches.replaceChildren(
+    h('button', { class: `swatch none ${color ? '' : 'on'}`, title: 'Skin default', onclick: () => pick(null) }),
+    ...recentColors().map((c) => h('button', { class: `swatch ${c === color ? 'on' : ''}`, title: c, style: { background: c }, onclick: () => pick(c) })),
+  );
+  picker.addEventListener('input', () => pick(picker.value));
+  drawSwatches();
+  const save = () => {
+    saved = true;
+    if (color) rememberColor(color);
+    dlg.close();
+    setModuleLook(id, { label: name.value.trim(), color });
+  };
+  name.addEventListener('keydown', (e) => e.key === 'Enter' && save());
+  const dlg = modal(h('div', { class: 'mod-settings' },
+    h('h2', {}, def.name, h('small', {}, ` ${m.id}`)),
+    h('label', { class: 'set-label' }, 'NAME', name),
+    h('div', { class: 'set-label' }, 'COLOR', h('div', { class: 'set-colors' }, picker, swatches)),
+    h('div', { class: 'confirm-actions' },
+      h('button', { class: 'btn', onclick: () => dlg.close() }, 'CANCEL'),
+      h('button', { class: 'btn accent', onclick: save }, 'SAVE'))), {
+    className: 'modal-confirm',
+    onClose: () => !saved && modEl && paintPanel(modEl, m.color), // cancelled: drop the preview
+  });
+  name.focus();
+  name.select();
 }
 
 // The help dialog shows the real faceplate, built in the current skin: a fresh
