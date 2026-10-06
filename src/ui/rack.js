@@ -319,12 +319,15 @@ function startCableDrag(e, start) {
   drawCables(hideId);
   const a = jackCenter(anchor.m, anchor.dir, anchor.j);
   let target = null;
+  let last = { x: e.clientX, y: e.clientY };
+  // follow the pointer; also re-run on scroll, since the rack slides under a still pointer
   const move = (ev) => {
+    if (ev) last = { x: ev.clientX, y: ev.clientY };
     let best = null;
     let bestD = settings.snap;
     for (const v of valid) {
       const r = v.el.querySelector('.jack-socket').getBoundingClientRect();
-      const d = Math.hypot(ev.clientX - (r.left + r.width / 2), ev.clientY - (r.top + r.height / 2));
+      const d = Math.hypot(last.x - (r.left + r.width / 2), last.y - (r.top + r.height / 2));
       if (d < bestD) {
         bestD = d;
         best = v;
@@ -335,15 +338,23 @@ function startCableDrag(e, start) {
       best?.el.classList.add('hot');
       target = best;
     }
-    const b = target ? jackCenter(target.m, wantDir, target.j) : toLocal(ev.clientX, ev.clientY);
+    const b = target ? jackCenter(target.m, wantDir, target.j) : toLocal(last.x, last.y);
     dragLayer.replaceChildren(cableEl(a, b, fixedColor ?? 'var(--accent)'));
   };
-  const up = () => {
+  const onScroll = () => move();
+  const cleanup = () => {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointerdown', stickyDown, true);
+    window.removeEventListener('pointerup', stickyUp, true);
+    window.removeEventListener('keydown', onKey);
+    scroller.removeEventListener('scroll', onScroll);
     document.body.classList.remove('cabling');
     dragLayer.replaceChildren();
     modLayer.querySelectorAll('.can-drop, .no-drop, .hot').forEach((el) => el.classList.remove('can-drop', 'no-drop', 'hot'));
+  };
+  const finish = () => {
+    cleanup();
     if (target) {
       const from = wantDir === 'in' ? { m: anchor.m, j: anchor.j } : { m: target.m, j: target.j };
       const to = wantDir === 'in' ? { m: target.m, j: target.j } : { m: anchor.m, j: anchor.j };
@@ -354,10 +365,39 @@ function startCableDrag(e, start) {
         connect(from, to, fixedColor ?? undefined);
       }
     } else if (hideId) {
-      disconnect(hideId); // dragged off into space = unplug
+      disconnect(hideId); // dropped into space = unplug
     } else {
       drawCables();
     }
+  };
+  // a plain click (no drag) leaves the cable in hand: scroll anywhere, then click a jack to plug it in.
+  // The next tap/click ends it; a touch that turns into a scroll never fires pointerup, so it doesn't.
+  let downAt = null;
+  const stickyDown = (ev) => {
+    ev.stopPropagation(); // don't start another cable / module drag
+    downAt = { x: ev.clientX, y: ev.clientY };
+  };
+  const stickyUp = (ev) => {
+    if (!downAt || Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) > 8) return (downAt = null);
+    ev.stopPropagation();
+    move(ev);
+    finish();
+  };
+  const onKey = (ev) => {
+    if (ev.key !== 'Escape') return;
+    cleanup();
+    drawCables(); // cancel: a picked-up cable goes back where it was
+  };
+  const up = (ev) => {
+    window.removeEventListener('pointerup', up);
+    if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) {
+      window.addEventListener('pointerdown', stickyDown, true);
+      window.addEventListener('pointerup', stickyUp, true);
+      window.addEventListener('keydown', onKey);
+      scroller.addEventListener('scroll', onScroll);
+      return;
+    }
+    finish();
   };
   move(e);
   window.addEventListener('pointermove', move);

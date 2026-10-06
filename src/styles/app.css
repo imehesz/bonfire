@@ -182,7 +182,9 @@ a { color: var(--accent); }
   height: 15px;
   padding: 0;
   border: 0;
-  background: none;
+  border-radius: 3px;
+  background: #1a0d05;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 1px 3px rgba(0, 0, 0, 0.6);
   cursor: pointer;
   display: grid;
   place-items: center;
