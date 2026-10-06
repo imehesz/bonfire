@@ -67,7 +67,7 @@ export const beats = {
   title: 'Drum Grid',
   category: 'Rhythm',
   hp: 30,
-  description: 'Four-lane, sixteen-step drum machine. Each lane picks a drum sound and has its own small LEVEL knob; the BANK picks the machine (808, 909, LinnDrum...). SWING pushes every second step late for a shuffle. Right-click a step for x2 / x4 rolls.',
+  description: 'Four-lane, sixteen-step drum machine. Each lane picks a drum sound and has its own small LEVEL knob; the BANK picks the machine (808, 909, LinnDrum...). SWING pushes every second step late for a shuffle. Patch an LFO into CV to move the volume of every hit (RAND humanizes, PERLIN drifts, a slow SINE swells). Right-click a step for x2 / x4 rolls.',
   params: {
     grid: {
       kind: 'data',
@@ -91,9 +91,9 @@ export const beats = {
     length: { kind: 'knob', label: 'LENGTH', min: 1, max: 16, default: 16, step: 1, structural: true },
     swing: { kind: 'knob', label: 'SWING', min: 0, max: 0.6, default: 0 },
   },
-  inputs: { clk: { type: 'clock', label: 'CLK' } },
+  inputs: { clk: { type: 'clock', label: 'CLK' }, cv: { type: 'cv', label: 'CV' } },
   outputs: { out: { type: 'pattern', label: 'OUT' } },
-  layout: [['widget:grid'], ['bank', 'length', 'swing', 'in:clk', 'out:out']],
+  layout: [['widget:grid'], ['bank', 'length', 'swing', 'in:clk', 'in:cv', 'out:out']],
   compile(ctx) {
     const { grid, length, bank, swing } = ctx.p;
     const step = ctx.in('clk') ?? 1 / 16;
@@ -113,6 +113,9 @@ export const beats = {
     const per = 1 / step;
     const k = Math.round(per);
     if (swing > 0.005 && Math.abs(per - k) < 1e-9 && k >= 2 && k % 2 === 0) out = out.call('swingBy', num(swing, 2), num(k / 2));
+    // CV scales each hit's volume; the floor keeps the quietest hits audible
+    const cv = ctx.in('cv');
+    if (cv) out = out.call('velocity', cv.call('range', num(0.25, 2), num(1)));
     return { out };
   },
 };
