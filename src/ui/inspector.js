@@ -1,21 +1,37 @@
 // Bottom dock: the live Strudel code, copy / open-in-strudel.cc, engine status.
 import { code2hash } from '@strudel/core';
+import { activeRanges } from '../core/engine.js';
 import { h, toast } from './dom.js';
 
 const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function highlight(code) {
+// `active` = [start, end] character ranges to light up (the steps playing right now).
+export function highlight(code, active = []) {
   const re = /(\/\/[^\n]*)|("(?:[^"\\]|\\.)*")|('(?:[^'\\]|\\.)*')|(\.[a-zA-Z_]\w*)(?=\()|\b(const|x)\b|(\b\d+(?:\.\d+)?\b)|([a-zA-Z_]\w*)(?=\()|(=>)/g;
+  const on = new Uint8Array(code.length);
+  for (const [a, b] of active) on.fill(1, Math.max(0, a), Math.min(code.length, b));
+  // one token, split into runs where the lit state changes
+  const span = (from, to, cls) => {
+    let out = '';
+    for (let i = from; i < to;) {
+      let j = i + 1;
+      while (j < to && on[j] === on[i]) j++;
+      const c = on[i] ? `${cls} tk-on`.trim() : cls;
+      out += c ? `<span class="${c}">${esc(code.slice(i, j))}</span>` : esc(code.slice(i, j));
+      i = j;
+    }
+    return out;
+  };
   let out = '';
   let last = 0;
   for (const m of code.matchAll(re)) {
-    out += esc(code.slice(last, m.index));
+    out += span(last, m.index, '');
     const [t, com, dq, sq, meth, kw, numb, fn, arrow] = m;
     const cls = com ? 'tk-com' : dq ? 'tk-mini' : sq ? 'tk-str' : meth ? 'tk-meth' : kw ? 'tk-kw' : numb ? 'tk-num' : fn ? 'tk-fn' : arrow ? 'tk-kw' : '';
-    out += `<span class="${cls}">${esc(t)}</span>`;
+    out += span(m.index, m.index + t.length, cls);
     last = m.index + t.length;
   }
-  return out + esc(code.slice(last));
+  return out + span(last, code.length, '');
 }
 
 export function mountInspector(host) {
@@ -23,6 +39,8 @@ export function mountInspector(host) {
   const status = h('div', { class: 'insp-status' });
   const lines = h('span', { class: 'insp-lines' });
   let code = '';
+  let litKey = '';
+  let playing = false;
   let collapsed = false;
   let side = 'bottom';
   try {
@@ -72,19 +90,34 @@ export function mountInspector(host) {
   };
   setDock(side);
   host.append(dock);
+  // light up the steps that are sounding; only re-render when the lit set changes
+  const render = (ranges) => {
+    const key = ranges.map((r) => r.join('-')).sort().join(',');
+    if (key === litKey) return;
+    litKey = key;
+    pre.innerHTML = highlight(code, ranges);
+  };
+  const tick = () => {
+    requestAnimationFrame(tick);
+    if (collapsed || document.hidden) return;
+    render(playing ? activeRanges(code) : []);
+  };
+  requestAnimationFrame(tick);
   return {
     dockSide: () => side,
     setDock,
     setCode(c) {
       if (c === code) return;
       code = c;
+      litKey = '';
       pre.innerHTML = highlight(c);
       lines.textContent = `${c.split('\n').length} lines`;
     },
-    setStatus({ error, playing, loading, compileErrors = [] }) {
+    setStatus({ error, playing: p, loading, compileErrors = [] }) {
+      playing = p;
       const err = error || compileErrors.join(' · ');
-      status.className = `insp-status ${err ? 'err' : playing ? 'live' : ''}`;
-      status.textContent = err ? `⚠ ${err}` : loading ? 'loading sounds…' : playing ? '● LIVE' : '■ STOPPED';
+      status.className = `insp-status ${err ? 'err' : p ? 'live' : ''}`;
+      status.textContent = err ? `⚠ ${err}` : loading ? 'loading sounds…' : p ? '● LIVE' : '■ STOPPED';
     },
   };
 }

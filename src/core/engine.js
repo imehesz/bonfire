@@ -14,6 +14,7 @@ let audioInit = null;
 let ready = null;
 let playing = false;
 let lastCode = '';
+let evaluatedCode = ''; // the code the scheduler is actually playing (setCode is debounced)
 let pending = null;
 let timer = null;
 const listeners = new Set();
@@ -49,7 +50,8 @@ export function boot() {
       state.error = e?.message ?? String(e);
       emit();
     },
-    afterEval: () => {
+    afterEval: ({ code }) => {
+      evaluatedCode = code;
       if (state.error) {
         state.error = null;
         emit();
@@ -124,6 +126,25 @@ export function now() {
   } catch {
     return null;
   }
+}
+
+// Source ranges [start, end] (character offsets into `code`) of the mini-notation
+// steps sounding right now, for highlighting the code view. Empty unless `code` is
+// what's playing, since the offsets point into the evaluated string.
+export function activeRanges(code) {
+  const t = now();
+  const pat = repl?.scheduler.pattern;
+  if (t == null || !pat || code !== evaluatedCode) return [];
+  const out = [];
+  try {
+    for (const hap of pat.queryArc(t, t + 1e-4)) {
+      if (!hap.whole || hap.whole.begin > t || hap.whole.end <= t) continue;
+      for (const loc of hap.context?.locations ?? []) out.push([loc.start, loc.end]);
+    }
+  } catch {
+    return [];
+  }
+  return out;
 }
 
 // Audition a single sound from the library.

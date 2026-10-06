@@ -579,6 +579,7 @@ a { color: var(--accent); }
 .tk-fn { color: var(--code-method); font-weight: 600; }
 .tk-kw { color: var(--accent); font-style: italic; }
 .tk-com { color: var(--code-comment); font-style: italic; }
+.tk-on { background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--code-text); border-radius: 2px; box-shadow: 0 0 0 1px var(--accent); }
 
 /* ---------------- buttons / drawers / popovers ---------------- */
 .btn {
