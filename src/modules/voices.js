@@ -17,7 +17,7 @@ export const voice = {
   title: 'Sound Generator',
   category: 'Sound',
   hp: 12,
-  description: 'The thing that makes noise. SYNTH plays an oscillator, SAMPLE plays any sound from the library. Feed it PITCH (notes) and/or GATE (a rhythm). With nothing patched it plays one note per bar.',
+  description: 'The thing that makes noise. SYNTH plays an oscillator, SAMPLE plays any sound from the library. Feed it PITCH (notes) and/or GATE (a rhythm). With nothing patched it plays one note per bar. REL is how long a note rings after it ends; at 0 a SAMPLE plays all the way to its end, which is fine for drums but piles up fast with long sounds like pianos.',
   params: {
     mode: { kind: 'switch', label: 'MODE', options: [{ v: 'synth', l: 'SYNTH' }, { v: 'sample', l: 'SAMPLE' }], default: 'synth', structural: true },
     wave: { kind: 'rotary', label: 'WAVE', options: WAVES.map(([v, l]) => ({ v, l })), default: 'sawtooth', structural: true },
@@ -27,7 +27,9 @@ export const voice = {
     attack: { kind: 'knob', label: 'ATK', min: 0, max: 2, default: 0, size: 'sm', curve: 'pow', unit: 's' },
     decay: { kind: 'knob', label: 'DEC', min: 0, max: 2, default: 0, size: 'sm', curve: 'pow', unit: 's' },
     sustain: { kind: 'knob', label: 'SUS', min: 0, max: 1, default: 1, size: 'sm' },
-    release: { kind: 'knob', label: 'REL', min: 0, max: 4, default: 0, size: 'sm', curve: 'pow', unit: 's' },
+    // not 0: in SAMPLE mode REL 0 lets every note ring to the end of its sample, and long
+    // samples (pianos ring ~25s) stack up to the 128-voice cap and choke the CPU
+    release: { kind: 'knob', label: 'REL', min: 0, max: 4, default: 0.5, size: 'sm', curve: 'pow', unit: 's' },
     level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
   },
   inputs: {

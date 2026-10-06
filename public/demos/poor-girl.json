@@ -361,7 +361,8 @@
    "params": {
     "mode": "sample",
     "sound": "crackle",
-    "level": 0.5
+    "level": 0.5,
+    "release": 0
    }
   },
   {
