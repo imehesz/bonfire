@@ -67,7 +67,7 @@ export const beats = {
   title: 'Drum Grid',
   category: 'Rhythm',
   hp: 30,
-  description: 'Four-lane, sixteen-step drum machine. Each lane picks a drum sound and has its own small LEVEL knob; the BANK picks the machine (808, 909, LinnDrum...). Right-click a step for x2 / x4 rolls.',
+  description: 'Four-lane, sixteen-step drum machine. Each lane picks a drum sound and has its own small LEVEL knob; the BANK picks the machine (808, 909, LinnDrum...). SWING pushes every second step late for a shuffle. Right-click a step for x2 / x4 rolls.',
   params: {
     grid: {
       kind: 'data',
@@ -89,13 +89,15 @@ export const beats = {
     level2: { kind: 'knob', label: 'L3 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
     level3: { kind: 'knob', label: 'L4 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
     length: { kind: 'knob', label: 'LENGTH', min: 1, max: 16, default: 16, step: 1, structural: true },
+    swing: { kind: 'knob', label: 'SWING', min: 0, max: 0.6, default: 0 },
   },
   inputs: { clk: { type: 'clock', label: 'CLK' } },
   outputs: { out: { type: 'pattern', label: 'OUT' } },
-  layout: [['widget:grid'], ['bank', 'length', 'in:clk', 'out:out']],
+  layout: [['widget:grid'], ['bank', 'length', 'swing', 'in:clk', 'out:out']],
   compile(ctx) {
-    const { grid, length, bank } = ctx.p;
-    const dur = (ctx.in('clk') ?? 1 / 16) * length;
+    const { grid, length, bank, swing } = ctx.p;
+    const step = ctx.in('clk') ?? 1 / 16;
+    const dur = step * length;
     ctx.meta({ steps: length, dur });
     const lanes = [];
     for (let i = 0; i < LANES; i++) {
@@ -106,7 +108,12 @@ export const beats = {
     if (!lanes.length) return { out: null };
     let out = lanes.length === 1 ? lanes[0] : fn('stack', ...lanes);
     if (bank) out = out.call('bank', mini(bank));
-    return { out: timed(out, dur) };
+    out = timed(out, dur);
+    // swing shuffles every second step, so it needs pairs of steps in a cycle
+    const per = 1 / step;
+    const k = Math.round(per);
+    if (swing > 0.005 && Math.abs(per - k) < 1e-9 && k >= 2 && k % 2 === 0) out = out.call('swingBy', num(swing, 2), num(k / 2));
+    return { out };
   },
 };
 
