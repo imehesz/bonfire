@@ -262,9 +262,17 @@ export function drawCables(hideId) {
 
 svgClick();
 function svgClick() {
+  // double-click picks the cable up by whichever end is nearer, still in hand: click a jack to replug, anywhere else to unplug
   document.addEventListener('dblclick', (e) => {
     const g = e.target.closest?.('.cable');
-    if (g?.dataset.id) disconnect(g.dataset.id);
+    const c = g?.dataset.id && getPatch().cables.find((x) => x.id === g.dataset.id);
+    if (!c) return;
+    const p = toLocal(e.clientX, e.clientY);
+    const a = jackCenter(c.from.m, 'out', c.from.j);
+    const b = jackCenter(c.to.m, 'in', c.to.j);
+    const outNearer = a && b && Math.hypot(p.x - a.x, p.y - a.y) < Math.hypot(p.x - b.x, p.y - b.y);
+    const end = outNearer ? { m: c.from.m, j: c.from.j, dir: 'out' } : { m: c.to.m, j: c.to.j, dir: 'in' };
+    startCableDrag(e, end, c);
   });
   document.addEventListener('contextmenu', (e) => {
     const g = e.target.closest?.('.cable');
@@ -289,20 +297,24 @@ function onPointerDown(e) {
   if (modEl) startModuleDrag(e, modEl);
 }
 
-function startCableDrag(e, start) {
+// `grabbed` = an existing cable picked up by its `start` end (already in hand, no drag needed)
+function startCableDrag(e, start, grabbed = null) {
   e.preventDefault();
   const patch = getPatch();
   let anchor = start; // the fixed end
   let fixedColor = null;
   let hideId = null;
   // grabbing a patched input picks up its cable by the input end
-  if (start.dir === 'in') {
-    const existing = patch.cables.find((c) => c.to.m === start.m && c.to.j === start.j);
-    if (existing) {
-      hideId = existing.id;
-      fixedColor = existing.color;
+  const existing = grabbed ?? (start.dir === 'in' ? patch.cables.find((c) => c.to.m === start.m && c.to.j === start.j) : null);
+  if (existing) {
+    hideId = existing.id;
+    fixedColor = existing.color;
+    if (start.dir === 'in') {
       const out = MODULES[findModule(existing.from.m).type].outputs[existing.from.j];
       anchor = { m: existing.from.m, j: existing.from.j, dir: 'out', type: out.type };
+    } else {
+      const inp = MODULES[findModule(existing.to.m).type].inputs[existing.to.j];
+      anchor = { m: existing.to.m, j: existing.to.j, dir: 'in', type: inp.type };
     }
   }
   const wantDir = anchor.dir === 'out' ? 'in' : 'out';
@@ -358,7 +370,7 @@ function startCableDrag(e, start) {
     if (target) {
       const from = wantDir === 'in' ? { m: anchor.m, j: anchor.j } : { m: target.m, j: target.j };
       const to = wantDir === 'in' ? { m: target.m, j: target.j } : { m: anchor.m, j: anchor.j };
-      if (hideId && to.m === start.m && to.j === start.j) {
+      if (hideId && target.m === start.m && target.j === start.j) {
         drawCables(); // dropped back where it was
       } else {
         if (hideId) disconnect(hideId);
@@ -388,20 +400,21 @@ function startCableDrag(e, start) {
     cleanup();
     drawCables(); // cancel: a picked-up cable goes back where it was
   };
+  const holdInHand = () => {
+    window.addEventListener('pointerdown', stickyDown, true);
+    window.addEventListener('pointerup', stickyUp, true);
+    window.addEventListener('keydown', onKey);
+    scroller.addEventListener('scroll', onScroll);
+  };
   const up = (ev) => {
     window.removeEventListener('pointerup', up);
-    if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) {
-      window.addEventListener('pointerdown', stickyDown, true);
-      window.addEventListener('pointerup', stickyUp, true);
-      window.addEventListener('keydown', onKey);
-      scroller.addEventListener('scroll', onScroll);
-      return;
-    }
+    if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) return holdInHand();
     finish();
   };
   move(e);
   window.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', up);
+  if (grabbed) holdInHand(); // the double-click's own pointerup has already happened
+  else window.addEventListener('pointerup', up);
 }
 
 function startModuleDrag(e, modEl) {

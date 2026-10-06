@@ -239,7 +239,7 @@ function showHelp() {
     h('h3', {}, 'Patching'),
     h('ul', {},
       h('li', {}, 'Drag from a jack to a jack. Only matching colours light up.'),
-      h('li', {}, 'Drag a cable off an input to move it; drop it in empty space to unplug. Double-click or right-click a cable to delete it.'),
+      h('li', {}, 'Drag a cable off an input to move it; drop it in empty space to unplug. Double-click a cable to pick up its nearer end: click another jack to replug it, anywhere else to unplug. Right-click a cable to delete it.'),
       h('li', {}, 'Outputs can feed many inputs; each input takes one cable.'),
       h('li', {}, 'Drag a module by its panel to move it. Right-click a panel for duplicate / reset / delete.'),
       h('li', {}, 'Knobs & faders: drag up/down (Shift = fine), mouse wheel, or double-click to type an exact value.'),
