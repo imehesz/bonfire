@@ -127,6 +127,18 @@ export function addModule(type, at) {
   const def = MODULES[type];
   if (def.singleton && patch.modules.some((m) => m.type === type)) return { error: `Only one ${def.name} per rack.` };
   checkpoint();
+  return { module: placeModule(type, at) };
+}
+
+// Several modules at once, as ONE undo step. Singletons already in the rack are skipped.
+export function addModules(types) {
+  const skipped = types.filter((t) => MODULES[t].singleton && patch.modules.some((m) => m.type === t));
+  const ok = types.filter((t) => !skipped.includes(t));
+  if (ok.length) checkpoint();
+  return { added: ok.map((t) => placeModule(t)), skipped };
+}
+
+function placeModule(type, at) {
   let pos = at && fits({ type, ...at }) ? at : null;
   if (at && !pos) {
     const x = nearestFree(type, at.row, at.x);
@@ -136,7 +148,7 @@ export function addModule(type, at) {
   const m = { id: nextId(type), type, ...pos, params: defaultParams(type) };
   patch.modules.push(m);
   emit('structure', { added: m.id });
-  return { module: m };
+  return m;
 }
 
 export function duplicateModule(id) {

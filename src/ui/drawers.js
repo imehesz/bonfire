@@ -1,12 +1,12 @@
 // Side drawers: MODULES (left) and SAMPLES (right).
 import { CATEGORY_ORDER, MODULES } from '../modules/index.js';
-import { addModule, addSamplePack, getPatch, removeSamplePack } from '../core/store.js';
+import { addModule, addModules, addSamplePack, getPatch, removeSamplePack } from '../core/store.js';
 import { audition } from '../core/engine.js';
 import {
   GROUP_ORDER, addLocalFiles, forgetPack, getLocalNames, library, loadPack, onLibrary, packKey, packState, removeLocalSound,
 } from '../core/samples.js';
 import { prettySound } from '../core/music.js';
-import { h, toast } from './dom.js';
+import { h, modal, toast } from './dom.js';
 import { showModuleHelp } from './rack.js';
 
 function drawer(side, title, body) {
@@ -16,9 +16,29 @@ function drawer(side, title, body) {
   return el;
 }
 
+// CTRL/CMD-click cards to select several; + on a selected card adds them all (in click order).
+function addSelected(selected, render) {
+  const types = [...selected];
+  const run = () => {
+    const { added, skipped } = addModules(types);
+    selected.clear();
+    render();
+    const names = (list) => list.map((t) => MODULES[t].name).join(', ');
+    if (added.length) toast(`${added.length} module${added.length === 1 ? '' : 's'} added`);
+    if (skipped.length) toast(`Only one per rack, skipped: ${names(skipped)}`, 'warn');
+  };
+  if (types.length < 2) return run();
+  const dlg = modal(h('div', { class: 'confirm' },
+    h('p', {}, 'Are you sure you want to add ', h('b', {}, types.length), ' modules to the rack?'),
+    h('div', { class: 'confirm-actions' },
+      h('button', { class: 'btn', onclick: () => dlg.close() }, 'CANCEL'),
+      h('button', { class: 'btn accent', onclick: () => { dlg.close(); run(); } }, 'ADD'))), { className: 'modal-confirm' });
+}
+
 export function mountModuleDrawer(host) {
   const search = h('input', { type: 'search', placeholder: 'find a module…', class: 'drawer-search' });
   const list = h('div', { class: 'mod-list' });
+  const selected = new Set(); // module types, in the order they were picked
   const render = () => {
     const q = search.value.trim().toLowerCase();
     list.replaceChildren();
@@ -28,18 +48,34 @@ export function mountModuleDrawer(host) {
       if (!defs.length) continue;
       list.append(h('div', { class: 'cat' }, cat.toUpperCase()));
       for (const d of defs) {
-        const card = h('div', { class: 'mod-card', draggable: 'true', title: 'Drag onto the rack, or click + to add' },
+        const card = h('div', {
+          class: `mod-card ${selected.has(d.type) ? 'selected' : ''}`,
+          draggable: 'true',
+          title: 'Drag onto the rack, or click + to add. CTRL-click to select several.',
+        },
           h('div', { class: 'mc-icon', style: { backgroundImage: `url(icons/${d.type}.png)` } }),
           h('div', { class: 'mc-text' },
             h('div', { class: 'mc-name' }, d.name, h('span', { class: 'mc-hp' }, `${d.hp} HP`)),
             h('div', { class: 'mc-title' }, d.title),
             h('div', { class: 'mc-desc' }, d.description)),
           h('div', { class: 'mc-actions' },
-            h('button', { class: 'mc-add', title: 'Add to rack', onclick: () => {
+            h('button', { class: 'mc-add', title: 'Add to rack', onclick: (e) => {
+              if (e.ctrlKey || e.metaKey) return; // the card's handler toggles the selection
+              if (selected.has(d.type)) return addSelected(selected, render);
               const res = addModule(d.type);
               toast(res.error ?? `${d.name} added`, res.error ? 'warn' : '');
             } }, '+'),
             h('button', { class: 'mc-info', title: 'What does it do?', onclick: () => showModuleHelp(d) }, '?')));
+        card.addEventListener('click', (e) => {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            selected.has(d.type) ? selected.delete(d.type) : selected.add(d.type);
+            card.classList.toggle('selected', selected.has(d.type));
+          } else if (!e.target.closest('button') && selected.size) {
+            selected.clear();
+            render();
+          }
+        });
         card.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/bonfire-module', d.type);
           e.dataTransfer.effectAllowed = 'copy';
