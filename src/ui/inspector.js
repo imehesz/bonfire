@@ -3,6 +3,10 @@ import { code2hash } from '@strudel/core';
 import { activeRanges } from '../core/engine.js';
 import { h, toast } from './dom.js';
 
+// Exported code (COPY / OPEN IN STRUDEL) gets a link back to the app on top and this
+// patch's share link at the bottom. The dock itself shows the bare playing code.
+const SITE = 'https://mehesz.net/bonfire/';
+
 const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // `active` = [start, end] character ranges to light up (the steps playing right now).
@@ -39,6 +43,7 @@ export function mountInspector(host) {
   const status = h('div', { class: 'insp-status' });
   const lines = h('span', { class: 'insp-lines' });
   let code = '';
+  let shareLink = '';
   let litKey = '';
   let playing = false;
   let collapsed = false;
@@ -47,15 +52,17 @@ export function mountInspector(host) {
     collapsed = localStorage.getItem('bonfire.inspector') === 'closed';
     side = localStorage.getItem('bonfire.dock') === 'right' ? 'right' : 'bottom';
   } catch { /* ignore */ }
+  const exported = () => [`// made with Bonfire STACK: ${SITE}`, code,
+    ...(shareLink ? ['', `// open this patch in Bonfire STACK: ${shareLink}`] : [])].join('\n');
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(exported());
       toast('Code copied — paste it into strudel.cc');
     } catch {
       toast('Clipboard blocked by the browser', 'warn');
     }
   };
-  const open = () => window.open(`https://strudel.cc/#${code2hash(code)}`, '_blank', 'noopener');
+  const open = () => window.open(`https://strudel.cc/#${code2hash(exported())}`, '_blank', 'noopener');
   const toggleBtn = h('button', { class: 'insp-toggle', title: 'Show / hide code' });
   const dock = h('section', { class: 'inspector' },
     h('header', {},
@@ -106,6 +113,9 @@ export function mountInspector(host) {
   return {
     dockSide: () => side,
     setDock,
+    setShareLink(url) {
+      shareLink = url;
+    },
     setCode(c) {
       if (c === code) return;
       code = c;

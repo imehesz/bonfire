@@ -137,12 +137,16 @@ updateZoom();
 
 // ---------------- store -> code -> engine ----------------
 let saveT = null;
+let shareSeq = 0;
 function recompile({ immediate = false } = {}) {
   const patch = store.getPatch();
   compiled = compilePatch(patch);
   meta = compiled.meta;
   inspector.setCode(compiled.code);
   engine.setCode(compiled.code, { immediate });
+  // kept ready so COPY / OPEN IN STRUDEL can add it without an await (popup blockers)
+  const seq = ++shareSeq;
+  shareUrl(patch).then((url) => seq === shareSeq && inspector.setShareLink(url)).catch(() => {});
   rack.markReachable(compiled.reachable);
   const out = patch.modules.find((m) => m.type === 'output');
   engine.setMaster(out ? out.params.volume : 0, out ? out.params.mute : false);
