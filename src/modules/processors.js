@@ -1,5 +1,5 @@
-// Pattern processors: VANDALIZER, FILTER, FX, TAPE, LFO, DUCK, MIXER, OUTPUT.
-import { arrow, fn, ident, lambda, num, printExpr, raw } from '../core/expr.js';
+// Pattern processors: VANDALIZER, FILTER, FX, VINTAGE, TAPE, LFO, DUCK, MIXER, OUTPUT.
+import { arrow, fn, ident, lambda, mini, num, printExpr, raw } from '../core/expr.js';
 import { RATES, isDefault, rated, setIf } from './helpers.js';
 
 const SOMETIMES = {
@@ -112,6 +112,59 @@ export const fx = {
     }
     e = e.callIf(p.crush < 16, 'crush', num(p.crush));
     e = setIf(e, 'shape', p.drive, 0, 2);
+    return { out: e };
+  },
+};
+
+// VINTAGE: one knob's worth of a classic sampler's colour, built from superdough's per-event
+// effects: bit depth (crush), sample-rate reduction (coarse, a whole-number divider of the
+// 44.1/48k context), the output filter (a lowpass limit), saturation (shape) and compression.
+// AMOUNT scales every setting from clean (0) to the full model (1).
+const VINTAGE_MODELS = {
+  mpc60: { l: 'MPC60', bits: 12, coarse: 1, lpf: 14000, drive: 0.3, comp: [-14, 3] },
+  mpc2k: { l: 'MPC2000', bits: 16, coarse: 1, lpf: 17000, drive: 0.15, comp: [-20, 4] },
+  sp1200: { l: 'SP-1200', bits: 12, coarse: 2, lpf: 11000, drive: 0.3, comp: null },
+  sp303: { l: 'SP-303', bits: 14, coarse: 1, lpf: 8000, drive: 0.35, comp: [-26, 6] },
+  s950: { l: 'S950', bits: 12, coarse: 1, lpf: 10000, drive: 0.15, comp: null },
+  emu2: { l: 'EMU II', bits: 9, coarse: 2, lpf: 9000, drive: 0.2, comp: null },
+};
+
+// Like cutLimit: if the chain already sets `name`, keep whichever is rougher per event
+// instead of overwriting it (pick 'min' for crush bits, 'max' for coarse / shape).
+function roughLimit(e, name, value, pick, digits = 2) {
+  if (!new RegExp(`\\b${name}\\(`).test(printExpr(e))) return e.call(name, num(value, digits));
+  const v = Number(value.toFixed(digits));
+  return e.call('withValue', raw(`v => ({ ...v, ${name}: Math.${pick}(v.${name} ?? ${v}, ${v}) })`));
+}
+
+export const vintage = {
+  type: 'vintage',
+  name: 'VINTAGE',
+  title: 'Vintage Sampler Colour',
+  category: 'Shape',
+  hp: 10,
+  description: 'Makes whatever runs through it sound like it came out of a classic sampler. MODEL picks the machine: MPC60 (12-bit, warm and saturated), MPC2000 (clean 16-bit punch), SP-1200 (12-bit at ~26 kHz, gritty aliasing), SP-303 (dark, squashed lo-fi), S950 (12-bit with its smooth low-pass) or EMU II (crunchy ~8-bit at ~27 kHz). AMOUNT goes from clean to the full machine. SWING is MPC-style 16th-note swing for everything it receives: 50% is straight, 66% is triplet feel, 75% is the hardest. Put it last, just before OUTPUT, to colour the whole track. It never makes anything cleaner: if an earlier FX already crushes, drives or filters harder, that wins.',
+  params: {
+    model: { kind: 'rotary', label: 'MODEL', options: Object.entries(VINTAGE_MODELS).map(([v, m]) => ({ v, l: m.l })), default: 'mpc60', structural: true },
+    amount: { kind: 'knob', label: 'AMOUNT', min: 0, max: 1, default: 1, size: 'lg' },
+    swing: { kind: 'knob', label: 'SWING', min: 50, max: 75, default: 50, step: 1, size: 'sm', unit: '%' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['model'], ['amount'], ['swing'], ['in:in', 'out:out']],
+  compile(ctx) {
+    let e = ctx.in('in');
+    if (!e) return { out: null };
+    const { amount: a, swing } = ctx.p;
+    const m = VINTAGE_MODELS[ctx.p.model] ?? VINTAGE_MODELS.mpc60;
+    if (swing > 50.5) e = e.call('swingBy', num((swing - 50) / 50, 2), num(8));
+    if (a < 0.005) return { out: e };
+    e = cutLimit(e, 'lpf', 20000 * (m.lpf / 20000) ** a, 20000);
+    if (m.coarse > 1 && a >= 0.5) e = roughLimit(e, 'coarse', m.coarse, 'max', 0);
+    const bits = 16 - a * (16 - m.bits);
+    if (bits < 15.5) e = roughLimit(e, 'crush', bits, 'min', 1);
+    if (m.drive * a > 0.01) e = roughLimit(e, 'shape', m.drive * a, 'max', 2);
+    if (m.comp) e = e.call('compressor', mini(`${Math.round(m.comp[0] * a)}:${1 + (m.comp[1] - 1) * a}:6:0.005:0.12`));
     return { out: e };
   },
 };
