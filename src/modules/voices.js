@@ -1,4 +1,4 @@
-// Sound makers: VOICE (synth / sample) and SAMPLER (one-shot / loop / slice).
+// Sound makers: VOICE (synth / sample), SUB DRONE (sub + reese bass) and SAMPLER (one-shot / loop / slice).
 import { fn, mini, num } from '../core/expr.js';
 import { BANKS, DRUM_SOUNDS, WAVES, bankLabel, isPitched, midiToNote } from '../core/music.js';
 import { setIf } from './helpers.js';
@@ -63,6 +63,71 @@ export const voice = {
     e = setIf(e, 'gain', p.level, 1);
     const pan = ctx.in('pan');
     if (pan) e = e.call('pan', pan);
+    return { out: e };
+  },
+};
+
+// SUB DRONE: Moog-Taurus-style deep bass. A sine for weight plus a 2-voice supersaw detuned
+// against itself (the Reese beat). Only the Reese is filtered, so the sub stays solid. DRIFT uses
+// superdough's in-note filter LFO (lpsync/lpdepth): pattern-driven .lpf() is sampled once per note
+// and would never move inside a held drone; this one sweeps continuously, locked to song time.
+const DRIFT_RATES = [{ v: 1, l: '1 BAR' }, { v: 2, l: '2 BAR' }, { v: 4, l: '4 BAR' }, { v: 8, l: '8 BAR' }, { v: 16, l: '16 BAR' }];
+
+export const drone = {
+  type: 'drone',
+  name: 'SUB DRONE',
+  title: 'Deep Bass Drone',
+  category: 'Sound',
+  hp: 14,
+  description: 'Huge, slow, deep bass in the spirit of the Moog Taurus bass pedals. SUB is a pure sine you feel more than hear; REESE is two saws detuned against each other, so they beat and swirl (0 = one plain saw). TONE is a lowpass on the REESE (the SUB stays clean), and DRIFT slowly sweeps it open and shut, even inside one long held note (SPEED = how many bars one sweep takes). DRIVE adds grit. Feed it PITCH (a MELODY on a slow clock works great) and/or GATE; with nothing patched it holds a low C for 4 bars at a time. Long ATK / REL make it swell and fade.',
+  params: {
+    sub: { kind: 'knob', label: 'SUB', min: 0, max: 1, default: 0.6 },
+    reese: { kind: 'knob', label: 'REESE', min: 0, max: 1, default: 0.35 },
+    tone: { kind: 'knob', label: 'TONE', min: 40, max: 5000, default: 350, curve: 'log', size: 'lg', unit: 'Hz' },
+    res: { kind: 'knob', label: 'RES', min: 0, max: 20, default: 3, size: 'sm' },
+    drift: { kind: 'knob', label: 'DRIFT', min: 0, max: 1, default: 0.5, size: 'sm' },
+    rate: { kind: 'rotary', label: 'SPEED', options: DRIFT_RATES, default: 4, size: 'sm', structural: true },
+    drive: { kind: 'knob', label: 'DRIVE', min: 0, max: 0.95, default: 0.3, size: 'sm' },
+    tune: { kind: 'knob', label: 'TUNE', min: -24, max: 24, default: 0, step: 1, size: 'sm', unit: 'st' },
+    attack: { kind: 'knob', label: 'ATK', min: 0, max: 4, default: 0.4, size: 'sm', curve: 'pow', unit: 's' },
+    release: { kind: 'knob', label: 'REL', min: 0, max: 6, default: 1.5, size: 'sm', curve: 'pow', unit: 's' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+  },
+  inputs: {
+    pitch: { type: 'pitch', label: 'PITCH' },
+    gate: { type: 'rhythm', label: 'GATE' },
+  },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['sub', 'reese'], ['tone'], ['res', 'drift', 'rate', 'drive'], ['tune', 'attack', 'release', 'level'], ['in:pitch', 'in:gate', 'out:out']],
+  compile(ctx) {
+    const p = ctx.p;
+    const pitch = ctx.in('pitch');
+    const gate = ctx.in('gate');
+    // no PITCH: a low C held for 4 bars (or struck by GATE)
+    let src = pitch ?? fn('note', mini('c2'));
+    if (gate) src = src.call('struct', gate);
+    else if (!pitch) src = src.call('slow', num(4));
+    src = src.callIf(p.tune, 'transpose', num(p.tune));
+    // 2-voice supersaw: detune = total spread in semitones, so 0.35 -> ~18 cents of beating
+    let reese = p.reese > 0.005
+      ? src.call('s', mini('supersaw')).call('unison', num(2)).call('detune', num(p.reese * 0.5, 3))
+      : src.call('s', mini('sawtooth'));
+    reese = reese.call('lpf', num(Math.round(p.tone), 0));
+    reese = setIf(reese, 'lpq', p.res, 0, 1);
+    // LFO swings the cutoff +-(depth / 2) * TONE, one cycle every SPEED bars
+    if (p.drift > 0.005) {
+      reese = reese.call('lpsync', num(1 / p.rate, 4)).call('lpdepth', num(p.drift * 1.8, 2)).call('lpshape', mini('sine'));
+    }
+    const layers = [reese];
+    if (p.sub > 0.005) layers.push(setIf(src.call('s', mini('sine')), 'velocity', p.sub * 1.4, 1, 2));
+    let e = layers.length === 1 ? layers[0] : fn('stack', ...layers);
+    // superdough's synth sustain defaults below 1; a drone holds
+    e = e.call('sustain', num(1));
+    e = setIf(e, 'attack', p.attack, 0);
+    e = setIf(e, 'release', p.release, 0);
+    e = setIf(e, 'shape', p.drive, 0, 2);
+    e = setIf(e, 'gain', p.level, 1);
+    ctx.meta({ rate: p.rate });
     return { out: e };
   },
 };
