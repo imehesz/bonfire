@@ -51,6 +51,7 @@ export function buildModule(mod, { preview = false } = {}) {
     }
     if (spec.startsWith('widget:')) {
       const w = WIDGETS[spec.slice(7)](mod, def);
+      w.el.dataset.widget = spec.slice(7);
       widgets.push(w);
       return w.el;
     }
@@ -102,6 +103,7 @@ export function buildModule(mod, { preview = false } = {}) {
       el.classList.toggle('mode-sample', p.mode === 'sample');
     }
     if (mod.type === 'sampler') el.dataset.mode = p.mode;
+    if (mod.type === 'chords') el.dataset.face = p.face;
   };
   update();
 
@@ -113,7 +115,7 @@ export function buildModule(mod, { preview = false } = {}) {
       if (!p) return;
       if (controls[key]) controls[key].update(p[key]);
       widgets.forEach((w) => w.update(p));
-      if (key === 'mode') update();
+      if (key === 'mode' || key === 'face') update();
     },
     tick(cycle, meta) {
       for (const w of widgets) w.tick(cycle, meta);

@@ -3,8 +3,8 @@ import { checkpoint, findModule, setParam } from '../core/store.js';
 import { bjorklund } from '@strudel/core';
 import { analysers } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
-import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, arpOrder, beats } from '../modules/sources.js';
-import { h, hideTip, s, showTip } from './dom.js';
+import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, arpOrder, beats, chordPlan } from '../modules/sources.js';
+import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
 import { editValue, knob, select } from './controls.js';
 
 const stop = (e) => e.stopPropagation();
@@ -227,6 +227,106 @@ function arp(mod) {
       slots.forEach((c, i) => c.col.classList.toggle('play', i === ci));
       bars.forEach((b, i) => b.classList.toggle('play', i === si));
     },
+  };
+}
+
+// CHORDS: 8 slots of (numeral, degree knob, chord name). Click a name to force
+// the next chord type, right-click for the previous one.
+function chords(mod) {
+  const el = h('div', { class: 'w-chords' });
+  const slots = [];
+  const bump = (i, by) => {
+    const q = [...findModule(mod.id).params.quals];
+    const n = CHORD_QUALITIES.length;
+    q[i] = CHORD_QUALITIES[(CHORD_QUALITIES.findIndex((o) => o.v === q[i]) + by + n) % n].v;
+    setParam(mod.id, 'quals', q);
+  };
+  for (let i = 0; i < CHORD_SLOTS; i++) {
+    const num = h('div', { class: 'ch-num' });
+    const knob = degreeKnob(mod, 'degrees', i, 6, `CHORD ${i + 1}`);
+    const name = h('button', { class: 'lcd ch-name', onpointerdown: stop }, h('b'), h('i'));
+    name.addEventListener('click', () => bump(i, 1));
+    name.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      bump(i, -1);
+    });
+    const col = h('div', { class: 'mel-col' }, num, knob.el, name);
+    slots.push({ col, num, knob, name });
+    el.append(col);
+  }
+  return {
+    el,
+    update(p) {
+      // plan every slot so the ones past LENGTH still show their chord
+      const plan = chordPlan({ ...p, length: CHORD_SLOTS });
+      slots.forEach((c, i) => {
+        c.knob.update(p.degrees[i]);
+        c.num.textContent = plan[i].numeral;
+        c.name.querySelector('b').textContent = plan[i].name;
+        const q = CHORD_QUALITIES.find((o) => o.v === p.quals[i]) ?? CHORD_QUALITIES[0];
+        c.name.querySelector('i').textContent = q.l;
+        c.name.classList.toggle('fixed', q.v !== 'auto');
+        c.col.classList.toggle('off-len', i >= p.length);
+      });
+    },
+    tick(cycle, meta) {
+      const k = stepIndex(cycle, meta);
+      slots.forEach((c, i) => c.col.classList.toggle('play', i === k));
+    },
+  };
+}
+
+// CHORDS: load a progression (preset or mood) as one undo step. ROOT stays.
+function loadProgression(mod, pr, extra = {}) {
+  const degrees = [...findModule(mod.id).params.degrees];
+  const quals = Array(CHORD_SLOTS).fill('auto');
+  pr.d.forEach((d, i) => { degrees[i] = d; quals[i] = pr.q?.[i] ?? 'auto'; });
+  checkpoint();
+  for (const [k, v] of Object.entries({ ...extra, scale: pr.scale, degrees, quals, length: pr.d.length })) {
+    setParam(mod.id, k, v, { record: false });
+  }
+}
+
+// CHORDS ADVANCED: PRESETS loads a famous progression.
+function chordPresets(mod) {
+  const disp = h('button', { class: 'lcd sel-disp', onpointerdown: stop }, 'LOAD…');
+  disp.addEventListener('click', () => {
+    const list = h('div', { class: 'pick-list' }, CHORD_PRESETS.map((pr) => h('button', {
+      class: 'pick',
+      onclick: () => {
+        closePopover();
+        loadProgression(mod, pr);
+      },
+    }, pr.l)));
+    popover(disp, list, { className: 'pop-select' });
+  });
+  return {
+    el: h('div', { class: 'ctl select ch-presets' }, h('div', { class: 'sel-body' }, disp), h('label', {}, 'PRESETS')),
+    update() {},
+    tick() {},
+  };
+}
+
+// CHORDS BASIC: mood buttons + DICE. A mood loads one of its progressions at
+// random; DICE rolls a different one from the same mood.
+function chordMoods(mod) {
+  const roll = (mood) => {
+    const m = CHORD_MOODS.find((x) => x.v === mood) ?? CHORD_MOODS[0];
+    const p = findModule(mod.id).params;
+    const same = (pr) => pr.scale === p.scale && pr.d.length === p.length && pr.d.every((d, i) => d === p.degrees[i]);
+    const pool = m.p.filter((pr) => !same(pr));
+    const pr = pool[Math.floor(Math.random() * pool.length)] ?? m.p[0];
+    loadProgression(mod, pr, { mood: m.v, size: m.size ?? 'triad' });
+  };
+  const btns = CHORD_MOODS.map((m) => h('button', { class: 'step ch-mood', onpointerdown: stop, onclick: () => roll(m.v) }, h('b', {}, m.l)));
+  const dice = h('button', { class: 'step ch-mood ch-dice', onpointerdown: stop, onclick: () => roll(findModule(mod.id).params.mood) }, h('b', {}, '⚄ DICE'));
+  return {
+    el: h('div', { class: 'w-moods' }, ...btns, dice),
+    update(p) {
+      btns.forEach((b, i) => b.classList.toggle('on', CHORD_MOODS[i].v === p.mood));
+    },
+    tick() {},
   };
 }
 
@@ -714,4 +814,4 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, arp, chain, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };
+export const WIDGETS = { steps, grid, melody, arp, chords, chordPresets, chordMoods, chain, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };

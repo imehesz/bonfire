@@ -37,7 +37,19 @@ const SCALE_STEPS = {
   blues: [0, 3, 5, 6, 7, 10],
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
 };
-export const scaleLength = (scale) => (SCALE_STEPS[scale] ?? SCALE_STEPS.major).length;
+export const scaleSteps = (scale) => SCALE_STEPS[scale] ?? SCALE_STEPS.major;
+export const scaleLength = (scale) => scaleSteps(scale).length;
+
+// Pitch-class names for display. A key is spelled with sharps when that gives
+// its scale more distinct letters than flats do (E major: G# not Ab).
+const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+export function useSharps(root, scale) {
+  const r = ROOTS.indexOf(root);
+  const pcs = scaleSteps(scale).map((s) => (r + s) % 12);
+  const letters = (names) => new Set(pcs.map((pc) => names[pc][0])).size;
+  return letters(SHARP_NAMES) > letters(ROOTS);
+}
+export const pcName = (pc, sharps) => (sharps ? SHARP_NAMES : ROOTS)[((pc % 12) + 12) % 12];
 
 // "C3:harmonic:minor" — Strudel reads ':' as a space, and a real space would
 // split the mini-notation string.
