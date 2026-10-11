@@ -4,6 +4,7 @@ import { bjorklund } from '@strudel/core';
 import { analysers } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
 import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, arpOrder, beats, chordPlan } from '../modules/sources.js';
+import { FENV_PRESETS } from '../modules/processors.js';
 import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
 import { editValue, knob, select } from './controls.js';
 
@@ -325,6 +326,101 @@ function chordMoods(mod) {
     el: h('div', { class: 'w-moods' }, ...btns, dice),
     update(p) {
       btns.forEach((b, i) => b.classList.toggle('on', CHORD_MOODS[i].v === p.mood));
+    },
+    tick() {},
+  };
+}
+
+// FILTER ENV: SHAPE picker, styled like a select. Picking (or ‹ ›) loads a shape as one
+// undo step; DICE rolls a random one. Shows CUSTOM once the knobs no longer match a shape.
+const FENV_KEYS = ['open', 'swell', 'snap', 'hold'];
+function fenvPresets(mod) {
+  const load = (v, vals) => {
+    checkpoint();
+    for (const [k, x] of Object.entries({ ...vals, preset: v })) setParam(mod.id, k, x, { record: false });
+  };
+  const r = (lo, hi) => Number((lo + Math.random() * (hi - lo)).toFixed(2));
+  const dice = () => load('', {
+    open: r(1.5, 5),
+    swell: Math.random() < 0.7 ? r(0, 0.08) : r(0.1, 0.8),
+    snap: Number((0.08 * 10 ** Math.random()).toFixed(2)),
+    hold: Math.random() < 0.4 ? 0 : r(0.1, 0.6),
+  });
+  const pick = (pr) => load(pr.v, Object.fromEntries(FENV_KEYS.map((k) => [k, pr[k]])));
+  const step = (d) => {
+    const i = FENV_PRESETS.findIndex((pr) => pr.v === findModule(mod.id).params.preset);
+    pick(FENV_PRESETS[(i + d + FENV_PRESETS.length) % FENV_PRESETS.length]);
+  };
+  const disp = h('button', { class: 'lcd sel-disp', onpointerdown: stop });
+  disp.addEventListener('click', () => {
+    const cur = findModule(mod.id).params.preset;
+    const item = (l, cls, fn) => h('button', { class: `pick ${cls}`, onclick: () => { closePopover(); fn(); } }, l);
+    const list = h('div', { class: 'pick-list' },
+      FENV_PRESETS.map((pr) => item(pr.l, pr.v === cur ? 'active' : '', () => pick(pr))),
+      item('⚄ DICE', 'fe-dice', dice));
+    popover(disp, list, { className: 'pop-select' });
+  });
+  const arrow = (d, t) => h('button', { class: 'sel-arrow', onpointerdown: stop, onclick: () => step(d) }, t);
+  return {
+    el: h('div', { class: 'ctl select fe-shape' }, h('div', { class: 'sel-body' }, arrow(-1, '‹'), disp, arrow(1, '›')), h('label', {}, 'SHAPE')),
+    update(p) {
+      const pr = FENV_PRESETS.find((x) => x.v === p.preset);
+      disp.textContent = pr && FENV_KEYS.every((k) => Math.abs(pr[k] - p[k]) < 0.005) ? pr.l : 'CUSTOM';
+    },
+    tick() {},
+  };
+}
+
+// FILTER ENV: draws the envelope one note makes, in octaves above the resting cutoff
+// (height = OPEN out of 6), over a fixed 1.6 s window so fast and slow shapes look different.
+// The dashed line is a held note ending (0.4 s); after it the filter closes at SNAP speed.
+function fenvScope() {
+  const c = h('canvas', { class: 'w-fenv-scope', width: 300, height: 104 });
+  const g = c.getContext('2d');
+  const WIN = 1.6, NOTE = 0.4, PAD = 8;
+  let raf = 0;
+  const draw = (p) => {
+    const col = getComputedStyle(c).getPropertyValue('--scope-line').trim() || '#2ec4d6';
+    const W = c.width, H = c.height;
+    const X = (t) => (t / WIN) * W;
+    const Y = (oct) => H - PAD - (Math.min(oct, 6) / 6) * (H - 2 * PAD);
+    // superdough moves the cutoff between rest and rest*2^OPEN; HOLD is a share of that range in Hz
+    const sus = Math.log2(1 + (2 ** p.open - 1) * p.hold);
+    const atk = Math.max(p.swell, 0.001);
+    // a SWELL longer than the note lets go before it reaches the top
+    const pts = atk < NOTE ? [[0, 0], [atk, p.open]] : [[0, 0], [NOTE, p.open * (NOTE / atk)]];
+    if (atk < NOTE) {
+      const dEnd = Math.min(atk + p.snap, NOTE);
+      const lv = p.open + (sus - p.open) * ((dEnd - atk) / p.snap);
+      pts.push([dEnd, lv], [NOTE, lv]);
+    }
+    const end = pts[pts.length - 1];
+    if (p.hold > 0.01) pts.push([NOTE + p.snap, 0]);
+    else pts.push([end[0] + 0.01, 0]);
+    pts.push([WIN, 0]);
+    g.clearRect(0, 0, W, H);
+    g.strokeStyle = col;
+    g.globalAlpha = 0.35;
+    g.lineWidth = 2;
+    g.setLineDash([5, 5]);
+    g.beginPath();
+    g.moveTo(X(NOTE), 4);
+    g.lineTo(X(NOTE), H - 4);
+    g.stroke();
+    g.setLineDash([]);
+    g.globalAlpha = 1;
+    g.lineWidth = 3;
+    g.lineJoin = 'round';
+    g.beginPath();
+    pts.forEach(([t, v], i) => (i ? g.lineTo(X(t), Y(v)) : g.moveTo(X(t), Y(v))));
+    g.stroke();
+  };
+  return {
+    el: c,
+    // next frame, so the canvas is on the panel and reads the skin's --scope-line
+    update(p) {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => draw(p));
     },
     tick() {},
   };
@@ -814,4 +910,4 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, arp, chords, chordPresets, chordMoods, chain, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };
+export const WIDGETS = { steps, grid, melody, arp, chords, chordPresets, chordMoods, fenvPresets, fenvScope, chain, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };

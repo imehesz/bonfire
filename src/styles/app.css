@@ -512,6 +512,9 @@ a { color: var(--accent); }
 .step.ch-mood b { font-family: var(--font-display); font-size: 11px; font-weight: normal; color: var(--display-text); opacity: 0.6; }
 .step.ch-mood.on b { color: var(--led); opacity: 1; text-shadow: 0 0 6px var(--led); }
 .step.ch-dice b { color: var(--accent); opacity: 1; }
+/* FILTER ENV: SHAPE picker + envelope LCD */
+.fe-shape .sel-disp { min-width: 72px; }
+.pick.fe-dice { color: var(--accent); }
 /* CHORDS faces: BASIC = moods + chord names only; ADVANCED = everything else */
 .module[data-face='basic'] :is([data-param='scale'], [data-param='size'], [data-param='voicing'], [data-param='inv'],
   [data-param='bass'], [data-param='length'], [data-param='lead'], [data-widget='chordPresets'], .ch-num, .w-chords .knob, .ch-name i),
@@ -551,6 +554,7 @@ a { color: var(--accent); }
   background: var(--accent); box-shadow: 0 0 6px 2px var(--accent); }
 .w-lfo, .w-scope { display: block; border-radius: 4px; background: var(--scope); box-shadow: inset 0 1px 6px #000, 0 1px 0 rgba(255, 255, 255, 0.2); }
 .w-lfo { width: 70px; height: 36px; }
+.w-fenv-scope { display: block; width: 150px; height: 52px; border-radius: 4px; background: var(--scope); box-shadow: inset 0 1px 6px #000, 0 1px 0 rgba(255, 255, 255, 0.2); }
 .w-scope { width: 186px; height: 72px; }
 .w-meters { display: flex; gap: 4px; align-items: flex-end; position: relative; padding-bottom: 12px; }
 .meter-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }

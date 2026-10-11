@@ -1,4 +1,4 @@
-// Pattern processors: VANDALIZER, FILTER, FX, VINTAGE, TAPE, LFO, DUCK, MIXER, OUTPUT.
+// Pattern processors: VANDALIZER, FILTER, FILTER ENV, FX, VINTAGE, TAPE, LFO, DUCK, MIXER, OUTPUT.
 import { arrow, fn, ident, lambda, mini, num, printExpr, raw } from '../core/expr.js';
 import { RATES, isDefault, rated, setIf } from './helpers.js';
 
@@ -74,6 +74,59 @@ export const filter = {
       e = e.call(f, num(cut));
     }
     return { out: setIf(e, q, ctx.p.res, 0, 1) };
+  },
+};
+
+// FILTER ENV: superdough's per-note filter envelope. The cutoff set upstream is where the
+// filter rests; each note opens it OPEN octaves above that and lets it fall back.
+const FENV_TARGETS = {
+  lp: { f: 'lpf', pre: 'lp', rest: 300 },
+  hp: { f: 'hpf', pre: 'hp', rest: 60 },
+  bp: { f: 'bpf', pre: 'bp', rest: 300 },
+};
+export const FENV_PRESETS = [
+  { v: 'brass', l: 'BRASS', open: 3, swell: 0.04, snap: 0.3, hold: 0.4 },
+  { v: 'pluck', l: 'PLUCK', open: 4, swell: 0, snap: 0.12, hold: 0 },
+  { v: 'acid', l: 'ACID', open: 4.5, swell: 0, snap: 0.18, hold: 0.05 },
+  { v: 'wah', l: 'WAH', open: 2.5, swell: 0.12, snap: 0.25, hold: 0.5 },
+  { v: 'swell', l: 'SWELL', open: 3, swell: 0.8, snap: 1, hold: 0.7 },
+];
+
+export const fenv = {
+  type: 'fenv',
+  name: 'FILTER ENV',
+  title: 'Filter Envelope',
+  category: 'Shape',
+  hp: 12,
+  description: 'Makes every note open the filter and let it fall back: the "bwah" of synth brass, the snap of a pluck, the squelch of an acid line. Put it right after a FILTER: the FILTER\'s CUTOFF is where the filter rests, OPEN is how far each note pushes it up (in octaves). SWELL is how long that takes (0 = a hard bite), SNAP how fast it falls back, HOLD how open it stays while the note is held. SHAPE loads a ready-made shape (BRASS, PLUCK, ACID, WAH, SWELL) or DICE rolls a random one; it says CUSTOM once you turn the knobs. The screen draws the envelope one note makes: up to OPEN, down to HOLD while the note is held (the dashed line is where it lets go), then back to the resting cutoff. TARGET picks which filter it moves (LP, HP or BP). Nothing filtering upstream? It brings its own (LP and BP rest at 300 Hz, HP at 60 Hz). Patch an LFO into ACC for accents: the higher the CV, the further that note opens, up to ACCENT x 4 more octaves (RAND = random accents, a slow SINE = phrases that brighten and darken).',
+  params: {
+    preset: { kind: 'data', default: 'brass' },
+    target: { kind: 'switch', label: 'TARGET', options: [{ v: 'lp', l: 'LP' }, { v: 'hp', l: 'HP' }, { v: 'bp', l: 'BP' }], default: 'lp', structural: true },
+    open: { kind: 'knob', label: 'OPEN', min: 0, max: 6, default: 3, unit: 'oct' },
+    snap: { kind: 'knob', label: 'SNAP', min: 0.01, max: 2, default: 0.3, curve: 'pow', unit: 's' },
+    swell: { kind: 'knob', label: 'SWELL', min: 0, max: 2, default: 0.04, size: 'sm', curve: 'pow', unit: 's' },
+    hold: { kind: 'knob', label: 'HOLD', min: 0, max: 1, default: 0.4, size: 'sm' },
+    accent: { kind: 'knob', label: 'ACCENT', min: 0, max: 1, default: 0.5, size: 'sm' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' }, acc: { type: 'cv', label: 'ACC' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['widget:fenvScope'], ['widget:fenvPresets'], ['target'], ['open', 'snap'], ['swell', 'hold', 'accent'], ['in:in', 'in:acc', 'out:out']],
+  compile(ctx) {
+    let e = ctx.in('in');
+    if (!e) return { out: null };
+    const p = ctx.p;
+    const t = FENV_TARGETS[p.target] ?? FENV_TARGETS.lp;
+    // the envelope only moves a filter that exists, so bring one if nothing upstream filters
+    if (!new RegExp(`\\b${t.f}\\(`).test(printExpr(e))) e = e.call(t.f, num(t.rest, 0));
+    const acc = ctx.in('acc');
+    const open = Number(p.open.toFixed(2));
+    if (acc && p.accent > 0.005) e = e.call(`${t.pre}env`, acc.call('range', num(open), num(open + p.accent * 4, 2)));
+    else e = e.call(`${t.pre}env`, num(open));
+    e = e.callIf(p.swell >= 0.002, `${t.pre}attack`, num(p.swell, 3));
+    e = e.call(`${t.pre}decay`, num(p.snap, 3)).call(`${t.pre}sustain`, num(p.hold, 2));
+    // with HOLD up the filter is still open when the note ends: close it at SNAP speed, not instantly
+    e = e.callIf(p.hold > 0.01, `${t.pre}release`, num(p.snap, 3));
+    return { out: e };
   },
 };
 
