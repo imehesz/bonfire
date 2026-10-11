@@ -113,6 +113,7 @@ function degreeKnob(mod, key, i, max, label) {
   const set = (v, opts) => {
     const d = [...findModule(mod.id).params[key]];
     if (d[i] === v) return;
+    for (let j = d.length; j < i; j++) d[j] = 0; // short arrays from older patches: no holes
     d[i] = v;
     setParam(mod.id, key, d, opts);
   };
@@ -123,7 +124,7 @@ function degreeKnob(mod, key, i, max, label) {
     cap.setPointerCapture(e.pointerId);
     checkpoint();
     startY = e.clientY;
-    start = findModule(mod.id).params[key][i];
+    start = findModule(mod.id).params[key][i] ?? 0;
   });
   cap.addEventListener('pointermove', (e) => {
     if (!cap.hasPointerCapture(e.pointerId)) return;
@@ -153,15 +154,17 @@ function degreeKnob(mod, key, i, max, label) {
 }
 
 // MELODY: 8 columns of (degree knob, gate)
+const MELODY_STEPS = 16; // two rows of 8
 function melody(mod) {
   const cols = [];
   const el = h('div', { class: 'w-melody' });
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < MELODY_STEPS; i++) {
     const knob = degreeKnob(mod, 'degrees', i, 14, `STEP ${i + 1}`);
     const num = h('div', { class: 'deg lcd' });
     const gate = h('button', { class: 'step gate', onpointerdown: stop }, h('span', { class: 'led' }));
     gate.addEventListener('click', () => {
       const g = [...findModule(mod.id).params.gates];
+      for (let j = g.length; j < i; j++) g[j] = 0;
       g[i] = g[i] ? 0 : 1;
       setParam(mod.id, 'gates', g);
     });
@@ -173,10 +176,12 @@ function melody(mod) {
     el,
     update(p) {
       cols.forEach((c, i) => {
-        c.knob.update(p.degrees[i]);
-        c.num.textContent = p.gates[i] ? p.degrees[i] : '–';
+        c.knob.update(p.degrees[i] ?? 0);
+        c.num.textContent = p.gates[i] ? p.degrees[i] ?? 0 : '–';
         c.gate.classList.toggle('on', !!p.gates[i]);
         c.col.classList.toggle('off-len', i >= p.length);
+        // the second row only shows once LENGTH goes past 8, so a fresh MELODY looks like the 8-step one
+        c.col.hidden = i >= 8 && p.length <= 8;
       });
     },
     tick(cycle, meta) {

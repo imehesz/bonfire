@@ -488,6 +488,7 @@ a { color: var(--accent); }
 
 .w-melody { display: grid; grid-template-columns: repeat(8, 30px); gap: 2px; }
 .mel-col { display: flex; flex-direction: column; align-items: center; gap: 4px; border-radius: 4px; padding: 3px 0; }
+.mel-col[hidden] { display: none; }
 .mel-col.play { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 .deg { font-size: 11px; width: 24px; text-align: center; padding: 1px 0; }
 .mel-col .knob-scale { padding: 2px; }

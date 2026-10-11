@@ -127,14 +127,17 @@ export const melody = {
   title: 'Note Sequencer',
   category: 'Pitch',
   hp: 18,
-  description: 'Eight-step note sequencer locked to a scale, so every knob position is in key. Patch PITCH into a VOICE (or straight into OUTPUT for a quick triangle synth).',
+  description: 'Up to sixteen-step note sequencer locked to a scale, so every knob position is in key. LENGTH sets how many steps play (the second row lights up past 8). Patch PITCH into a VOICE (or straight into OUTPUT for a quick triangle synth).',
   params: {
-    degrees: { kind: 'data', default: [0, 2, 4, 2, 7, 4, 2, 4], structural: true },
-    gates: { kind: 'data', default: [1, 1, 1, 0, 1, 1, 0, 1], structural: true },
+    // 16 steps; steps 9-16 repeat 1-8. Patches from the 8-step days hold 8-entry arrays,
+    // so anything past their end reads as degree 0 / gate off.
+    degrees: { kind: 'data', default: [0, 2, 4, 2, 7, 4, 2, 4, 0, 2, 4, 2, 7, 4, 2, 4], structural: true },
+    gates: { kind: 'data', default: [1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1], structural: true },
     root: { kind: 'select', label: 'ROOT', options: ROOTS, default: 'C', structural: true },
     scale: { kind: 'select', label: 'SCALE', options: SCALES.map(([v, l]) => ({ v, l })), default: 'minor', structural: true },
     octave: { kind: 'knob', label: 'OCT', min: 1, max: 6, default: 3, step: 1, structural: true },
-    length: { kind: 'knob', label: 'LENGTH', min: 1, max: 8, default: 8, step: 1, structural: true },
+    // default stays 8: saved patches omit default params, so a new default would change old songs
+    length: { kind: 'knob', label: 'LENGTH', min: 1, max: 16, default: 8, step: 1, structural: true },
   },
   inputs: { clk: { type: 'clock', label: 'CLK' } },
   outputs: { pitch: { type: 'pitch', label: 'PITCH' } },
@@ -144,7 +147,7 @@ export const melody = {
     const dur = (ctx.in('clk') ?? 1 / 8) * length;
     ctx.meta({ steps: length, dur });
     const tokens = [];
-    for (let i = 0; i < length; i++) tokens.push(gates[i] ? String(degrees[i]) : '~');
+    for (let i = 0; i < length; i++) tokens.push(gates[i] ? String(degrees[i] ?? 0) : '~');
     if (!tokens.some((t) => t !== '~')) return { pitch: null };
     const e = fn('n', mini(tokens.join(' '))).call('scale', mini(scaleArg(root, octave, scale)));
     return { pitch: timed(e, dur) };
