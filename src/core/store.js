@@ -214,6 +214,16 @@ export function connect(from, to, color) {
   emit('structure', {});
 }
 
+// Move an existing cable to new ends as ONE undo step; it keeps its id and colour.
+export function rewire(cableId, from, to) {
+  const old = patch.cables.find((c) => c.id === cableId);
+  if (!old) return connect(from, to);
+  checkpoint();
+  patch.cables = patch.cables.filter((c) => c.id !== cableId && !(c.to.m === to.m && c.to.j === to.j));
+  patch.cables.push({ ...old, from, to });
+  emit('structure', {});
+}
+
 export function disconnect(cableIds) {
   const ids = new Set([cableIds].flat());
   if (!patch.cables.some((c) => ids.has(c.id))) return;

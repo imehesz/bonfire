@@ -24,6 +24,7 @@ const saveSettings = () => {
 
 const views = new Map();
 let hovered = null;
+let selected = null;
 let reachable = new Set();
 let scroller;
 let sizer;
@@ -65,6 +66,15 @@ export function toggleRow(i) {
   layout();
 }
 export const hoveredModule = () => hovered;
+export const selectedModule = () => selected;
+
+// The selected module (clicked last) feeds the MODCONS tab; null = nothing selected.
+export function selectModule(id) {
+  if (id === selected) return;
+  selected = id;
+  for (const [mid, v] of views) v.el.classList.toggle('selected', mid === id);
+  document.dispatchEvent(new CustomEvent('bonfire:select', { detail: id }));
+}
 
 export function mountRack(host) {
   rowsLayer = h('div', { class: 'rows-layer' });
@@ -93,6 +103,15 @@ export function mountRack(host) {
     hovered = e.target.closest('.module')?.dataset.id ?? null;
   });
   modLayer.addEventListener('pointerleave', () => (hovered = null));
+  // a click (no drag) on empty rack space clears the selection
+  let bareDown = null;
+  scroller.addEventListener('pointerdown', (e) => {
+    bareDown = e.button === 0 && !e.target.closest('.module') ? { x: e.clientX, y: e.clientY } : null;
+  });
+  scroller.addEventListener('pointerup', (e) => {
+    if (bareDown && Math.hypot(e.clientX - bareDown.x, e.clientY - bareDown.y) < 6) selectModule(null);
+    bareDown = null;
+  });
   scroller.addEventListener('wheel', (e) => {
     if (!e.ctrlKey) return;
     e.preventDefault();
@@ -184,11 +203,13 @@ export function sync() {
   for (const m of patch.modules) {
     if (views.has(m.id)) continue;
     const v = buildModule(m);
+    v.el.classList.toggle('selected', m.id === selected);
     views.set(m.id, v);
     modLayer.append(v.el);
   }
   markReachable(reachable);
   layout();
+  if (selected && !ids.has(selected)) selectModule(null);
 }
 
 export function updateParam(id, key) {
@@ -290,6 +311,8 @@ function jackInfo(el) {
 
 function onPointerDown(e) {
   if (e.button !== 0) return;
+  const picked = e.target.closest('.module')?.dataset.id;
+  if (picked) selectModule(picked);
   const socket = e.target.closest('.jack-socket');
   if (socket) return startCableDrag(e, jackInfo(socket));
   if (e.target.closest('.ctl, button, input, canvas, .editable')) return;

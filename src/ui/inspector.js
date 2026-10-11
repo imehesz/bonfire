@@ -1,7 +1,9 @@
-// Bottom dock: the live Strudel code, copy / open-in-strudel.cc, engine status.
+// Bottom dock: the live Strudel code, copy / open-in-strudel.cc, engine status,
+// and the MODCONS tab (the selected module's connections).
 import { code2hash } from '@strudel/core';
 import { activeRanges } from '../core/engine.js';
 import { h, toast } from './dom.js';
+import { mountModcons } from './modcons.js';
 
 // Exported code (COPY / OPEN IN STRUDEL) gets a link back to the app on top and this
 // patch's share link at the bottom. The dock itself shows the bare playing code.
@@ -66,10 +68,27 @@ export function mountInspector(host) {
   let playing = false;
   let collapsed = false;
   let side = 'bottom';
+  let tab = 'code';
   try {
     collapsed = localStorage.getItem('bonfire.inspector') === 'closed';
     side = localStorage.getItem('bonfire.dock') === 'right' ? 'right' : 'bottom';
+    tab = localStorage.getItem('bonfire.dockTab') === 'modcons' ? 'modcons' : 'code';
   } catch { /* ignore */ }
+  const modcons = mountModcons();
+  // user-dragged dock size in px (null = the CSS default); CSS caps it at half the screen
+  const DEFAULT_SIZE = { bottom: 220, right: 440 };
+  let size = { bottom: null, right: null };
+  try {
+    size = { ...size, ...JSON.parse(localStorage.getItem('bonfire.dockSize') ?? '{}') };
+  } catch { /* ignore */ }
+  const applySize = () => {
+    const b = document.body.style;
+    if (size.bottom) b.setProperty('--insp-h', `min(${size.bottom}px, 50vh)`);
+    else b.removeProperty('--insp-h');
+    if (size.right) b.setProperty('--insp-w', `min(${size.right}px, 50vw)`);
+    else b.removeProperty('--insp-w');
+  };
+  applySize();
   const exported = () => [`// made with Bonfire STACK: ${SITE}`, LOGO, '', code,
     ...(shareLink ? ['', `// open this patch in Bonfire STACK: ${shareLink}`] : [])].join('\n');
   const copy = async () => {
@@ -85,13 +104,50 @@ export function mountInspector(host) {
   const dock = h('section', { class: 'inspector' },
     h('header', {},
       toggleBtn,
-      h('span', { class: 'insp-title' }, 'STRUDEL CODE'),
+      h('span', { class: 'insp-title', dataset: { tab: 'code' } }, 'STRUDEL CODE'),
       lines,
+      h('span', { class: 'insp-title', dataset: { tab: 'modcons' }, title: 'Module connections: click a module in the rack' }, 'MODCONS'),
       status,
       h('div', { class: 'insp-actions' },
         h('button', { class: 'btn', onclick: copy }, 'COPY CODE'),
         h('button', { class: 'btn accent', onclick: open, title: 'Opens this exact code in the strudel.cc REPL' }, 'OPEN IN STRUDEL ↗'))),
-    h('div', { class: 'insp-body' }, pre));
+    h('div', { class: 'insp-body' }, pre, modcons.el));
+  // drag the inner edge to resize, from the default up to half the screen; double-click resets
+  const grip = h('div', { class: 'insp-grip', title: 'Drag to resize · double-click to reset' });
+  dock.prepend(grip);
+  const saveSize = () => {
+    try {
+      localStorage.setItem('bonfire.dockSize', JSON.stringify(size));
+    } catch { /* ignore */ }
+    window.dispatchEvent(new Event('resize')); // cables re-measure jack positions
+  };
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    document.body.classList.add('dock-resizing');
+    const move = (ev) => {
+      const px = side === 'right' ? window.innerWidth - ev.clientX : window.innerHeight - ev.clientY;
+      const max = (side === 'right' ? window.innerWidth : window.innerHeight) / 2;
+      size[side] = Math.round(Math.min(max, Math.max(DEFAULT_SIZE[side], px)));
+      applySize();
+    };
+    const up = () => {
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', up);
+      grip.removeEventListener('pointercancel', up);
+      document.body.classList.remove('dock-resizing');
+      saveSize();
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up);
+    grip.addEventListener('pointercancel', up);
+  });
+  grip.addEventListener('dblclick', () => {
+    size[side] = null;
+    applySize();
+    saveSize();
+  });
   // Body classes let the rack and drawers make room for the dock.
   const setCollapsed = (v) => {
     collapsed = v;
@@ -103,7 +159,24 @@ export function mountInspector(host) {
     } catch { /* ignore */ }
   };
   toggleBtn.onclick = () => setCollapsed(!collapsed);
-  dock.querySelector('.insp-title').onclick = () => setCollapsed(!collapsed);
+  const setTab = (t) => {
+    tab = t;
+    dock.dataset.tab = t;
+    for (const el of dock.querySelectorAll('.insp-title')) el.classList.toggle('on', el.dataset.tab === t);
+    litKey = ''; // the code may have changed while hidden
+    try {
+      localStorage.setItem('bonfire.dockTab', t);
+    } catch { /* ignore */ }
+  };
+  // clicking the open tab folds the dock; another tab switches to it (and unfolds)
+  for (const el of dock.querySelectorAll('.insp-title')) {
+    el.onclick = () => {
+      if (el.dataset.tab === tab) return setCollapsed(!collapsed);
+      setTab(el.dataset.tab);
+      if (collapsed) setCollapsed(false);
+    };
+  }
+  setTab(tab);
   const setDock = (s) => {
     side = s;
     document.body.classList.toggle('dock-right', s === 'right');
@@ -124,7 +197,7 @@ export function mountInspector(host) {
   };
   const tick = () => {
     requestAnimationFrame(tick);
-    if (collapsed || document.hidden) return;
+    if (collapsed || tab !== 'code' || document.hidden) return;
     render(playing ? activeRanges(code) : []);
   };
   requestAnimationFrame(tick);
