@@ -8,7 +8,7 @@ import { downloadPatch, fetchDemo, fetchDemoIndex, loadLocal, patchFromHash, pic
 import { currentSkin, fetchSkinIndex, restoreSkin, useCustomSkin, useSkin } from './core/skins.js';
 import * as rack from './ui/rack.js';
 import { mountInspector } from './ui/inspector.js';
-import { mountModuleDrawer, mountSampleDrawer } from './ui/drawers.js';
+import { mountModuleDrawer } from './ui/drawers.js';
 import { h, menu, modal, readout, toast } from './ui/dom.js';
 import { randomName } from './core/names.js';
 
@@ -98,8 +98,7 @@ const topbar = h('header', { class: 'topbar' },
   nameInput,
   h('button', { class: 'tb icon dice', title: 'Random name', onclick: rollName, html: DIE_SVG }),
   h('nav', { class: 'tb-nav' },
-    h('button', { class: 'tb', onclick: () => toggleDrawer('left') }, 'MODULES'),
-    h('button', { class: 'tb', onclick: () => toggleDrawer('right') }, 'SAMPLES'),
+    h('button', { class: 'tb', onclick: () => leftDrawer.classList.toggle('open') }, 'MODULES'),
     h('button', { class: 'tb', onclick: (e) => patchMenu(e.currentTarget) }, 'PATCH ▾'),
     h('button', { class: 'tb', onclick: (e) => demoMenu(e.currentTarget) }, 'DEMOS ▾'),
     h('button', { class: 'tb', onclick: (e) => skinMenu(e.currentTarget) }, 'SKIN ▾'),
@@ -127,14 +126,7 @@ const main = h('main', { class: 'stage' });
 app.append(topbar, main);
 rack.mountRack(main);
 const leftDrawer = mountModuleDrawer(app);
-const samplesDrawer = mountSampleDrawer(app);
 const inspector = mountInspector(app);
-
-function toggleDrawer(side) {
-  const el = side === 'left' ? leftDrawer : samplesDrawer.el;
-  el.classList.toggle('open');
-  if (side === 'right' && el.classList.contains('open')) samplesDrawer.render();
-}
 
 const updateZoom = () => (zoomLabel.textContent = `${Math.round(rack.rackSettings.zoom * 100)}%`);
 document.addEventListener('bonfire:zoom', updateZoom);

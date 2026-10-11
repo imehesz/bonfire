@@ -150,7 +150,7 @@ export const sampler = {
   title: 'Sample Player',
   category: 'Sound',
   hp: 12,
-  description: 'Deep sample player. ONE plays the sample per GATE hit, LOOP stretches it to BARS, SLICE cuts it into pieces and replays them in order, backwards or shuffled. Drop any sound from the SAMPLES drawer onto its display.',
+  description: 'Deep sample player. ONE plays the sample per GATE hit, LOOP stretches it to BARS, SLICE cuts it into pieces and replays them in order, backwards or shuffled. Drop any sound from the SAMPLES tab onto its display.',
   params: {
     sound: { kind: 'sound', label: 'SAMPLE', default: 'brk', structural: true },
     n: { kind: 'knob', label: 'VARIANT', min: 0, max: 15, default: 0, step: 1, size: 'sm', structural: true },

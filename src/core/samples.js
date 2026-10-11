@@ -1,4 +1,4 @@
-// Sample library: groups every registered sound for the SAMPLES drawer, loads
+// Sample library: groups every registered sound for the SAMPLES tab, loads
 // user packs (github:/shabda:/URL — these become samples('...') lines in the
 // code) and keeps local drag-and-drop files in IndexedDB.
 import { samples } from '@strudel/webaudio';

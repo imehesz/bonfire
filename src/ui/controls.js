@@ -261,7 +261,7 @@ export function select(mod, key, p) {
   return { el, update };
 }
 
-// ---- sound slot: picker popover + drop target for the SAMPLES drawer ----
+// ---- sound slot: picker popover + drop target for the SAMPLES tab ----
 export function soundPicker(anchor, current, onPick) {
   const lib = library();
   const tabs = {

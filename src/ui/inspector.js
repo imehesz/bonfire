@@ -1,9 +1,10 @@
 // Bottom dock: the live Strudel code, copy / open-in-strudel.cc, engine status,
-// and the MODCONS tab (the selected module's connections).
+// the MODCONS tab (the selected module's connections) and the SAMPLES browser.
 import { code2hash } from '@strudel/core';
 import { activeRanges } from '../core/engine.js';
 import { h, toast } from './dom.js';
 import { mountModcons } from './modcons.js';
+import { mountSamples } from './drawers.js';
 
 // Exported code (COPY / OPEN IN STRUDEL) gets a link back to the app on top and this
 // patch's share link at the bottom. The dock itself shows the bare playing code.
@@ -72,9 +73,10 @@ export function mountInspector(host) {
   try {
     collapsed = localStorage.getItem('bonfire.inspector') === 'closed';
     side = localStorage.getItem('bonfire.dock') === 'right' ? 'right' : 'bottom';
-    tab = localStorage.getItem('bonfire.dockTab') === 'modcons' ? 'modcons' : 'code';
+    tab = ['modcons', 'samples'].includes(localStorage.getItem('bonfire.dockTab')) ? localStorage.getItem('bonfire.dockTab') : 'code';
   } catch { /* ignore */ }
   const modcons = mountModcons();
+  const samples = mountSamples();
   // user-dragged dock size in px (null = the CSS default); CSS caps it at half the screen
   const DEFAULT_SIZE = { bottom: 220, right: 440 };
   let size = { bottom: null, right: null };
@@ -105,13 +107,14 @@ export function mountInspector(host) {
     h('header', {},
       toggleBtn,
       h('span', { class: 'insp-title', dataset: { tab: 'code' } }, 'STRUDEL CODE'),
-      lines,
       h('span', { class: 'insp-title', dataset: { tab: 'modcons' }, title: 'Module connections: click a module in the rack' }, 'MODCONS'),
+      h('span', { class: 'insp-title', dataset: { tab: 'samples' }, title: 'Sounds, sample packs and your own files' }, 'SAMPLES'),
+      lines,
       status,
       h('div', { class: 'insp-actions' },
         h('button', { class: 'btn', onclick: copy }, 'COPY CODE'),
         h('button', { class: 'btn accent', onclick: open, title: 'Opens this exact code in the strudel.cc REPL' }, 'OPEN IN STRUDEL ↗'))),
-    h('div', { class: 'insp-body' }, pre, modcons.el));
+    h('div', { class: 'insp-body' }, pre, modcons.el, samples.el));
   // drag the inner edge to resize, from the default up to half the screen; double-click resets
   const grip = h('div', { class: 'insp-grip', title: 'Drag to resize · double-click to reset' });
   dock.prepend(grip);
@@ -164,6 +167,7 @@ export function mountInspector(host) {
     dock.dataset.tab = t;
     for (const el of dock.querySelectorAll('.insp-title')) el.classList.toggle('on', el.dataset.tab === t);
     litKey = ''; // the code may have changed while hidden
+    if (t === 'samples') samples.render();
     try {
       localStorage.setItem('bonfire.dockTab', t);
     } catch { /* ignore */ }

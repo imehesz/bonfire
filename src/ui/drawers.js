@@ -1,4 +1,4 @@
-// Side drawers: MODULES (left) and SAMPLES (right).
+// MODULES side drawer, and the SAMPLES browser (a tab in the bottom / right dock).
 import { CATEGORY_ORDER, MODULES } from '../modules/index.js';
 import { addModule, addModules, addSamplePack, getPatch, removeSamplePack } from '../core/store.js';
 import { audition } from '../core/engine.js';
@@ -106,7 +106,7 @@ function soundRow(name, variants, local) {
   return row;
 }
 
-export function mountSampleDrawer(host) {
+export function mountSamples() {
   const open = new Set(['Drum Kit']);
   const search = h('input', { type: 'search', placeholder: 'search sounds…', class: 'drawer-search' });
   const groupsEl = h('div', { class: 'snd-groups' });
@@ -198,17 +198,18 @@ export function mountSampleDrawer(host) {
   search.addEventListener('input', render);
   onLibrary(render);
 
-  const el = drawer('right', 'SAMPLES', h('div', { class: 'drawer-body' },
-    h('p', { class: 'drawer-tip' }, 'Drag any sound onto a SOUND / SAMPLE display. ▶ to listen.'),
-    search,
-    groupsEl,
+  // two columns when docked at the bottom (sounds | packs + files), one when docked right
+  const el = h('div', { class: 'samples-panel' },
+    h('div', { class: 'smp-sounds' },
+      h('p', { class: 'drawer-tip' }, 'Drag any sound onto a SOUND / SAMPLE display. ▶ to listen.'),
+      search,
+      groupsEl),
+    h('div', { class: 'smp-side' },
     h('div', { class: 'drawer-sec' }, h('h4', {}, 'SAMPLE PACKS'),
       h('div', { class: 'pack-add' }, packInput, h('button', { class: 'btn', onclick: addPack }, 'LOAD')),
       h('p', { class: 'drawer-tip' }, 'Packs become a samples(\'…\') line in the code, so they work on strudel.cc too. shabda: pulls sounds from freesound by keyword.'),
       packList),
     h('div', { class: 'drawer-sec' }, h('h4', {}, 'YOUR FILES'), dropZone, fileInput,
       h('p', { class: 'drawer-tip' }, 'Local files play here but are not on strudel.cc — the code marks them.'))));
-  host.append(el);
-  el.addEventListener('transitionend', () => el.classList.contains('open') && render());
   return { el, render };
 }
