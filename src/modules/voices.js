@@ -1,7 +1,8 @@
-// Sound makers: VOICE (synth / sample), SUB DRONE (sub + reese bass) and SAMPLER (one-shot / loop / slice).
+// Sound makers: VOICE (synth / sample), SUB DRONE (sub + reese bass), SAMPLER (one-shot / loop / slice)
+// and CHOPPER (a step sequencer that picks a slice of the sample per step).
 import { fn, mini, num } from '../core/expr.js';
 import { BANKS, DRUM_SOUNDS, WAVES, bankLabel, isPitched, midiToNote } from '../core/music.js';
-import { setIf } from './helpers.js';
+import { setIf, stepToken, timed } from './helpers.js';
 
 function envelope(e, p) {
   e = setIf(e, 'attack', p.attack, 0);
@@ -186,6 +187,49 @@ export const sampler = {
     e = setIf(e, 'gain', p.level, 1);
     const pan = ctx.in('pan');
     if (pan) e = e.call('pan', pan);
+    return { out: e };
+  },
+};
+
+// CHOPPER: MELODY's step lane, but every step picks a slice of the sample instead of a note.
+export const CHOP_STEPS = 16;
+export const CHOP_MAX_SLICES = 32;
+
+export const chopper = {
+  type: 'chopper',
+  name: 'CHOPPER',
+  title: 'Slice Sequencer',
+  category: 'Sound',
+  hp: 18,
+  description: 'Chops a sample into equal SLICES and plays them in any order you like: each step picks which slice plays. Click a step\'s button to play / rest it, right-click it for a ×2 / ×4 roll. CUT stops each slice when its step ends, RING lets it play out. LENGTH sets how many steps play (the second row appears past 8). Drop any sound from the SAMPLES tab onto its display.',
+  params: {
+    sound: { kind: 'sound', label: 'SAMPLE', default: 'brk', structural: true },
+    n: { kind: 'knob', label: 'VARIANT', min: 0, max: 15, default: 0, step: 1, size: 'sm', structural: true },
+    slices: { kind: 'knob', label: 'SLICES', min: 2, max: CHOP_MAX_SLICES, default: 8, step: 1, size: 'sm', structural: true },
+    length: { kind: 'knob', label: 'LENGTH', min: 1, max: CHOP_STEPS, default: 8, step: 1, size: 'sm', structural: true },
+    // which slice each step plays (0 = the first); a step past SLICES plays the last slice
+    picks: { kind: 'data', default: [0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7], structural: true },
+    // 0 rest, 1 play, 2 = x2 roll, 3 = x4 roll (same states as SEQ-16)
+    gates: { kind: 'data', default: Array(CHOP_STEPS).fill(1), structural: true },
+    tail: { kind: 'switch', label: 'TAIL', options: [{ v: 'cut', l: 'CUT' }, { v: 'ring', l: 'RING' }], default: 'cut', structural: true },
+    speed: { kind: 'knob', label: 'SPEED', min: -2, max: 2, default: 1, size: 'sm' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+  },
+  inputs: { clk: { type: 'clock', label: 'CLK' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['widget:chopper'], ['sound'], ['n', 'slices', 'length', 'tail'], ['speed', 'level', 'in:clk', 'out:out']],
+  compile(ctx) {
+    const { sound, n, slices, length, picks, gates, tail, speed, level } = ctx.p;
+    const dur = (ctx.in('clk') ?? 1 / 8) * length;
+    ctx.meta({ steps: length, dur });
+    const tokens = [];
+    for (let i = 0; i < length; i++) tokens.push(stepToken(gates[i] ?? 0, String(Math.min(picks[i] ?? 0, slices - 1))));
+    if (!tokens.some((t) => t !== '~')) return { out: null };
+    let e = fn('s', mini(sound)).callIf(n, 'n', num(n)).call('slice', num(slices), mini(tokens.join(' ')));
+    e = timed(e, dur);
+    if (tail === 'cut') e = e.call('clip', num(1));
+    e = setIf(e, 'speed', speed, 1, 2);
+    e = setIf(e, 'gain', level, 1);
     return { out: e };
   },
 };

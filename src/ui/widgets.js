@@ -5,6 +5,7 @@ import { analysers } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
 import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, arpOrder, beats, chordPlan } from '../modules/sources.js';
 import { FENV_PRESETS } from '../modules/processors.js';
+import { CHOP_STEPS } from '../modules/voices.js';
 import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
 import { editValue, knob, select } from './controls.js';
 
@@ -108,7 +109,9 @@ function grid(mod) {
 }
 
 // One small knob editing params[key][i]: drag, wheel, or double-click to type.
-function degreeKnob(mod, key, i, max, label) {
+// `max` may be a function (CHOPPER: it follows SLICES); `word` names the value in the tooltip.
+function degreeKnob(mod, key, i, maxOf, label, word = 'DEGREE') {
+  const lim = () => (typeof maxOf === 'function' ? maxOf() : maxOf);
   const cap = h('div', { class: 'knob-cap' }, h('div', { class: 'knob-img' }), h('div', { class: 'knob-ptr' }));
   const set = (v, opts) => {
     const d = [...findModule(mod.id).params[key]];
@@ -128,10 +131,10 @@ function degreeKnob(mod, key, i, max, label) {
   });
   cap.addEventListener('pointermove', (e) => {
     if (!cap.hasPointerCapture(e.pointerId)) return;
-    const v = Math.max(0, Math.min(max, Math.round(start + (startY - e.clientY) / 10)));
+    const v = Math.max(0, Math.min(lim(), Math.round(start + (startY - e.clientY) / 10)));
     set(v, { record: false });
     const r = cap.getBoundingClientRect();
-    showTip(`${label} · DEGREE ${v}`, r.left + r.width / 2, r.top - 6);
+    showTip(`${label} · ${word} ${v}`, r.left + r.width / 2, r.top - 6);
   });
   cap.addEventListener('pointerup', (e) => {
     cap.releasePointerCapture(e.pointerId);
@@ -140,16 +143,16 @@ function degreeKnob(mod, key, i, max, label) {
   cap.addEventListener('dblclick', (e) => {
     e.stopPropagation();
     hideTip();
-    editValue(cap, { label: `${label} DEGREE`, min: 0, max, step: 1, default: 0 }, findModule(mod.id).params[key][i], (v) => set(v));
+    editValue(cap, { label: `${label} ${word}`, min: 0, max: lim(), step: 1, default: 0 }, findModule(mod.id).params[key][i], (v) => set(v));
   });
   cap.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const v = findModule(mod.id).params[key][i];
-    set(Math.max(0, Math.min(max, v + (e.deltaY < 0 ? 1 : -1))));
+    const v = findModule(mod.id).params[key][i] ?? 0;
+    set(Math.max(0, Math.min(lim(), v + (e.deltaY < 0 ? 1 : -1))));
   }, { passive: false });
   return {
     el: h('div', { class: 'knob knob-sm' }, h('div', { class: 'knob-scale' }, cap)),
-    update: (v) => cap.style.setProperty('--rot', `${-135 + (v / max) * 270}deg`),
+    update: (v) => cap.style.setProperty('--rot', `${-135 + (Math.min(v, lim()) / lim()) * 270}deg`),
   };
 }
 
@@ -181,6 +184,52 @@ function melody(mod) {
         c.gate.classList.toggle('on', !!p.gates[i]);
         c.col.classList.toggle('off-len', i >= p.length);
         // the second row only shows once LENGTH goes past 8, so a fresh MELODY looks like the 8-step one
+        c.col.hidden = i >= 8 && p.length <= 8;
+      });
+    },
+    tick(cycle, meta) {
+      const k = stepIndex(cycle, meta);
+      cols.forEach((c, i) => c.col.classList.toggle('play', i === k));
+    },
+  };
+}
+
+// CHOPPER: MELODY's two rows of 8, but each knob picks a slice and the button
+// is a SEQ-style step: click = play / rest, right-click cycles the ×2 / ×4 rolls.
+function chopper(mod) {
+  const cols = [];
+  const el = h('div', { class: 'w-melody w-chopper' });
+  const lastSlice = () => findModule(mod.id).params.slices - 1;
+  const setGate = (i, fnNext) => {
+    const g = [...findModule(mod.id).params.gates];
+    for (let j = g.length; j < i; j++) g[j] = 0;
+    g[i] = fnNext(g[i] ?? 0);
+    setParam(mod.id, 'gates', g);
+  };
+  for (let i = 0; i < CHOP_STEPS; i++) {
+    const knob = degreeKnob(mod, 'picks', i, lastSlice, `STEP ${i + 1}`, 'SLICE');
+    const num = h('div', { class: 'deg lcd' });
+    const gate = h('button', { class: 'step gate', onpointerdown: stop }, h('span', { class: 'led' }), h('em'));
+    gate.addEventListener('click', () => setGate(i, (v) => (v ? 0 : 1)));
+    gate.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setGate(i, cycleState);
+    });
+    const col = h('div', { class: 'mel-col' }, knob.el, num, gate);
+    cols.push({ col, knob, num, gate });
+    el.append(col);
+  }
+  return {
+    el,
+    update(p) {
+      cols.forEach((c, i) => {
+        const pick = Math.min(p.picks[i] ?? 0, p.slices - 1); // what actually plays
+        c.knob.update(pick);
+        c.num.textContent = p.gates[i] ? pick : '–';
+        c.gate.classList.toggle('on', !!p.gates[i]);
+        c.gate.querySelector('em').textContent = SUB[p.gates[i]] ?? '';
+        c.col.classList.toggle('off-len', i >= p.length);
         c.col.hidden = i >= 8 && p.length <= 8;
       });
     },
@@ -915,4 +964,4 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, arp, chords, chordPresets, chordMoods, fenvPresets, fenvScope, chain, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };
+export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fenvPresets, fenvScope, chain, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };
