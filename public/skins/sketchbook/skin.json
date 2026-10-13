@@ -1,0 +1,88 @@
+{
+  "id": "sketchbook",
+  "name": "Sketchbook",
+  "author": "Bonfire STACK",
+  "version": 1,
+  "tagline": "colored pencil on paper",
+  "description": "The tutorial videos' look: paper faceplates, hatched knobs, cross-hatched graphite LCDs, hand-ruled rails.",
+  "fonts": {
+    "panel": "'Patrick Hand', 'Comic Sans MS', cursive",
+    "ui": "'Patrick Hand', 'Comic Sans MS', cursive",
+    "display": "'Patrick Hand', 'Comic Sans MS', cursive",
+    "google": [
+      "Cabin Sketch:wght@400;700",
+      "Patrick Hand",
+      "JetBrains Mono"
+    ]
+  },
+  "colors": {
+    "background": "#f4ecdb",
+    "rack": "#e6d9bd",
+    "rail": "#e2d3b2",
+    "railShadow": "rgba(58,52,48,.2)",
+    "panel": "#fbf6ea",
+    "panelEdge": "rgba(58,52,48,.3)",
+    "panelText": "#3a3430",
+    "panelTextDim": "#8b8178",
+    "accent": "#ee7623",
+    "led": "#ee7623",
+    "ledOff": "#d8c49a",
+    "knob": "#87461b",
+    "knobRing": "#3a3430",
+    "knobPointer": "#fffaf0",
+    "jackNut": "#fbf6ea",
+    "jackHole": "#2b2420",
+    "display": "#3a332e",
+    "displayText": "#ffa94d",
+    "button": "#efe1bf",
+    "buttonText": "#3a3430",
+    "ui": "#f4ecdb",
+    "uiRaised": "#efe1bf",
+    "uiText": "#3a3430",
+    "uiDim": "#8b8178",
+    "uiBorder": "#b9ab92",
+    "code": "#f4ecdb",
+    "codeText": "#2b2420",
+    "codeString": "#c8551a",
+    "codeNumber": "#1f8a9a",
+    "codeMethod": "#b0441a",
+    "codeComment": "#9a8f84",
+    "scope": "#f7f0e0",
+    "scopeLine": "#ee7623",
+    "jack": {
+      "pattern": "#ee7623",
+      "rhythm": "#d8402e",
+      "pitch": "#56b85c",
+      "cv": "#2fb4c8",
+      "clock": "#efb526"
+    }
+  },
+  "images": {
+    "backdrop": "backdrop.jpg",
+    "panel": "panel.jpg",
+    "knob": "knob.png",
+    "rail": "rail.png",
+    "screw": "screw.png"
+  },
+  "panel": {
+    "textureOpacity": 1,
+    "textureSize": "512px",
+    "blend": "multiply",
+    "radius": 2
+  },
+  "cables": {
+    "colors": [
+      "#2fb4c8",
+      "#d8402e",
+      "#efb526",
+      "#56b85c",
+      "#ee7623",
+      "#9a5fc8"
+    ],
+    "thickness": 5,
+    "sag": 1.0,
+    "opacity": 0.85
+  },
+  "backdropDim": 0,
+  "css": ".module{box-shadow:4px 5px 0 rgba(58,52,48,0.16)}.module::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:2;border:12px solid transparent;border-image:url(skins/sketchbook/frame.png) 22 round}.module.selected{outline:3px solid var(--accent);outline-offset:2px}.mod-name{font-family:'Cabin Sketch',cursive;font-weight:700;font-size:17px;letter-spacing:0.06em;line-height:1}.mod-head{padding-top:10px}.mod-id{font-family:'Patrick Hand',cursive;font-size:10px;line-height:1}.mod-foot{font-size:10px;letter-spacing:0.3em}.jack>label,.knob>label,.ctl>label{letter-spacing:0.04em}.screw{background:url(skins/sketchbook/screw.png) center / cover;box-shadow:none}.screw::after{display:none}.rack-row{box-shadow:inset 0 0 0 1px rgba(58,52,48,0.12)}.rail{box-shadow:none;background-size:auto 100%;background-image:url(skins/sketchbook/rail.png)}.row-toggle{background:var(--paper,#f4ecdb);box-shadow:0 0 0 1.5px #3a3430}.knob-img{background:var(--img-knob) center / 100% 100% no-repeat,var(--panel)}.knob-cap{box-shadow:2px 3px 0 rgba(58,52,48,0.25)}.knob .knob-cap:hover,.grabbed{box-shadow:2px 3px 0 rgba(58,52,48,0.25),0 0 0 2px var(--accent) !important}.knob-ptr{box-shadow:0 0 0 1px rgba(43,36,32,0.6)}.lcd,.knob-val,.ve-input{background:#4a423c url(skins/sketchbook/lcd.jpg) 0 0 / 128px;text-shadow:0 0 3px #1c1714,0 0 1px #1c1714}.lcd{box-shadow:1px 2px 0 rgba(58,52,48,0.25)}.w-lfo,.w-scope,.w-fenv-scope{box-shadow:1px 2px 0 rgba(58,52,48,0.25)}.step,.cell{background:#6b625a url(skins/sketchbook/pad.jpg) 0 0 / 96px;box-shadow:1px 2px 0 rgba(58,52,48,0.3)}.cell.beat{background:#8a8078 url(skins/sketchbook/pad.jpg) 0 0 / 96px;background-blend-mode:screen}.cell.on{background:var(--led) url(skins/sketchbook/pad.jpg) 0 0 / 96px;background-blend-mode:multiply;box-shadow:1px 2px 0 rgba(58,52,48,0.3)}.step.play,.cell.play{outline:2px solid var(--accent);outline-offset:1px;box-shadow:none}.led{box-shadow:inset 0 0 0 1px rgba(43,36,32,0.55)}.led.on{box-shadow:0 0 0 1px rgba(43,36,32,0.55),0 0 6px var(--led)}.fader-slot{background:#3a332e url(skins/sketchbook/lcd.jpg) 0 0 / 64px;box-shadow:none}.jack-socket{background:#fbf6ea;box-shadow:1px 2px 0 rgba(58,52,48,0.25),0 0 0 2.5px var(--jt,var(--jack-pattern)),0 0 0 3.5px rgba(43,36,32,0.5)}.jack-hole{background:#2b2420 url(skins/sketchbook/lcd.jpg) 0 0 / 40px;box-shadow:none}.jack.out>label{border-radius:3px}.cable .c-shadow{stroke:rgba(58,52,48,0.12);transform:translate(2px,3px)}.cable .c-hi{stroke:rgba(43,36,32,0.45);stroke-width:1.2px;stroke-dasharray:22 9 4 12;transform:translate(1px,1.5px)}.cable .plug{stroke:#2b2420;stroke-width:2px}.topbar{box-shadow:none;border-bottom:0;background:var(--ui) url(skins/sketchbook/rule.png) left bottom / 400px 10px repeat-x}.inspector{box-shadow:none;border-top:0;background:var(--ui) url(skins/sketchbook/rule.png) left top / 400px 10px repeat-x}.transport{border:2px solid #3a3430;border-radius:10px 4px 9px 5px}.transport.on{box-shadow:2px 3px 0 rgba(58,52,48,0.3);color:#fffaf0}.btn{border-radius:9px 4px 8px 5px}.brand img{filter:drop-shadow(0 0 1px rgba(43,36,32,0.8))}.code,.code *{font-family:var(--font-code)}.tgl,.push{background:#6b625a url(skins/sketchbook/pad.jpg) 0 0 / 64px;box-shadow:1px 2px 0 rgba(58,52,48,0.3),0 0 0 1.5px #2b2420}.push:active{background:var(--accent) url(skins/sketchbook/hatch.png) 0 0 / 48px;box-shadow:0 0 0 1.5px #2b2420}.sw-pos.on{background:var(--led) url(skins/sketchbook/hatch.png) 0 0 / 48px;box-shadow:none}.cell.on{background:var(--led) url(skins/sketchbook/hatch.png) 0 0 / 48px;background-blend-mode:normal}.step.on .led{background:var(--led) url(skins/sketchbook/hatch.png) 0 0 / 24px;box-shadow:0 0 0 1px rgba(43,36,32,0.55)}.led.on{background:var(--led) url(skins/sketchbook/hatch.png) 0 0 / 24px}.mod-row.jacks{background:rgba(58,52,48,0.04) url(skins/sketchbook/shade.png) 0 0 / 96px;box-shadow:inset 0 0 0 1px rgba(58,52,48,0.18)}.rack-row{background:color-mix(in srgb,var(--rack) 55%,transparent) url(skins/sketchbook/shade.png) 0 0 / 128px}.step.ch-mood b{opacity:0.9}"
+}
