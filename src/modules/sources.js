@@ -1,4 +1,4 @@
-// Timing + event sources: CLOCK, SEQ-16, BEATS, MELODY, ARP, CHORDS, EUCLID, CHAIN.
+// Timing + event sources: CLOCK, SEQ-16, BEATS, MELODY, ARP, CHORDS, EUCLID, CHAIN, OCTAVE.
 import { fn, mini, obj } from '../core/expr.js';
 import { BANKS, DRUM_SOUNDS, ROOTS, SCALES, bankLabel, midiToNote, pcName, scaleArg, scaleLength, scaleSteps, useSharps } from '../core/music.js';
 import { miniExpr, num, setIf, stepToken, timed } from './helpers.js';
@@ -491,5 +491,34 @@ export const chain = {
     if (!used.length) return { out: null };
     const sel = Math.abs(step - 1) < 1e-9 ? miniExpr(`<${tokens.join(' ')}>`) : timed(miniExpr(tokens.join(' ')), dur);
     return { out: sel.call(restart ? 'pickRestart' : 'pick', obj(used.map((k) => [k, parts[k]]))) };
+  },
+};
+
+// OCTAVE: an inline octave shifter on a pitch cable. UP / DOWN move everything that passes
+// through by whole octaves; a CV adds jumps on top (rounded to whole octaves, per note).
+export const OCT_MAX = 3;
+
+export const octave = {
+  type: 'octave',
+  name: 'OCTAVE',
+  title: 'Octave Shifter',
+  category: 'Pitch',
+  hp: 8,
+  description: 'Moves every note that passes through it up or down by whole octaves. Put it on a pitch cable (after a MELODY, CHAIN, ARP or CHORDS, before the VOICE) and press UP or DOWN: the screen shows how many octaves it shifts (-3 to +3). One OCTAVE after a CHAIN moves the whole part at once, so you never touch the OCT knob on each MELODY, and it can take a MELODY below its root. Patch an LFO into CV for octave jumps: the CV adds up to RANGE more octaves on top of the screen value (SQUARE = flip between two octaves, RAND = random jumps).',
+  params: {
+    oct: { kind: 'data', default: 0 },
+    range: { kind: 'knob', label: 'RANGE', min: 1, max: OCT_MAX, default: 1, step: 1, size: 'sm', unit: 'oct' },
+  },
+  inputs: { in: { type: 'pitch', label: 'IN' }, cv: { type: 'cv', label: 'CV' } },
+  outputs: { out: { type: 'pitch', label: 'OUT' } },
+  actions: { down: { label: 'DOWN' }, up: { label: 'UP' } },
+  layout: [['widget:octaveShift'], ['down', 'up'], ['range'], ['in:in', 'in:cv', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    if (!e) return { out: null };
+    const { oct, range } = ctx.p;
+    const cv = ctx.in('cv');
+    if (cv) return { out: e.call('add', fn('note', cv.call('range', num(oct), num(oct + range)).call('round').call('mul', num(12)))) };
+    return { out: e.callIf(oct !== 0, 'add', fn('note', num(oct * 12))) };
   },
 };

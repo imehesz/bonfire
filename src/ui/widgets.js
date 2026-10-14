@@ -3,7 +3,7 @@ import { checkpoint, findModule, setParam } from '../core/store.js';
 import { bjorklund } from '@strudel/core';
 import { analysers } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
-import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, arpOrder, beats, chordPlan } from '../modules/sources.js';
+import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, arpOrder, beats, chordPlan } from '../modules/sources.js';
 import { FENV_PRESETS } from '../modules/processors.js';
 import { CHOP_STEPS } from '../modules/voices.js';
 import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
@@ -551,6 +551,25 @@ function euclidRing(mod) {
   };
 }
 
+// OCTAVE: big LCD with the shift in octaves. The DOWN / UP push buttons arrive as actions;
+// double-click the screen to go back to 0.
+function octaveShift(mod) {
+  const el = h('div', { class: 'lcd big oct editable', title: 'double-click to reset to 0' });
+  const set = (v) => {
+    const m = findModule(mod.id);
+    if (!m) return;
+    const next = Math.max(-OCT_MAX, Math.min(OCT_MAX, v));
+    if (next !== (m.params.oct ?? 0)) setParam(mod.id, 'oct', next);
+  };
+  el.addEventListener('dblclick', (e) => { e.stopPropagation(); set(0); });
+  return {
+    el,
+    update: (p) => { const v = p.oct ?? 0; el.textContent = v > 0 ? `+${v}` : String(v); },
+    action: (spec) => set((findModule(mod.id)?.params.oct ?? 0) + (spec === 'up' ? 1 : -1)),
+    tick() {},
+  };
+}
+
 function bpmDisplay(mod, def) {
   const el = h('div', { class: 'lcd big bpm editable', title: 'double-click to type a tempo' });
   el.addEventListener('dblclick', (e) => {
@@ -964,4 +983,4 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fenvPresets, fenvScope, chain, euclidRing, bpmDisplay, lfoScope, scope, meters, tapeDeck };
+export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, scope, meters, tapeDeck };
