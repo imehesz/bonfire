@@ -888,6 +888,7 @@ a { color: var(--accent); }
   font-size: 18px;
   outline: none;
 }
+.ve-lines { flex: none; resize: vertical; line-height: 1.35; font-family: var(--font-display); }
 .ve-unit { color: var(--ui-dim); font-family: var(--font-display); }
 .ve-actions { display: flex; justify-content: flex-end; gap: 6px; }
 .lcd.editable { cursor: text; }

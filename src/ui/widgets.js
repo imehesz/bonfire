@@ -110,7 +110,8 @@ function grid(mod) {
 
 // One small knob editing params[key][i]: drag, wheel, or double-click to type.
 // `max` may be a function (CHOPPER: it follows SLICES); `word` names the value in the tooltip.
-function degreeKnob(mod, key, i, maxOf, label, word = 'DEGREE') {
+// `onShiftEdit` (optional) takes over a shift + double-click (MELODY: type the whole line).
+function degreeKnob(mod, key, i, maxOf, label, word = 'DEGREE', onShiftEdit = null) {
   const lim = () => (typeof maxOf === 'function' ? maxOf() : maxOf);
   const cap = h('div', { class: 'knob-cap' }, h('div', { class: 'knob-img' }), h('div', { class: 'knob-ptr' }));
   const set = (v, opts) => {
@@ -143,6 +144,7 @@ function degreeKnob(mod, key, i, maxOf, label, word = 'DEGREE') {
   cap.addEventListener('dblclick', (e) => {
     e.stopPropagation();
     hideTip();
+    if (e.shiftKey && onShiftEdit) return onShiftEdit(cap);
     editValue(cap, { label: `${label} ${word}`, min: 0, max: lim(), step: 1, default: 0 }, findModule(mod.id).params[key][i], (v) => set(v));
   });
   cap.addEventListener('wheel', (e) => {
@@ -158,11 +160,55 @@ function degreeKnob(mod, key, i, maxOf, label, word = 'DEGREE') {
 
 // MELODY: 8 columns of (degree knob, gate)
 const MELODY_STEPS = 16; // two rows of 8
+const MELODY_MAX = 14;
+
+// Shift + double-click a MELODY knob: one line per step from step 1, a degree (0-14) or - for off.
+// Anything else (or past 14) turns that step off; steps after the last line are left alone.
+function editMelodyLines(anchor, mod) {
+  const p = findModule(mod.id).params;
+  const area = h('textarea', { class: 've-input ve-lines', rows: MELODY_STEPS, spellcheck: false });
+  area.value = Array.from({ length: MELODY_STEPS }, (_, i) => (p.gates[i] ? p.degrees[i] ?? 0 : '-')).join('\n');
+  const apply = () => {
+    const lines = area.value.replace(/\s+$/, '').split('\n').slice(0, MELODY_STEPS);
+    const m = findModule(mod.id);
+    if (!m) return closePopover();
+    const d = [...m.params.degrees];
+    const g = [...m.params.gates];
+    for (let j = d.length; j < lines.length; j++) d[j] = 0;
+    for (let j = g.length; j < lines.length; j++) g[j] = 0;
+    lines.forEach((line, i) => {
+      const s = line.trim();
+      const v = /^\d+$/.test(s) ? Number(s) : NaN;
+      if (v <= MELODY_MAX) {
+        d[i] = v;
+        g[i] = 1;
+      } else g[i] = 0; // keep the old degree under a rest, like the gate button does
+    });
+    checkpoint(); // one undo step for the whole line
+    setParam(mod.id, 'degrees', d, { record: false });
+    setParam(mod.id, 'gates', g, { record: false });
+    closePopover();
+  };
+  const form = h('form', { class: 'value-edit', onsubmit: (e) => { e.preventDefault(); apply(); } },
+    h('div', { class: 've-title' }, 'NOTES', h('span', {}, `0 – ${MELODY_MAX}, - = off`)),
+    area,
+    h('div', { class: 've-actions' }, h('button', { type: 'submit', class: 'btn accent' }, 'SET')));
+  area.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePopover();
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); apply(); }
+  });
+  popover(anchor, form, { className: 'pop-value' });
+  setTimeout(() => {
+    area.focus();
+    area.select();
+  }, 0);
+}
+
 function melody(mod) {
   const cols = [];
   const el = h('div', { class: 'w-melody' });
   for (let i = 0; i < MELODY_STEPS; i++) {
-    const knob = degreeKnob(mod, 'degrees', i, 14, `STEP ${i + 1}`);
+    const knob = degreeKnob(mod, 'degrees', i, MELODY_MAX, `STEP ${i + 1}`, 'DEGREE', (cap) => editMelodyLines(cap, mod));
     const num = h('div', { class: 'deg lcd' });
     const gate = h('button', { class: 'step gate', onpointerdown: stop }, h('span', { class: 'led' }));
     gate.addEventListener('click', () => {
