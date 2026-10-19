@@ -62,13 +62,16 @@ function grid(mod) {
   const cells = [];
   const lanes = [];
   const levels = [];
+  const tones = [];
   const el = h('div', { class: 'w-grid' });
   for (let l = 0; l < 4; l++) {
     const sel = select(mod, `lane${l}`, { label: '', options: DRUM_SOUNDS });
     const lvl = knob(mod, `level${l}`, beats.params[`level${l}`]);
     lanes.push(sel);
+    const tone = knob(mod, `tone${l}`, beats.params[`tone${l}`]);
     levels.push(lvl);
-    const row = h('div', { class: 'grid-row' }, h('div', { class: 'grid-lane' }, sel.el, lvl.el));
+    tones.push(tone);
+    const row = h('div', { class: 'grid-row' }, h('div', { class: 'grid-lane' }, sel.el, lvl.el, tone.el));
     const rowCells = [];
     for (let i = 0; i < 16; i++) {
       const c = h('button', { class: `cell ${i % 4 === 0 ? 'beat' : ''}`, onpointerdown: stop }, h('em'));
@@ -95,6 +98,7 @@ function grid(mod) {
     update(p) {
       lanes.forEach((s, l) => s.update(p[`lane${l}`]));
       levels.forEach((k, l) => k.update(p[`level${l}`]));
+      tones.forEach((k, l) => k.update(p[`tone${l}`]));
       cells.forEach((row, l) => row.forEach((c, i) => {
         c.classList.toggle('on', p.grid[l][i] > 0);
         c.classList.toggle('off-len', i >= p.length);

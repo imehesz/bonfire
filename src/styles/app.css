@@ -472,7 +472,7 @@ a { color: var(--accent); }
 .grid-lane .knob-scale { padding: 0; }
 .grid-lane .knob-scale::before { display: none; }
 .grid-lane .knob > label { display: none; }
-.grid-lane .sel-disp { min-width: 46px; width: 52px; font-size: 10px; padding: 3px 4px; }
+.grid-lane .sel-disp { min-width: 26px; width: 26px; font-size: 10px; padding: 3px 2px; }
 .cell {
   position: relative;
   width: 18px;

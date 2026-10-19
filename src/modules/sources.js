@@ -67,7 +67,7 @@ export const beats = {
   title: 'Drum Grid',
   category: 'Rhythm',
   hp: 30,
-  description: 'Four-lane, sixteen-step drum machine. Each lane picks a drum sound and has its own small LEVEL knob; the BANK picks the machine (808, 909, LinnDrum...). SWING pushes every second step late for a shuffle. Patch an LFO into CV to move the volume of every hit (RAND humanizes, PERLIN drifts, a slow SINE swells). Right-click a step for x2 / x4 rolls.',
+  description: 'Four-lane, sixteen-step drum machine. Each lane picks a drum sound and has its own small LEVEL knob and a TONE knob that pitches it up or down by up to an octave; the BANK picks the machine (808, 909, LinnDrum...). SWING pushes every second step late for a shuffle. Patch an LFO into CV to move the volume of every hit (RAND humanizes, PERLIN drifts, a slow SINE swells). Right-click a step for x2 / x4 rolls.',
   params: {
     grid: {
       kind: 'data',
@@ -88,6 +88,11 @@ export const beats = {
     level1: { kind: 'knob', label: 'L2 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
     level2: { kind: 'knob', label: 'L3 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
     level3: { kind: 'knob', label: 'L4 LEVEL', min: 0, max: 1.5, default: 1, size: 'xs' },
+    // TONE: semitones of pitch shift (+-one octave), played as sample speed
+    tone0: { kind: 'knob', label: 'L1 TONE', min: -12, max: 12, default: 0, step: 1, size: 'xs' },
+    tone1: { kind: 'knob', label: 'L2 TONE', min: -12, max: 12, default: 0, step: 1, size: 'xs' },
+    tone2: { kind: 'knob', label: 'L3 TONE', min: -12, max: 12, default: 0, step: 1, size: 'xs' },
+    tone3: { kind: 'knob', label: 'L4 TONE', min: -12, max: 12, default: 0, step: 1, size: 'xs' },
     length: { kind: 'knob', label: 'LENGTH', min: 1, max: 16, default: 16, step: 1, structural: true },
     swing: { kind: 'knob', label: 'SWING', min: 0, max: 0.6, default: 0 },
   },
@@ -103,7 +108,9 @@ export const beats = {
     for (let i = 0; i < LANES; i++) {
       const row = grid[i].slice(0, length);
       if (!row.some(Boolean)) continue;
-      lanes.push(setIf(fn('s', mini(row.map((s) => stepToken(s, ctx.p[`lane${i}`])).join(' '))), 'gain', ctx.p[`level${i}`], 1));
+      let lane = setIf(fn('s', mini(row.map((s) => stepToken(s, ctx.p[`lane${i}`])).join(' '))), 'gain', ctx.p[`level${i}`], 1);
+      lane = setIf(lane, 'speed', 2 ** ((ctx.p[`tone${i}`] ?? 0) / 12), 1);
+      lanes.push(lane);
     }
     if (!lanes.length) return { out: null };
     let out = lanes.length === 1 ? lanes[0] : fn('stack', ...lanes);
