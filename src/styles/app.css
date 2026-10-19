@@ -554,8 +554,9 @@ a { color: var(--accent); }
 .tape-head.on em { color: var(--accent); }
 .tape-glow { position: absolute; left: 50%; top: -7px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; opacity: 0;
   background: var(--accent); box-shadow: 0 0 6px 2px var(--accent); }
-.w-lfo, .w-scope { display: block; border-radius: 4px; background: var(--scope); box-shadow: inset 0 1px 6px #000, 0 1px 0 rgba(255, 255, 255, 0.2); }
+.w-lfo, .w-khaoz, .w-scope { display: block; border-radius: 4px; background: var(--scope); box-shadow: inset 0 1px 6px #000, 0 1px 0 rgba(255, 255, 255, 0.2); }
 .w-lfo { width: 70px; height: 36px; }
+.w-khaoz { width: 130px; height: 75px; }
 .w-fenv-scope { display: block; width: 150px; height: 52px; border-radius: 4px; background: var(--scope); box-shadow: inset 0 1px 6px #000, 0 1px 0 rgba(255, 255, 255, 0.2); }
 .w-scope { width: 186px; height: 72px; }
 .w-meters { display: flex; gap: 4px; align-items: flex-end; position: relative; padding-bottom: 12px; }

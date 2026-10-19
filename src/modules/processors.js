@@ -1,6 +1,6 @@
-// Pattern processors: VANDALIZER, FILTER, FILTER ENV, FX, VINTAGE, TAPE, LFO, DUCK, MIXER, OUTPUT.
+// Pattern processors: VANDALIZER, FILTER, FILTER ENV, FX, VINTAGE, TAPE, LFO, KHAOZ, DUCK, MIXER, OUTPUT.
 import { arrow, fn, ident, lambda, mini, num, printExpr, raw } from '../core/expr.js';
-import { RATES, isDefault, rated, setIf } from './helpers.js';
+import { RATES, isDefault, miniExpr, rated, setIf, timed } from './helpers.js';
 
 const SOMETIMES = {
   fast: { l: 'FAST', f: (x) => x.call('fast', num(2)) },
@@ -315,6 +315,92 @@ export const lfo = {
     if (ctx.p.step) e = e.call('segment', num(16));
     ctx.meta({ shape: ctx.p.shape, rate: ctx.p.rate, step: ctx.p.step });
     return { cv: e };
+  },
+};
+
+// KHAOZ: a Lorenz attractor, integrated here at compile time and baked into a looping
+// 16-steps-per-bar number sequence, so the code stays plain Strudel and SEED replays the
+// same chaos. CHAOS is how far along the attractor each step travels: low circles one wing
+// smoothly (almost an LFO), high jumps between wings every step.
+const KHAOZ_STEPS = 16; // per bar
+const KHAOZ_SUB = 40; // RK4 substeps per step (also the scope trail's resolution)
+const khaozCache = new Map();
+
+function lorenz([x, y, z]) {
+  return [10 * (y - x), x * (28 - z) - y, x * y - (8 / 3) * z];
+}
+
+function rk4(v, h) {
+  const add = (a, b, k) => a.map((n, i) => n + b[i] * k);
+  const k1 = lorenz(v);
+  const k2 = lorenz(add(v, k1, h / 2));
+  const k3 = lorenz(add(v, k2, h / 2));
+  const k4 = lorenz(add(v, k3, h));
+  return v.map((n, i) => n + (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+}
+
+// -> { x, z: per-step 0..1 values, trig: per-step 0/1 (a peak of z = one lap of a wing),
+//      trail: [[x, z]] raw points for the scope }
+export function khaozPath({ chaos, loop, seed }) {
+  const key = `${chaos.toFixed(3)}|${loop}|${seed}`;
+  if (khaozCache.has(key)) return khaozCache.get(key);
+  const n = KHAOZ_STEPS * loop;
+  const h = (0.03 + chaos * 0.22) / KHAOZ_SUB; // time per step: ~1 lap per bar .. ~3 steps per lap
+  // seed -> start point, then run in so we're on the attractor
+  let r = (seed * 2654435761) >>> 0;
+  const rnd = () => ((r = (r * 1103515245 + 12345) >>> 0) / 2 ** 32) - 0.5;
+  let v = [rnd() * 20, rnd() * 20, 20 + rnd() * 20];
+  for (let i = 0; i < 3000; i++) v = rk4(v, 0.01);
+  const xs = [];
+  const zs = [];
+  const trail = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < KHAOZ_SUB; j++) {
+      v = rk4(v, h);
+      if (j % 4 === 0) trail.push([v[0], v[2]]);
+    }
+    xs.push(v[0]);
+    zs.push(v[2]);
+  }
+  const norm = (a) => {
+    const lo = Math.min(...a);
+    const span = Math.max(...a) - lo || 1;
+    return a.map((n) => (n - lo) / span);
+  };
+  const trig = zs.map((z, i) => (z > zs[(i + n - 1) % n] && z >= zs[(i + 1) % n] ? 1 : 0));
+  const res = { x: norm(xs), z: norm(zs), trig, trail, steps: n };
+  if (khaozCache.size > 64) khaozCache.clear();
+  khaozCache.set(key, res);
+  return res;
+}
+
+export const khaoz = {
+  type: 'khaoz',
+  name: 'KHAOZ',
+  title: 'Chaos Modulator',
+  category: 'Modulate',
+  hp: 10,
+  description: 'A simplified chaos oscillator: a Lorenz attractor (the butterfly) that never quite repeats itself, for modulation that feels alive. CHAOS goes from calm (a smooth wobble circling one wing) to wild (jumping between wings every step). LOOP is how many bars it runs before it starts over, so the chaos becomes a riff; DICE rolls a new one. X and Y are two related but different wobbles: patch them into a FILTER and a PAN. TRIG fires once per lap of a wing, a rhythm for a GATE. COLOR tints the butterfly (right-click for the skin colour).',
+  params: {
+    chaos: { kind: 'knob', label: 'CHAOS', min: 0, max: 1, default: 0.3, structural: true },
+    loop: { kind: 'rotary', label: 'LOOP', options: [1, 2, 4, 8].map((v) => ({ v, l: `${v} BAR` })), default: 4, structural: true },
+    seed: { kind: 'data', default: 1, structural: true },
+    color: { kind: 'color', label: 'COLOR', default: '', hardware: true },
+  },
+  inputs: {},
+  outputs: { x: { type: 'cv', label: 'X' }, y: { type: 'cv', label: 'Y' }, trig: { type: 'rhythm', label: 'TRIG' } },
+  actions: { dice: { label: 'DICE' } },
+  layout: [['widget:khaozScope'], ['chaos', 'loop'], ['color', 'dice'], ['out:x', 'out:y', 'out:trig']],
+  compile(ctx) {
+    const path = khaozPath(ctx.p);
+    const loop = ctx.p.loop;
+    ctx.meta({ steps: path.steps, dur: loop });
+    const seq = (a) => timed(miniExpr(a.map((n) => +n.toFixed(2)).join(' ')), loop);
+    return {
+      x: seq(path.x),
+      y: seq(path.z),
+      trig: path.trig.some(Boolean) ? timed(miniExpr(path.trig.map((t) => (t ? 'x' : '~')).join(' ')), loop) : null,
+    };
   },
 };
 

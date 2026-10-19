@@ -4,7 +4,7 @@ import { bjorklund } from '@strudel/core';
 import { analysers } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
 import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, arpOrder, beats, chordPlan } from '../modules/sources.js';
-import { FENV_PRESETS } from '../modules/processors.js';
+import { FENV_PRESETS, khaozPath } from '../modules/processors.js';
 import { CHOP_STEPS } from '../modules/voices.js';
 import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
 import { editValue, knob, select } from './controls.js';
@@ -677,6 +677,58 @@ function lfoScope() {
   };
 }
 
+// KHAOZ: the butterfly (x against z) with a dot riding the current step; COLOR tints it.
+// DICE (a panel action) rolls a new seed.
+function khaozScope(mod) {
+  const c = h('canvas', { class: 'w-khaoz', width: 260, height: 150 });
+  const g = c.getContext('2d');
+  let path = null;
+  let col = '#2ec4d6';
+  const draw = (k) => {
+    if (!path) return;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const [x, z] of path.trail) {
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z);
+    }
+    const sx = (x) => 10 + ((x - x0) / (x1 - x0 || 1)) * (c.width - 20);
+    const sz = (z) => c.height - 10 - ((z - z0) / (z1 - z0 || 1)) * (c.height - 20);
+    g.clearRect(0, 0, c.width, c.height);
+    g.strokeStyle = col;
+    g.globalAlpha = 0.75;
+    g.lineWidth = 1.5;
+    g.beginPath();
+    path.trail.forEach(([x, z], i) => (i ? g.lineTo(sx(x), sz(z)) : g.moveTo(sx(x), sz(z))));
+    g.stroke();
+    g.globalAlpha = 1;
+    if (k >= 0) {
+      const [x, z] = path.trail[Math.min(path.trail.length - 1, Math.round(((k + 1) * path.trail.length) / path.steps) - 1)];
+      g.fillStyle = col;
+      g.shadowColor = col;
+      g.shadowBlur = 10;
+      g.beginPath();
+      g.arc(sx(x), sz(z), 5, 0, Math.PI * 2);
+      g.fill();
+      g.shadowBlur = 0;
+    }
+  };
+  return {
+    el: c,
+    update(p) {
+      path = khaozPath(p);
+      col = p.color || getComputedStyle(c).getPropertyValue('--scope-line').trim() || '#2ec4d6';
+      draw(-1);
+    },
+    tick(cycle, meta) {
+      if (cycle != null) draw(stepIndex(cycle, meta));
+    },
+    action(id) {
+      if (id !== 'dice') return;
+      checkpoint();
+      setParam(mod.id, 'seed', 1 + Math.floor(Math.random() * 1e6));
+    },
+  };
+}
+
 // OUTPUT scope: five looks (STYLE knob), optional COLOR override, FULL = fullscreen,
 // BACK = drawn big behind the rack (see-through, click-through) while you keep patching.
 const LOG_LO = Math.log(30);
@@ -1033,4 +1085,4 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, scope, meters, tapeDeck };
+export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck };
