@@ -9,9 +9,10 @@ import { prettySound } from '../core/music.js';
 import { h, modal, toast } from './dom.js';
 import { showModuleHelp } from './rack.js';
 
-function drawer(side, title, body) {
+// `tool` sits in the header next to the title, so it stays put while the body scrolls
+function drawer(side, title, body, tool) {
   const el = h('aside', { class: `drawer ${side}` },
-    h('header', {}, h('h3', {}, title), h('button', { class: 'x', onclick: () => el.classList.remove('open') }, '×')),
+    h('header', {}, h('h3', {}, title), tool, h('button', { class: 'x', onclick: () => el.classList.remove('open') }, '×')),
     body);
   return el;
 }
@@ -86,7 +87,7 @@ export function mountModuleDrawer(host) {
   };
   search.addEventListener('input', render);
   render();
-  const el = drawer('left', 'MODULES', h('div', { class: 'drawer-body' }, search, list));
+  const el = drawer('left', 'MODULES', h('div', { class: 'drawer-body' }, list), search);
   host.append(el);
   return el;
 }
