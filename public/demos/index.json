@@ -58,5 +58,11 @@
   "name": "Veil of Echoes",
   "description": "70 BPM ambient in D minor: a warm pad drifting through Dm9, Bbmaj9, Gm9 and C9 over a SUB DRONE that follows the roots, while one slow celesta MELODY rings out through a two-head TAPE echo into a huge room and a half-bar delay.",
   "cover": "demos/veil-of-echoes.jpg"
+ },
+ {
+  "id": "stranger-danger",
+  "name": "Stranger Danger",
+  "description": "96 BPM 80s-horror synthwave in A minor: a six-note saw arpeggio tumbles against the beat through a resonant FILTER that an LFO slowly opens, over a slow saw pad on Am, F, Am, E and a SUB DRONE bass pulsing in 8ths.",
+  "cover": "demos/stranger-danger.jpg"
  }
 ]

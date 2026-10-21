@@ -1,0 +1,367 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Stranger Danger",
+ "description": "96 BPM 80s-horror synthwave in A minor: a six-note saw arpeggio tumbles against the beat through a resonant FILTER that an LFO slowly opens, over a slow saw pad on Am, F, Am, E and a SUB DRONE bass pulsing in 8ths.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 96
+   }
+  },
+  {
+   "id": "melody1",
+   "type": "melody",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "degrees": [
+     0,
+     2,
+     4,
+     8,
+     4,
+     2,
+     0,
+     0
+    ],
+    "gates": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     0,
+     0
+    ],
+    "length": 6,
+    "root": "A",
+    "scale": "minor",
+    "octave": 3
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 0,
+   "x": 26,
+   "params": {
+    "mode": "synth",
+    "wave": "sawtooth",
+    "attack": 0.003,
+    "decay": 0.12,
+    "sustain": 0.25,
+    "release": 0.15,
+    "level": 0.8
+   }
+  },
+  {
+   "id": "filter1",
+   "type": "filter",
+   "row": 0,
+   "x": 38,
+   "params": {
+    "type": "lp",
+    "cutoff": 500,
+    "res": 9,
+    "amt": 0.65
+   }
+  },
+  {
+   "id": "lfo1",
+   "type": "lfo",
+   "row": 0,
+   "x": 46,
+   "params": {
+    "shape": "sine",
+    "rate": 0.125
+   }
+  },
+  {
+   "id": "chords1",
+   "type": "chords",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "face": "advanced",
+    "root": "A",
+    "scale": "harmonic minor",
+    "degrees": [
+     0,
+     5,
+     0,
+     4,
+     0,
+     0,
+     0,
+     0
+    ],
+    "size": "triad",
+    "voicing": "close",
+    "rate": 2,
+    "octave": 4,
+    "bass": 2,
+    "length": 4,
+    "lead": true
+   }
+  },
+  {
+   "id": "voice2",
+   "type": "voice",
+   "row": 1,
+   "x": 24,
+   "params": {
+    "mode": "synth",
+    "wave": "sawtooth",
+    "attack": 0.9,
+    "sustain": 1,
+    "release": 1.5,
+    "level": 0.25
+   }
+  },
+  {
+   "id": "seq1",
+   "type": "seq",
+   "row": 1,
+   "x": 36,
+   "params": {
+    "steps": [
+     1,
+     0,
+     1,
+     0,
+     1,
+     0,
+     1,
+     0,
+     1,
+     0,
+     1,
+     0,
+     1,
+     0,
+     1,
+     0
+    ],
+    "length": 16,
+    "sound": "bd"
+   }
+  },
+  {
+   "id": "drone1",
+   "type": "drone",
+   "row": 1,
+   "x": 54,
+   "params": {
+    "osc": "saw",
+    "sub": 0.6,
+    "reese": 0.25,
+    "tone": 320,
+    "res": 6,
+    "drift": 0.2,
+    "rate": 8,
+    "drive": 0.2,
+    "attack": 0.005,
+    "release": 0.18,
+    "level": 1
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 2,
+   "x": 0,
+   "params": {
+    "level0": 0.85,
+    "level1": 1.0,
+    "level2": 0.8,
+    "hicut2": 1800
+   }
+  },
+  {
+   "id": "fx1",
+   "type": "fx",
+   "row": 2,
+   "x": 16,
+   "params": {
+    "room": 0.45,
+    "size": 5,
+    "delay": 0.3,
+    "time": 0.1875,
+    "feedback": 0.4
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 3,
+   "x": 0,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "melody1",
+    "j": "clk"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pitch"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "in"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "lfo1",
+    "j": "cv"
+   },
+   "to": {
+    "m": "filter1",
+    "j": "cv"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "chords1",
+    "j": "chord"
+   },
+   "to": {
+    "m": "voice2",
+    "j": "pitch"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "clock1",
+    "j": "x4"
+   },
+   "to": {
+    "m": "seq1",
+    "j": "clk"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "chords1",
+    "j": "root"
+   },
+   "to": {
+    "m": "drone1",
+    "j": "pitch"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "seq1",
+    "j": "rhy"
+   },
+   "to": {
+    "m": "drone1",
+    "j": "gate"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "filter1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c10",
+   "from": {
+    "m": "drone1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c11",
+   "from": {
+    "m": "voice2",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in2"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c12",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx1",
+    "j": "in"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c13",
+   "from": {
+    "m": "fx1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#2ec4d6"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}
