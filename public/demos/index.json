@@ -52,5 +52,11 @@
   "name": "Poor Girl",
   "description": "80 BPM lofi in C major for a rainy night in: an SP-12 boom-bap beat, two Rhodes lines walking down Fmaj7, Em7, Dm7, Cmaj7, a soft bass, vinyl crackle, and every eight bars a voice reminds you that true romance means being humble.",
   "cover": "demos/poor-girl.jpg"
+ },
+ {
+  "id": "veil-of-echoes",
+  "name": "Veil of Echoes",
+  "description": "70 BPM ambient in D minor: a warm pad drifting through Dm9, Bbmaj9, Gm9 and C9 over a SUB DRONE that follows the roots, while one slow celesta MELODY rings out through a two-head TAPE echo into a huge room and a half-bar delay.",
+  "cover": "demos/veil-of-echoes.jpg"
  }
 ]

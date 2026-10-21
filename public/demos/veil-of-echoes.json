@@ -1,0 +1,309 @@
+{
+ "format": "bonfire-stack",
+ "version": 1,
+ "name": "Veil of Echoes",
+ "description": "70 BPM ambient in D minor: a warm pad drifting through Dm9, Bbmaj9, Gm9 and C9 over a SUB DRONE that follows the roots, while one slow celesta MELODY rings out through a two-head TAPE echo into a huge room and a half-bar delay.",
+ "modules": [
+  {
+   "id": "clock1",
+   "type": "clock",
+   "row": 0,
+   "x": 0,
+   "params": {
+    "bpm": 70
+   }
+  },
+  {
+   "id": "chords1",
+   "type": "chords",
+   "row": 0,
+   "x": 8,
+   "params": {
+    "face": "advanced",
+    "root": "D",
+    "scale": "minor",
+    "degrees": [
+     0,
+     5,
+     3,
+     6,
+     0,
+     0,
+     0,
+     0
+    ],
+    "size": "nine",
+    "voicing": "open",
+    "rate": 2,
+    "octave": 3,
+    "bass": 2,
+    "length": 4,
+    "lead": true
+   }
+  },
+  {
+   "id": "voice1",
+   "type": "voice",
+   "row": 0,
+   "x": 32,
+   "params": {
+    "mode": "sample",
+    "sound": "gm_pad_warm",
+    "attack": 1.5,
+    "release": 3,
+    "level": 0.65
+   }
+  },
+  {
+   "id": "drone1",
+   "type": "drone",
+   "row": 0,
+   "x": 44,
+   "params": {
+    "osc": "saw",
+    "sub": 0.8,
+    "reese": 0.25,
+    "tone": 220,
+    "res": 2,
+    "drift": 0.6,
+    "rate": 8,
+    "drive": 0.1,
+    "attack": 2,
+    "release": 4,
+    "level": 0.55
+   }
+  },
+  {
+   "id": "melody1",
+   "type": "melody",
+   "row": 1,
+   "x": 0,
+   "params": {
+    "degrees": [
+     4,
+     8,
+     0,
+     7,
+     9,
+     0,
+     6,
+     0,
+     5,
+     9,
+     0,
+     8,
+     6,
+     8,
+     0,
+     4
+    ],
+    "gates": [
+     1,
+     1,
+     0,
+     1,
+     1,
+     0,
+     1,
+     0,
+     1,
+     1,
+     0,
+     1,
+     1,
+     1,
+     0,
+     1
+    ],
+    "length": 16,
+    "octave": 4,
+    "root": "D",
+    "scale": "minor"
+   }
+  },
+  {
+   "id": "voice2",
+   "type": "voice",
+   "row": 1,
+   "x": 18,
+   "params": {
+    "mode": "sample",
+    "sound": "gm_celesta",
+    "release": 2.5,
+    "level": 0.75
+   }
+  },
+  {
+   "id": "tape1",
+   "type": "tape",
+   "row": 1,
+   "x": 30,
+   "params": {
+    "time": 0.375,
+    "heads": "1+3",
+    "repeats": 0.55,
+    "echo": 0.65,
+    "tone": 2600,
+    "age": 0.5,
+    "sat": 0.15,
+    "wow": 0.45
+   }
+  },
+  {
+   "id": "mixer1",
+   "type": "mixer",
+   "row": 2,
+   "x": 0,
+   "params": {
+    "level0": 0.9,
+    "level1": 0.9,
+    "level2": 1.1,
+    "locut2": 180
+   }
+  },
+  {
+   "id": "fx1",
+   "type": "fx",
+   "row": 2,
+   "x": 16,
+   "params": {
+    "room": 0.75,
+    "size": 8,
+    "delay": 0.3,
+    "time": 0.5,
+    "feedback": 0.5
+   }
+  },
+  {
+   "id": "output1",
+   "type": "output",
+   "row": 3,
+   "x": 0,
+   "params": {}
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1",
+   "from": {
+    "m": "chords1",
+    "j": "chord"
+   },
+   "to": {
+    "m": "voice1",
+    "j": "pitch"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c2",
+   "from": {
+    "m": "chords1",
+    "j": "root"
+   },
+   "to": {
+    "m": "drone1",
+    "j": "pitch"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c3",
+   "from": {
+    "m": "clock1",
+    "j": "d2"
+   },
+   "to": {
+    "m": "melody1",
+    "j": "clk"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c4",
+   "from": {
+    "m": "melody1",
+    "j": "pitch"
+   },
+   "to": {
+    "m": "voice2",
+    "j": "pitch"
+   },
+   "color": "#5bc864"
+  },
+  {
+   "id": "c5",
+   "from": {
+    "m": "voice2",
+    "j": "out"
+   },
+   "to": {
+    "m": "tape1",
+    "j": "in"
+   },
+   "color": "#f28c28"
+  },
+  {
+   "id": "c6",
+   "from": {
+    "m": "voice1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in0"
+   },
+   "color": "#b06ce0"
+  },
+  {
+   "id": "c7",
+   "from": {
+    "m": "drone1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in1"
+   },
+   "color": "#2ec4d6"
+  },
+  {
+   "id": "c8",
+   "from": {
+    "m": "tape1",
+    "j": "out"
+   },
+   "to": {
+    "m": "mixer1",
+    "j": "in2"
+   },
+   "color": "#e8483b"
+  },
+  {
+   "id": "c9",
+   "from": {
+    "m": "mixer1",
+    "j": "out"
+   },
+   "to": {
+    "m": "fx1",
+    "j": "in"
+   },
+   "color": "#f2c230"
+  },
+  {
+   "id": "c10",
+   "from": {
+    "m": "fx1",
+    "j": "out"
+   },
+   "to": {
+    "m": "output1",
+    "j": "r"
+   },
+   "color": "#5bc864"
+  }
+ ],
+ "samplePacks": [],
+ "localSounds": []
+}
