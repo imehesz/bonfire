@@ -665,12 +665,15 @@ function msgLabel(msg) {
   return `${srcLabel(msg.src)} = ${Math.round(msg.value * 127)}${hist.length > 1 ? `   ·   last values: ${hist.join(' ')}` : ''}`;
 }
 
+// The monitor + COPY MIDI LOG are for diagnosing a controller: only with ?debug=1.
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+
 async function copyLog() {
   const text = [`Bonfire STACK MIDI log · ${navigator.userAgent}`, `devices: ${midiState().devices.join(', ')}`,
     `mappings: ${JSON.stringify(getPatch().midiMap)}`, `remembered direction: ${preferredRel()}`, `build: ${typeof __APP_VERSION__ === 'undefined' ? 'dev' : __APP_VERSION__}`, '', ...debugLog].join('\n');
   try {
     await navigator.clipboard.writeText(text);
-    toast('MIDI log copied — paste it into the chat');
+    toast('MIDI log copied');
   } catch {
     modal(h('textarea', { class: 've-input', rows: 20, style: { width: '80vw' } }, text));
   }
@@ -715,8 +718,8 @@ export function showMidiPanel() {
     const entry = entryModule();
     kids.push(
       h('p', { class: 'midi-devices' }, s.devices.length ? `Connected: ${s.devices.join(', ')}` : 'No MIDI device found — plug one in (it shows up here by itself).'),
-      h('p', {}, 'Last message: ', monitor),
-      h('p', {}, h('button', { class: 'btn', onclick: copyLog }, 'COPY MIDI LOG'), h('span', { class: 'fine' }, '  — the last 300 messages and what the app did with them, for bug reports')),
+      DEBUG ? h('p', {}, 'Last message: ', monitor) : null,
+      DEBUG ? h('p', {}, h('button', { class: 'btn', onclick: copyLog }, 'COPY MIDI LOG'), h('span', { class: 'fine' }, '  — the last 300 messages and what the app did with them, for bug reports')) : null,
       h('h3', {}, 'Knobs & buttons'),
       h('p', {}, 'Right-click any knob, fader, switch or button → MIDI learn, then move a control on your device. Or use LEARN MODE to map one after another. Mappings are saved in the patch.'),
       h('button', { class: 'btn accent', onclick: () => { dlg.close(); setLearnMode(true); } }, 'LEARN MODE'),
