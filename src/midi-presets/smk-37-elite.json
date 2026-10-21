@@ -1,0 +1,21 @@
+{
+ "format": "bonfire-midi",
+ "version": 1,
+ "name": "SMK-37 Elite",
+ "match": "SMK-37",
+ "controller": "SMK-37 Elite Midi",
+ "direction": "hi",
+ "maps": [
+  { "src": "note:2:123", "m": "@", "k": "play", "type": "@" },
+  { "src": "cc:1:37", "m": "clock1", "k": "bpm", "rel": "hi", "type": "clock" },
+  { "src": "cc:1:64", "m": "output1", "k": "volume", "type": "output" },
+  { "src": "cc:6:48", "m": "mixer1", "k": "level0", "type": "mixer" },
+  { "src": "cc:6:49", "m": "mixer1", "k": "level1", "type": "mixer" },
+  { "src": "cc:6:50", "m": "mixer1", "k": "level2", "type": "mixer" },
+  { "src": "cc:6:51", "m": "mixer1", "k": "level3", "type": "mixer" },
+  { "src": "note:2:16", "m": "mixer1", "k": "mute0", "type": "mixer" },
+  { "src": "note:2:17", "m": "mixer1", "k": "mute1", "type": "mixer" },
+  { "src": "note:2:18", "m": "mixer1", "k": "mute2", "type": "mixer" },
+  { "src": "note:2:19", "m": "mixer1", "k": "mute3", "type": "mixer" }
+ ]
+}

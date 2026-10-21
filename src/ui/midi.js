@@ -258,16 +258,38 @@ function exportProfile() {
   toast(`Saved ${a.download}`);
 }
 
-export function applyProfile(profile) {
+// Modules nearest the sound first: walk the cables back from OUTPUT, so the
+// MIXER that feeds OUTPUT comes before a sub-mixer feeding it. Unpatched last.
+function byClosenessToOutput() {
+  const patch = getPatch();
+  const order = [];
+  const seen = new Set();
+  let ring = patch.modules.filter((m) => m.type === 'output').map((m) => m.id);
+  while (ring.length) {
+    const next = [];
+    for (const id of ring) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      order.push(id);
+      for (const c of patch.cables) if (c.to.m === id && !seen.has(c.from.m)) next.push(c.from.m);
+    }
+    ring = next;
+  }
+  return [...order, ...patch.modules.map((m) => m.id).filter((id) => !seen.has(id))].map(findModule);
+}
+
+// A built-in preset goes by the patch's wiring only; an imported profile keeps
+// the same module id when the patch has it (the patch it was made on).
+export function applyProfile(profile, { preset = false } = {}) {
   if (profile?.format !== 'bonfire-midi' || !Array.isArray(profile.maps)) throw new Error('not a Bonfire MIDI profile');
-  const mods = getPatch().modules;
+  const mods = byClosenessToOutput();
   const used = new Set();
   const out = [];
   const skipped = [];
   for (const x of profile.maps) {
     let m = null;
     if (x.m === '@') m = '@';
-    else if (findModule(x.m)?.type === x.type && !used.has(`${x.m}.${x.k}`)) m = x.m;
+    else if (!preset && findModule(x.m)?.type === x.type && !used.has(`${x.m}.${x.k}`)) m = x.m;
     else m = mods.find((mod) => mod.type === x.type && !used.has(`${mod.id}.${x.k}`))?.id ?? null;
     if (!m || !isLearnable(m, x.k)) {
       skipped.push(`${(x.type ?? "?").toUpperCase()} · ${x.k.toUpperCase()}`);
@@ -282,6 +304,26 @@ export function applyProfile(profile) {
   }
   return { applied: out.length, skipped };
 }
+
+// Built-in controller presets: src/midi-presets/*.json, matched by device name.
+export const PRESETS = Object.values(import.meta.glob('../midi-presets/*.json', { eager: true, import: 'default' }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+const presetFor = (device) => PRESETS.find((p) => device.toLowerCase().includes(p.match.toLowerCase()));
+
+function loadPreset(pr) {
+  const { applied, skipped } = applyProfile(pr, { preset: true });
+  toast(`${pr.name} preset: ${applied} control${applied === 1 ? '' : 's'} mapped${skipped.length ? ` · not in this patch: ${skipped.join(', ')}` : ''} (Ctrl+Z undoes it)`, applied ? '' : 'warn');
+}
+
+// A known controller plugged into a patch with nothing mapped: point at its preset, once.
+let hinted = false;
+onMidiState((st) => {
+  if (hinted || !st.enabled || (getPatch().midiMap ?? []).length) return;
+  const pr = st.devices.map(presetFor).find(Boolean);
+  if (!pr) return;
+  hinted = true;
+  toast(`${pr.name} connected — load its layout: MIDI → Presets`);
+});
 
 async function importProfile() {
   try {
@@ -688,6 +730,11 @@ export function showMidiPanel() {
           : 'Hold a chord (or one key) and let go to write the slot.'}`
         : 'Right-click a MELODY or CHORDS module → MIDI note entry, then play keys to write its steps. Click a step’s number to jump there.'),
       entry ? h('button', { class: 'btn', onclick: () => armNoteEntry(entry.id) }, 'STOP NOTE ENTRY') : null,
+      h('h3', {}, 'Presets'),
+      h('p', {}, 'Ready-made layouts for known controllers. They map what this patch has (the MIXER that feeds OUTPUT gets the mixer controls) and skip the rest.'),
+      h('ul', { class: 'midi-list' }, PRESETS.map((pr) => h('li', { class: 'midi-row' },
+        h('span', { class: 'midi-tgt' }, pr.name, s.devices.some((d) => presetFor(d) === pr) ? h('span', { class: 'fine' }, '  · connected') : null),
+        h('button', { class: 'btn', onclick: () => loadPreset(pr) }, 'LOAD')))),
       h('h3', {}, 'Controller profile'),
       h('p', {}, 'Save your mappings as a file and load them into any patch, so you don’t map the controller again. Each one lands on the same kind of module (a FILTER knob on that patch’s FILTER); ones this patch has no module for are skipped.'),
       h('p', {}, h('button', { class: 'btn', onclick: exportProfile }, 'EXPORT'), ' ', h('button', { class: 'btn', onclick: importProfile }, 'IMPORT')),
