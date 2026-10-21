@@ -89,6 +89,12 @@ export function mountModuleDrawer(host) {
   render();
   const el = drawer('left', 'MODULES', h('div', { class: 'drawer-body' }, list), search);
   host.append(el);
+  // opening the drawer (from anywhere) puts the cursor in the search, ready to type
+  new MutationObserver(() => {
+    if (!el.classList.contains('open')) return;
+    search.focus({ preventScroll: true });
+    search.select();
+  }).observe(el, { attributes: true, attributeFilter: ['class'] });
   return el;
 }
 
