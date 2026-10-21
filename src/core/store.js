@@ -18,6 +18,7 @@ export function emptyPatch() {
     cables: [],
     samplePacks: [],
     localSounds: [],
+    midiMap: [], // [{ src: 'cc:1:74', m: 'filter1', k: 'cutoff' }]; m '@' = app-wide (PLAY, note-entry REST...)
   };
 }
 
@@ -72,6 +73,7 @@ function normalize(p) {
   }));
   const ids = new Set(out.modules.map((m) => m.id));
   out.cables = out.cables.filter((c) => ids.has(c.from.m) && ids.has(c.to.m));
+  out.midiMap = (out.midiMap ?? []).filter((x) => x.m === '@' || ids.has(x.m));
   return out;
 }
 
@@ -179,6 +181,7 @@ export function removeModule(id) {
   checkpoint();
   patch.modules = patch.modules.filter((m) => m.id !== id);
   patch.cables = patch.cables.filter((c) => c.from.m !== id && c.to.m !== id);
+  patch.midiMap = patch.midiMap.filter((x) => x.m !== id);
   emit('structure', { removed: id });
 }
 
@@ -247,5 +250,45 @@ export function removeSamplePack(url) {
 
 export function setLocalSounds(names) {
   patch.localSounds = names;
+  emit('params', {});
+}
+
+// One MIDI source drives one control, and a control listens to one source.
+export function setMidiMap(src, m, k) {
+  checkpoint();
+  patch.midiMap = patch.midiMap.filter((x) => x.src !== src && !(x.m === m && x.k === k));
+  patch.midiMap.push({ src, m, k });
+  emit('params', {});
+}
+
+// How a CC is read: rel undefined = not known yet, 'abs' = a knob with ends,
+// 'sign' / 'twos' / 'offset' = an endless encoder sending steps. auto = guessed.
+export function setMidiMode(src, rel, { auto = false, record = true } = {}) {
+  const x = patch.midiMap.find((y) => y.src === src);
+  if (!x) return;
+  if (record) checkpoint();
+  x.rel = rel;
+  if (auto) x.auto = true;
+  else delete x.auto;
+  emit('params', {});
+}
+
+// Several mappings at once (a controller profile), as ONE undo step. Each one
+// replaces whatever used the same source or the same control.
+export function mergeMidiMaps(list) {
+  if (!list.length) return;
+  checkpoint();
+  for (const { src, m, k, rel } of list) {
+    patch.midiMap = patch.midiMap.filter((x) => x.src !== src && !(x.m === m && x.k === k));
+    patch.midiMap.push(rel ? { src, m, k, rel } : { src, m, k });
+  }
+  emit('params', {});
+}
+
+export function removeMidiMap(match) {
+  const keep = patch.midiMap.filter((x) => !match(x));
+  if (keep.length === patch.midiMap.length) return;
+  checkpoint();
+  patch.midiMap = keep;
   emit('params', {});
 }

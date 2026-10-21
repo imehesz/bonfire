@@ -9,6 +9,7 @@ import { skinCableSag } from '../core/skins.js';
 import { addLocalFiles } from '../core/samples.js';
 import { buildModule, paintPanel } from './module.js';
 import { h, menu, modal, s, toast } from './dom.js';
+import { midiMenuItems } from './midi.js';
 
 export const ROW_H = 380;
 const COLLAPSED_H = 118; // head + one jack row + foot
@@ -498,6 +499,7 @@ function onContext(e) {
   const anchor = h('div', { style: { position: 'fixed', left: `${e.clientX}px`, top: `${e.clientY}px`, width: '1px', height: '1px' } });
   document.body.append(anchor);
   menu(anchor, [
+    ...midiMenuItems(id, e.target),
     { label: `About ${def.name}`, action: () => showModuleHelp(def, findModule(id)) },
     { label: 'Settings…', action: () => showModuleSettings(id) },
     '-',

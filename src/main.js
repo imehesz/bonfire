@@ -11,6 +11,7 @@ import { mountInspector } from './ui/inspector.js';
 import { mountModuleDrawer } from './ui/drawers.js';
 import { h, menu, modal, readout, toast } from './ui/dom.js';
 import { randomName } from './core/names.js';
+import { markMidi, midiButton, playMenuItems } from './ui/midi.js';
 
 const SOURCE_URL = 'https://github.com/imehesz/bonfirestack';
 const COFFEE_URL = 'https://buymeacoffee.com/imehesz';
@@ -21,7 +22,10 @@ let meta = {};
 let compiled = null;
 
 // ---------------- layout ----------------
-const playBtn = h('button', { class: 'transport', title: 'Play / stop (Space)', onclick: () => engine.togglePlay() });
+const playBtn = h('button', {
+  class: 'transport', title: 'Play / stop (Space) · right-click to map a MIDI knob or button', onclick: () => engine.togglePlay(),
+  oncontextmenu: (e) => { e.preventDefault(); menu(playBtn, playMenuItems()); },
+});
 
 // ---------------- WAV recording ----------------
 const recBtn = h('button', { class: 'transport rec', title: 'Record a WAV: starts on the next bar, press again to stop and download', onclick: () => toggleRecord() });
@@ -103,6 +107,7 @@ const topbar = h('header', { class: 'topbar' },
     h('button', { class: 'tb', onclick: (e) => demoMenu(e.currentTarget) }, 'DEMOS ▾'),
     h('button', { class: 'tb', onclick: (e) => skinMenu(e.currentTarget) }, 'SKIN ▾'),
     cablesBtn,
+    midiButton,
     readout),
   h('div', { class: 'tb-right' },
     h('button', { class: 'tb icon', title: 'Undo (Ctrl+Z)', onclick: store.undoChange }, '↶'),
@@ -177,6 +182,7 @@ store.subscribe((kind, detail) => {
     for (const url of store.getPatch().samplePacks ?? []) loadPack(url);
     recompile({ immediate: true });
   }
+  markMidi();
 });
 
 // ---------------- animation loop (playheads, LEDs, scope) ----------------
@@ -291,6 +297,7 @@ function showHelp() {
       h('li', {}, 'Drag a module by its panel to move it. Right-click a panel for settings (name, colour) / duplicate / reset / delete.'),
       h('li', {}, 'Knobs & faders: drag up/down (Shift = fine), mouse wheel, or double-click to type an exact value.'),
       h('li', {}, 'Sequencer steps: right-click to cycle ×2 / ×4 rolls.'),
+      h('li', {}, 'MIDI: plug in a keyboard or controller and press MIDI in the top bar. Right-click any knob → MIDI learn; right-click a MELODY or CHORDS → MIDI note entry to write its steps from the keys.'),
       h('li', {}, '● REC records a WAV from the next bar line (starting playback if needed); press it again, or STOP, to download. It records the music before OUTPUT VOLUME / MUTE.')),
     h('h3', {}, 'Keys'),
     h('ul', {},

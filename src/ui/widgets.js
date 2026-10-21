@@ -8,6 +8,7 @@ import { FENV_PRESETS, khaozPath } from '../modules/processors.js';
 import { CHOP_STEPS } from '../modules/voices.js';
 import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
 import { editValue, knob, select } from './controls.js';
+import { noteEntry, setCursor } from './midi.js';
 
 const stop = (e) => e.stopPropagation();
 const cycleState = (v) => (v + 1) % 4;
@@ -214,6 +215,7 @@ function melody(mod) {
   for (let i = 0; i < MELODY_STEPS; i++) {
     const knob = degreeKnob(mod, 'degrees', i, MELODY_MAX, `STEP ${i + 1}`, 'DEGREE', (cap) => editMelodyLines(cap, mod));
     const num = h('div', { class: 'deg lcd' });
+    num.addEventListener('click', () => noteEntry.id === mod.id && setCursor(i)); // NOTE ENTRY: jump here
     const gate = h('button', { class: 'step gate', onpointerdown: stop }, h('span', { class: 'led' }));
     gate.addEventListener('click', () => {
       const g = [...findModule(mod.id).params.gates];
@@ -239,7 +241,11 @@ function melody(mod) {
     },
     tick(cycle, meta) {
       const k = stepIndex(cycle, meta);
-      cols.forEach((c, i) => c.col.classList.toggle('play', i === k));
+      const rec = noteEntry.id === mod.id ? noteEntry.cursor : -1;
+      cols.forEach((c, i) => {
+        c.col.classList.toggle('play', i === k);
+        c.col.classList.toggle('rec', i === rec);
+      });
     },
   };
 }
@@ -348,6 +354,7 @@ function chords(mod) {
   };
   for (let i = 0; i < CHORD_SLOTS; i++) {
     const num = h('div', { class: 'ch-num' });
+    num.addEventListener('click', () => noteEntry.id === mod.id && setCursor(i)); // NOTE ENTRY: jump here
     const knob = degreeKnob(mod, 'degrees', i, 6, `CHORD ${i + 1}`);
     const name = h('button', { class: 'lcd ch-name', onpointerdown: stop }, h('b'), h('i'));
     name.addEventListener('click', () => bump(i, 1));
@@ -377,7 +384,11 @@ function chords(mod) {
     },
     tick(cycle, meta) {
       const k = stepIndex(cycle, meta);
-      slots.forEach((c, i) => c.col.classList.toggle('play', i === k));
+      const rec = noteEntry.id === mod.id ? noteEntry.cursor : -1;
+      slots.forEach((c, i) => {
+        c.col.classList.toggle('play', i === k);
+        c.col.classList.toggle('rec', i === rec);
+      });
     },
   };
 }

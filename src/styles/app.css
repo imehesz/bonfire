@@ -981,3 +981,27 @@ a { color: var(--accent); }
 @keyframes scope-hint { 0%, 60% { opacity: 0.8; } 100% { opacity: 0; } }
 .module[data-type='output'] .mod-row:nth-child(2) { align-items: center; } /* COLOR / BACK / FULL level with the STYLE knob */
 .module[data-type='output'] .mod-row:nth-child(3) { margin-top: 11px; } /* fader's +6 mark pokes above its row */
+
+/* ---------------- MIDI ---------------- */
+.tb.midi-btn { display: inline-flex; align-items: center; gap: 6px; }
+.tb.midi-btn.act .led { background: #fff; box-shadow: 0 0 8px var(--led); }
+.ctl.midi-mapped { position: relative; }
+.ctl.midi-mapped::after { content: ''; position: absolute; top: 0; right: 0; width: 6px; height: 6px; border-radius: 50%; background: #2ec4d6; box-shadow: 0 0 4px #2ec4d6; pointer-events: none; }
+body.midi-learn .module .ctl[data-param]:not([data-param='color']):not(.sound), body.midi-learn .module .ctl.button { outline: 1px dashed #2ec4d6; outline-offset: 1px; border-radius: 4px; cursor: crosshair; }
+.module .ctl.midi-learning { outline: 2px solid #2ec4d6 !important; animation: midi-pulse 0.8s ease-in-out infinite alternate; }
+@keyframes midi-pulse { to { outline-color: transparent; } }
+.module.midi-rec { outline: 2px solid #e8483b; outline-offset: 1px; }
+.mel-col.rec { box-shadow: inset 0 0 0 2px #e8483b; }
+.w-melody .deg, .w-chords .ch-num { cursor: pointer; }
+.midi-banner { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 160; display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 8px; background: var(--ui-raised); border: 1px solid #2ec4d6; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); font-size: 14px; max-width: calc(100vw - 32px); }
+.midi-banner[hidden] { display: none; }
+.midi-banner b { color: #2ec4d6; letter-spacing: 0.1em; }
+.midi-panel .midi-list { list-style: none; padding: 0; margin: 6px 0 10px; }
+.midi-panel .midi-row { display: flex; align-items: center; gap: 10px; padding: 3px 0; border-bottom: 1px solid var(--ui-border); }
+.midi-panel .midi-src { min-width: 120px; font-family: var(--font-display); font-size: 12px; color: #2ec4d6; }
+.midi-panel .midi-tgt { flex: 1; }
+.midi-panel .midi-monitor { color: var(--accent); }
+.midi-panel .midi-err { color: #e8483b; }
+.midi-panel .midi-mode { font-size: 11px; padding: 4px 8px; min-width: 104px; }
+.btn.danger { background: #c8382c; color: #fff; border-color: transparent; }
+.btn.danger:hover { background: #e8483b; border-color: transparent; }

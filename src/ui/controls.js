@@ -38,13 +38,13 @@ export function formatValue(p, v) {
 }
 
 // value <-> 0..1 knob travel
-function toNorm(p, v) {
+export function toNorm(p, v) {
   if (p.options) return p.options.length < 2 ? 0 : Math.max(0, p.options.findIndex((o) => optValue(o) === v)) / (p.options.length - 1);
   const t = p.curve === 'log' ? Math.log(v / p.min) / Math.log(p.max / p.min)
     : p.curve === 'pow' ? Math.sqrt((v - p.min) / (p.max - p.min)) : (v - p.min) / (p.max - p.min);
   return Math.min(1, Math.max(0, t));
 }
-function fromNorm(p, t) {
+export function fromNorm(p, t) {
   t = Math.min(1, Math.max(0, t));
   if (p.options) return optValue(p.options[Math.round(t * (p.options.length - 1))]);
   let v = p.curve === 'log' ? p.min * (p.max / p.min) ** t : p.curve === 'pow' ? p.min + (p.max - p.min) * t * t : p.min + (p.max - p.min) * t;
