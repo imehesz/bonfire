@@ -54,6 +54,7 @@ export function compilePatch(patch) {
   const decls = [];
   const meta = {};
   const errors = [];
+  const preludes = new Map(); // helper definitions a module needs above the patch (one copy each)
 
   function compileModule(id) {
     if (results[id]) return results[id];
@@ -66,6 +67,7 @@ export function compilePatch(patch) {
       global,
       in: (jack) => resolve(inputs[id]?.[jack]),
       meta: (m) => (meta[id] = m),
+      prelude: (key, text) => reachable.has(id) && preludes.set(key, text), // unpatched modules add nothing
     };
     try {
       results[id] = def.compile(ctx) ?? {};
@@ -106,6 +108,7 @@ export function compilePatch(patch) {
       : `samples({ ${Object.entries(pack).map(([n, u]) => `${n}: '${absUrl(u)}'`).join(', ')} })`);
   }
   lines.push(`setcpm(${bpm}/4)`, '');
+  if (preludes.size) lines.push(...preludes.values(), '');
   if (decls.length) lines.push(...decls, '');
   if (main) {
     lines.push(main instanceof Raw ? main.text : printExpr(main));

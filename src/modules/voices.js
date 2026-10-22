@@ -1,5 +1,5 @@
-// Sound makers: VOICE (synth / sample), SUB DRONE (sub + reese bass), SAMPLER (one-shot / loop / slice)
-// and CHOPPER (a step sequencer that picks a slice of the sample per step).
+// Sound makers: VOICE (synth / sample), SUB DRONE (sub + reese bass), THEREMIN (gliding sine lead),
+// SAMPLER (one-shot / loop / slice) and CHOPPER (a step sequencer that picks a slice of the sample per step).
 import { fn, mini, num } from '../core/expr.js';
 import { BANKS, DRUM_SOUNDS, WAVES, bankLabel, isPitched, midiToNote } from '../core/music.js';
 import { setIf, stepToken, timed } from './helpers.js';
@@ -139,6 +139,92 @@ export const drone = {
     e = setIf(e, 'shape', p.drive, 0, 2);
     e = setIf(e, 'gain', p.level, 1);
     ctx.meta({ rate: p.rate });
+    return { out: e };
+  },
+};
+
+// THEREMIN: superdough has no portamento, so every note gets a pitch envelope that starts at the
+// note before it and ramps to its own pitch over GLIDE seconds (penv = the jump in semitones,
+// panchor 1 = the ramp ends on the note). Finding "the note before" needs the pitch pattern itself,
+// so a registered helper looks up to 4 cycles back from each onset. It is plain Strudel, so the code
+// still runs on strudel.cc. Notes overlap by REL, which hides the restart of each oscillator.
+const GLIDE_HELPER = `// THEREMIN glide: each note slides in from the note before it
+register('glide', (pat) => pat.withHap((h) => {
+  if (!h.whole) return h
+  const b = h.whole.begin.valueOf()
+  const midi = (n) => (typeof n === 'number' ? n : noteToMidi(n))
+  let prev = null
+  for (const x of pat.queryArc(b - 4, b)) {
+    if (x.whole && x.whole.begin < b && x.value.note != null && (!prev || x.whole.begin > prev.whole.begin)) prev = x
+  }
+  return h.withValue((v) => ({ ...v, penv: prev && v.note != null ? midi(v.note) - midi(prev.value.note) : 0 }))
+}))`;
+// HOLD NEXT: a theremin never stops between notes, so each note rings until the next one starts
+// (value.duration overrides the hap's own length; nothing ahead within 4 cycles = keep its length).
+const HOLD_HELPER = `// THEREMIN hold: each note rings until the next one starts
+register('holdNext', (pat) => pat.withHap((h) => {
+  if (!h.whole) return h
+  const b = h.whole.begin.valueOf()
+  let next = null
+  for (const x of pat.queryArc(b, b + 4)) {
+    const t = x.whole ? x.whole.begin.valueOf() : null
+    if (t != null && t > b && (next == null || t < next)) next = t
+  }
+  return next == null ? h : h.withValue((v) => ({ ...v, duration: next - b }))
+}))`;
+const THEREMIN_WAVES = [{ v: 'sine', l: 'PURE' }, { v: 'triangle', l: 'WARM' }, { v: 'sawtooth', l: 'REED' }];
+
+export const theremin = {
+  type: 'theremin',
+  name: 'THEREMIN',
+  title: 'Gliding Sci-Fi Lead',
+  category: 'Sound',
+  hp: 14,
+  description: 'The spooky sliding sound of 1950s sci-fi films. Every note glides into the next one instead of jumping (GLIDE = how long the slide takes), and a hand-shake VIBRATO wobbles the pitch (RATE = how fast, DEPTH = how wide). PURE is a clean sine, WARM is a soft triangle, REED is a buzzier, filtered saw. Long ATK makes notes swell in like a hand moving toward the volume antenna. Feed it PITCH from a MELODY, CHAIN or ARP; it is made for one note at a time, so chords sound odd. Rests in the melody stop the sound, and the next note still slides in from the last one. HOLD NEXT plays it like the real instrument: every note rings until the next one starts, so a MELODY step becomes a long held note and rests just make it longer. With nothing patched it plays a short eerie phrase.',
+  params: {
+    wave: { kind: 'switch', label: 'WAVE', options: THEREMIN_WAVES, default: 'sine', structural: true },
+    hold: { kind: 'switch', label: 'HOLD', options: [{ v: 'note', l: 'NOTE' }, { v: 'next', l: 'NEXT' }], default: 'note', structural: true },
+    glide: { kind: 'knob', label: 'GLIDE', min: 0, max: 1, default: 0.15, curve: 'pow', unit: 's' },
+    vib: { kind: 'knob', label: 'RATE', min: 0, max: 10, default: 5.5, unit: 'Hz' },
+    depth: { kind: 'knob', label: 'DEPTH', min: 0, max: 1, default: 0.2, unit: 'st' },
+    tune: { kind: 'knob', label: 'TUNE', min: -24, max: 24, default: 0, step: 1, size: 'sm', unit: 'st' },
+    attack: { kind: 'knob', label: 'ATK', min: 0, max: 2, default: 0.08, size: 'sm', curve: 'pow', unit: 's' },
+    release: { kind: 'knob', label: 'REL', min: 0, max: 3, default: 0.4, size: 'sm', curve: 'pow', unit: 's' },
+    drive: { kind: 'knob', label: 'DRIVE', min: 0, max: 0.9, default: 0, size: 'sm' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 0.8, size: 'sm' },
+  },
+  inputs: {
+    pitch: { type: 'pitch', label: 'PITCH' },
+    gate: { type: 'rhythm', label: 'GATE' },
+    vol: { type: 'cv', label: 'VOL' },
+  },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['wave', 'hold'], ['glide', 'vib', 'depth'], ['tune', 'attack', 'release', 'drive'], ['level', 'in:pitch', 'in:gate', 'in:vol', 'out:out']],
+  compile(ctx) {
+    const p = ctx.p;
+    let e = ctx.in('pitch') ?? fn('note', mini('g4 c5 eb5 d5 c5 g4 ab4 g4')).call('slow', num(2));
+    const gate = ctx.in('gate');
+    if (gate) e = e.call('struct', gate);
+    if (p.hold === 'next') {
+      ctx.prelude('holdNext', HOLD_HELPER);
+      e = e.call('holdNext');
+    }
+    if (p.glide > 0.005) {
+      ctx.prelude('glide', GLIDE_HELPER);
+      e = e.call('glide').call('pattack', num(p.glide, 3)).call('pdecay', num(0)).call('psustain', num(1)).call('panchor', num(1));
+    }
+    e = e.callIf(p.tune, 'transpose', num(p.tune));
+    e = e.call('s', mini(p.wave));
+    if (p.wave === 'sawtooth') e = e.call('lpf', num(1600, 0));
+    if (p.vib > 0.05 && p.depth > 0.005) e = e.call('vib', num(p.vib, 2)).call('vibmod', num(p.depth, 2));
+    // superdough's synth sustain defaults below 1; a theremin holds
+    e = e.call('sustain', num(1));
+    e = setIf(e, 'attack', p.attack, 0);
+    e = setIf(e, 'release', p.release, 0);
+    e = setIf(e, 'shape', p.drive, 0, 2);
+    e = setIf(e, 'gain', p.level, 1);
+    const vol = ctx.in('vol');
+    if (vol) e = e.call('velocity', vol.call('range', num(0.1), num(1)));
     return { out: e };
   },
 };
