@@ -7,6 +7,7 @@ import { ROOTS, midiToNote, scaleSteps } from '../core/music.js';
 import { checkpoint, findModule, getPatch, mergeMidiMaps, removeMidiMap, setMidiMap, setMidiMode, setParam, subscribe } from '../core/store.js';
 import { pickPatchFile } from '../core/persist.js';
 import * as engine from '../core/engine.js';
+import { clockPrefs, setClockOffset, setClockPort, testNote } from '../core/midiclock.js';
 import { disableMidi, enableMidi, midiState, onMidi, onMidiDropped, onMidiState, restoreMidi, srcLabel } from '../core/midi.js';
 import { formatValue, fromNorm, toNorm } from './controls.js';
 import { h, modal, setReadout, toast } from './dom.js';
@@ -679,6 +680,30 @@ async function copyLog() {
   }
 }
 
+// Clock out: which output, a test note to find the right one, and a latency trim.
+function clockSection(outputs) {
+  if (!outputs.length) return null;
+  const pr = clockPrefs();
+  const sel = h('select', { class: 'mc-select', onchange: (e) => setClockPort(e.target.value) },
+    h('option', { value: '', selected: !pr.port }, 'OFF'),
+    outputs.map((o) => h('option', { value: o, selected: pr.port === o }, o)),
+    pr.port && !outputs.includes(pr.port) ? h('option', { value: pr.port, selected: true }, `${pr.port} (not connected)`) : null);
+  // slider for rough, number box for exact (arrow keys step 1 ms); each mirrors the other
+  const val = h('input', { type: 'number', class: 've-input', min: -150, max: 150, step: 1, value: pr.offset, style: { width: '5em' },
+    onchange: (e) => { setClockOffset(Number(e.target.value) || 0); val.value = trim.value = clockPrefs().offset; } });
+  const trim = h('input', { type: 'range', min: -150, max: 150, step: 1, value: pr.offset,
+    oninput: (e) => { setClockOffset(Number(e.target.value)); val.value = clockPrefs().offset; } });
+  return h('div', {},
+    h('h3', {}, 'Clock out'),
+    h('p', {}, 'Sends tempo + START / STOP to a synth or drum machine, so its sequencer or arp follows PLAY and the CLOCK knob. Set the device to external / MIDI sync.'),
+    h('p', {}, 'Port: ', sel, ' ', h('button', { class: 'btn', onclick: () => {
+      const port = sel.value || outputs[0];
+      if (!testNote(port)) toast('That port isn’t connected');
+      else toast(`Test note sent to ${port}`);
+    } }, 'TEST NOTE'), h('span', { class: 'fine' }, '  — plays middle C on the chosen port (all channels): use it to find which one reaches your synth')),
+    h('p', {}, 'Offset: ', trim, ' ', val, ' ms', h('span', { class: 'fine' }, '  — drag right if the hardware plays ahead of Bonfire, left if behind')));
+}
+
 export function showMidiPanel() {
   const body = h('div', { class: 'midi-panel help' });
   const monitor = h('code', { class: 'midi-monitor' });
@@ -718,6 +743,7 @@ export function showMidiPanel() {
     const entry = entryModule();
     kids.push(
       h('p', { class: 'midi-devices' }, s.devices.length ? `Connected: ${s.devices.join(', ')}` : 'No MIDI device found — plug one in (it shows up here by itself).'),
+      clockSection(s.outputs),
       DEBUG ? h('p', {}, 'Last message: ', monitor) : null,
       DEBUG ? h('p', {}, h('button', { class: 'btn', onclick: copyLog }, 'COPY MIDI LOG'), h('span', { class: 'fine' }, '  — the last 300 messages and what the app did with them, for bug reports')) : null,
       h('h3', {}, 'Knobs & buttons'),

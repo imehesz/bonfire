@@ -160,6 +160,15 @@ export async function nextBarTime() {
   return at(c);
 }
 
+// The scheduler's cycle -> AudioContext-time map (same maths as nextBarTime), or
+// null while stopped or before its first tick. For MIDI clock out.
+export function cycleClock() {
+  const sch = repl?.scheduler;
+  if (!playing || !sch?.started || !sch.num_ticks_since_cps_change) return null;
+  const base = sch.num_cycles_at_cps_change, sec = sch.seconds_at_cps_change + sch.latency, cps = sch.cps;
+  return { at: (c) => (c - base) / cps + sec, cycleAt: (t) => (t - sec) * cps + base, cps };
+}
+
 // Audition a single sound from the library.
 export async function audition(value) {
   await unlockAudio();

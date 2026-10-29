@@ -41,6 +41,44 @@ Cables carry **patterns**, not audio: a module chain compiles to a Strudel metho
   User packs become `samples('…')` lines. Local files are flagged in the code as not portable.
 - OUTPUT's volume and mute work on the audio output, so they are deliberately **not** in the code.
 
+## MIDI clock out (hardware sync)
+
+Bonfire can be the master clock for a hardware synth: PLAY / STOP start and stop its sequencer or
+arp, and the CLOCK knob sets its tempo (24 ticks per quarter note). Chrome / Edge only.
+
+A tested setup, M-Vave FM-1 synth + M-Vave SMK-37 keyboard:
+
+```
+  ┌──────────────────────────────┐
+  │ PC · Chrome · Bonfire STACK  │
+  │ MIDI panel → Clock out       │
+  │ Port: "Felucca" (the FM-1)   │
+  └──────┬────────────────┬──────┘
+         │ USB-C          │ USB-C (optional)
+         │ clock, START,  │ knobs, pads, transport
+         │ STOP, notes    │ → Bonfire MIDI learn
+         ▼                ▲
+  ┌──────────────┐    ┌──────────────┐
+  │    FM-1      │◄───│   SMK-37     │
+  │ synth, set   │3.5 │ keyboard     │
+  │ to external  │ mm │ (keys play   │
+  │ MIDI sync    │MIDI│  the FM-1)   │
+  └──────────────┘    └──────────────┘
+```
+
+1. Plug the synth into the computer with its **own USB cable**. A keyboard's 3.5mm / DIN MIDI OUT
+   only sends the keyboard's own playing: the SMK-37 does not pass computer MIDI through, so a synth
+   hanging off it never sees Bonfire's clock.
+2. MIDI panel → **Clock out** → pick the synth's port, press **TEST NOTE** (middle C on all 16
+   channels). If the synth plays it, that's the port.
+3. Set the synth to follow external / MIDI clock, press PLAY.
+4. If the synth sounds ahead of or behind Bonfire, trim **Offset** (ms; positive = later).
+   The port and offset are saved in this browser, not in the patch.
+
+**Turn MIDI off in Bonfire before you plug, unplug or power-cycle MIDI gear.** Hot-plugging with
+MIDI on can freeze Chrome and leave the device invisible until it is power-cycled.
+Plugging in a USB synth may also make Windows switch its sound output to it (Settings → Sound).
+
 ## Writing a module
 
 Add a definition to `src/modules/` and register it in `src/modules/index.js`:

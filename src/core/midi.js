@@ -14,7 +14,7 @@ const owners = new Map(); // src -> { port, t } (see bindInputs)
 const dropListeners = new Set(); // copies from a second port, for the diagnostic log
 export const onMidiDropped = (fn) => (dropListeners.add(fn), () => dropListeners.delete(fn));
 const stateListeners = new Set();
-const state = { enabled: false, error: null, devices: [] };
+const state = { enabled: false, error: null, devices: [], outputs: [] };
 
 export const midiSupported = () => typeof navigator !== 'undefined' && !!navigator.requestMIDIAccess;
 export const midiState = () => ({ supported: midiSupported(), secure: globalThis.isSecureContext !== false, ...state });
@@ -53,6 +53,8 @@ function bindInputs() {
     };
     if (input.state === 'connected') state.devices.push(input.name || 'MIDI device');
   }
+  // Listed only (nothing is sent yet): shows which ports could carry clock out.
+  state.outputs = [...access.outputs.values()].filter((o) => o.state === 'connected').map((o) => o.name || 'MIDI device');
   emitState();
 }
 
@@ -89,8 +91,16 @@ export function disableMidi() {
   asking = null;
   state.enabled = false;
   state.devices = [];
+  state.outputs = [];
   try { localStorage.removeItem(PREF_KEY); } catch { /* ignore */ }
   emitState();
+}
+
+// An output port by name, or null (not connected / MIDI off).
+export function midiOutput(name) {
+  if (!access || !name) return null;
+  for (const o of access.outputs.values()) if ((o.name || 'MIDI device') === name && o.state === 'connected') return o;
+  return null;
 }
 
 // Turned on in an earlier visit: the browser remembers the permission, so no prompt.
