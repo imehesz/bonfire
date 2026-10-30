@@ -13,7 +13,7 @@ import { formatValue, fromNorm, toNorm } from './controls.js';
 import { h, modal, setReadout, toast } from './dom.js';
 
 const LEARNABLE = ['knob', 'rotary', 'fader', 'switch', 'select', 'toggle'];
-export const GLOBALS = { play: 'PLAY / STOP', rest: 'NOTE ENTRY · REST', back: 'NOTE ENTRY · BACK' };
+export const GLOBALS = { play: 'PLAY / STOP', rec: 'REC (WAV)', rest: 'NOTE ENTRY · REST', back: 'NOTE ENTRY · BACK' };
 const ENTRY_TYPES = ['melody', 'chords'];
 const MELODY_MAX = 14;
 
@@ -344,12 +344,16 @@ function confirmForget(question, match) {
       h('button', { class: 'btn accent', onclick: () => { removeMidiMap(match); dlg.close(); } }, 'FORGET'))), { className: 'modal-confirm' });
 }
 
-// Right-click menu for the topbar PLAY button.
-export function playMenuItems() {
-  const map = mapFor('@', 'play');
-  const items = [{ label: 'MIDI learn: PLAY / STOP', hint: map ? srcLabel(map.src) : '', action: () => startLearn('@', 'play') }];
-  if (map?.rel && map.rel !== 'abs') items.push({ label: 'Reverse knob direction', hint: 'MIDI', action: () => chooseMidiMode(map.src, family(map.rel) === 'lo' ? 'hi' : 'lo') });
-  if (map) items.push({ label: 'Forget MIDI: PLAY / STOP', action: () => confirmForget(`Forget the MIDI ${srcLabel(map.src)} → PLAY / STOP mapping?`, (x) => x.src === map.src) });
+// REC lives in main.js (it owns the button and the recorder); it hands us its toggle.
+let recordAction = null;
+export const setRecordAction = (fn) => { recordAction = fn; };
+
+// Right-click menu for a topbar transport button ('play' or 'rec').
+export function globalMenuItems(k) {
+  const map = mapFor('@', k);
+  const items = [{ label: `MIDI learn: ${GLOBALS[k]}`, hint: map ? srcLabel(map.src) : '', action: () => startLearn('@', k) }];
+  if (k === 'play' && map?.rel && map.rel !== 'abs') items.push({ label: 'Reverse knob direction', hint: 'MIDI', action: () => chooseMidiMode(map.src, family(map.rel) === 'lo' ? 'hi' : 'lo') });
+  if (map) items.push({ label: `Forget MIDI: ${GLOBALS[k]}`, action: () => confirmForget(`Forget the MIDI ${srcLabel(map.src)} → ${GLOBALS[k]} mapping?`, (x) => x.src === map.src) });
   return items;
 }
 
@@ -369,6 +373,7 @@ function apply(map, msg) {
   if (t.kind === 'global') {
     if (!pressed) return;
     if (k === 'play') engine.togglePlay();
+    else if (k === 'rec') recordAction?.();
     else if (k === 'rest') entryRest();
     else if (k === 'back') moveCursor(-1);
     return;

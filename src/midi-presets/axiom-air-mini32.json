@@ -1,0 +1,22 @@
+{
+ "format": "bonfire-midi",
+ "version": 1,
+ "name": "Axiom A.I.R. Mini32",
+ "match": "Mini32",
+ "controller": "Axiom A.I.R. Mini32",
+ "direction": "hi",
+ "maps": [
+  { "src": "cc:1:17", "m": "@", "k": "play", "type": "@" },
+  { "src": "cc:1:18", "m": "@", "k": "rec", "type": "@" },
+  { "src": "cc:1:7", "m": "clock1", "k": "bpm", "type": "clock" },
+  { "src": "cc:1:8", "m": "output1", "k": "volume", "type": "output" },
+  { "src": "cc:1:1", "m": "mixer1", "k": "level0", "type": "mixer" },
+  { "src": "cc:1:2", "m": "mixer1", "k": "level1", "type": "mixer" },
+  { "src": "cc:1:3", "m": "mixer1", "k": "level2", "type": "mixer" },
+  { "src": "cc:1:4", "m": "mixer1", "k": "level3", "type": "mixer" },
+  { "src": "note:1:40", "m": "mixer1", "k": "mute0", "type": "mixer" },
+  { "src": "note:1:41", "m": "mixer1", "k": "mute1", "type": "mixer" },
+  { "src": "note:1:42", "m": "mixer1", "k": "mute2", "type": "mixer" },
+  { "src": "note:1:43", "m": "mixer1", "k": "mute3", "type": "mixer" }
+ ]
+}

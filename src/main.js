@@ -11,7 +11,7 @@ import { mountInspector } from './ui/inspector.js';
 import { mountModuleDrawer } from './ui/drawers.js';
 import { h, menu, modal, readout, toast } from './ui/dom.js';
 import { randomName } from './core/names.js';
-import { markMidi, midiButton, playMenuItems } from './ui/midi.js';
+import { globalMenuItems, markMidi, midiButton, setRecordAction } from './ui/midi.js';
 
 const SOURCE_URL = 'https://github.com/imehesz/bonfirestack';
 const COFFEE_URL = 'https://buymeacoffee.com/imehesz';
@@ -24,11 +24,14 @@ let compiled = null;
 // ---------------- layout ----------------
 const playBtn = h('button', {
   class: 'transport', title: 'Play / stop (Space) · right-click to map a MIDI knob or button', onclick: () => engine.togglePlay(),
-  oncontextmenu: (e) => { e.preventDefault(); menu(playBtn, playMenuItems()); },
+  oncontextmenu: (e) => { e.preventDefault(); menu(playBtn, globalMenuItems('play')); },
 });
 
 // ---------------- WAV recording ----------------
-const recBtn = h('button', { class: 'transport rec', title: 'Record a WAV: starts on the next bar, press again to stop and download', onclick: () => toggleRecord() });
+const recBtn = h('button', {
+  class: 'transport rec', title: 'Record a WAV: starts on the next bar, press again to stop and download · right-click to map a MIDI button', onclick: () => toggleRecord(),
+  oncontextmenu: (e) => { e.preventDefault(); menu(recBtn, globalMenuItems('rec')); },
+});
 let recBusy = false;
 let recTimer = null;
 const showRec = () => {
@@ -39,6 +42,7 @@ const showRec = () => {
   else if (t < 0) recBtn.innerHTML = '<span>●</span> WAIT';
   else recBtn.innerHTML = `<span>●</span> ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 };
+setRecordAction(() => toggleRecord());
 async function toggleRecord() {
   if (recBusy) return;
   recBusy = true;
