@@ -159,13 +159,13 @@ export function duplicateModule(id) {
   const res = addModule(src.type, { row: src.row, x: src.x + MODULES[src.type].hp });
   if (res.module) {
     res.module.params = structuredClone(src.params);
-    if (src.color) res.module.color = src.color; // a copy stays in its colour group
+    if (src.color) res.module.color = src.color; // a copy stays in its color group
     emit('reset');
   }
   return res;
 }
 
-// Display name + panel colour. The id never changes: cables and the generated code use it.
+// Display name + panel color. The id never changes: cables and the generated code use it.
 export function setModuleLook(id, { label, color }) {
   const m = findModule(id);
   if (!m) return;
@@ -201,6 +201,15 @@ export function moveModule(id, row, x) {
   emit('structure', { moved: id });
 }
 
+// Phone layout: patch.mobile.tracks = [[moduleId, ...], ...], at most 3 modules per track.
+// The desktop rack ignores it; it rides along in saves, files and share links.
+// kind 'layout' = only the phone arrangement changed (no code change).
+export function setMobileTracks(tracks, { record = true } = {}) {
+  if (record) checkpoint();
+  patch.mobile = { ...(patch.mobile ?? {}), tracks };
+  emit('layout');
+}
+
 export function nextCableColor() {
   const c = palette[cableColorIx % palette.length];
   cableColorIx++;
@@ -217,7 +226,7 @@ export function connect(from, to, color) {
   emit('structure', {});
 }
 
-// Move an existing cable to new ends as ONE undo step; it keeps its id and colour.
+// Move an existing cable to new ends as ONE undo step; it keeps its id and color.
 export function rewire(cableId, from, to) {
   const old = patch.cables.find((c) => c.id === cableId);
   if (!old) return connect(from, to);

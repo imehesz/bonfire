@@ -47,7 +47,7 @@ entry to `index.json`.
   },
 
   "panel": {
-    "textureOpacity": 0.4,       // how strongly the texture shows through the panel colour
+    "textureOpacity": 0.4,       // how strongly the texture shows through the panel color
     "textureSize": "320px",      // tile size
     "blend": "multiply",         // any CSS mix-blend-mode
     "radius": 2                  // corner radius in px
@@ -61,7 +61,7 @@ entry to `index.json`.
   "backdropDim": 0.25,           // darken the backdrop (0–1)
 
   // Per-module overrides, keyed by module type (clock, seq, beats, euclid, melody, arp, voice,
-  // sampler, vandal, filter, fx, lfo, mixer, output). Any colour key above, plus "image".
+  // sampler, vandal, filter, fx, lfo, mixer, output). Any color key above, plus "image".
   "modules": {
     "output": { "panel": "#f3e6c8", "panelText": "#9e1b1b", "image": "output-panel.jpg" }
   },

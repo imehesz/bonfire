@@ -169,7 +169,7 @@ export const fx = {
   },
 };
 
-// VINTAGE: one knob's worth of a classic sampler's colour, built from superdough's per-event
+// VINTAGE: one knob's worth of a classic sampler's color, built from superdough's per-event
 // effects: bit depth (crush), sample-rate reduction (coarse, a whole-number divider of the
 // 44.1/48k context), the output filter (a lowpass limit), saturation (shape) and compression.
 // AMOUNT scales every setting from clean (0) to the full model (1).
@@ -193,10 +193,10 @@ function roughLimit(e, name, value, pick, digits = 2) {
 export const vintage = {
   type: 'vintage',
   name: 'VINTAGE',
-  title: 'Vintage Sampler Colour',
+  title: 'Vintage Sampler Color',
   category: 'Shape',
   hp: 10,
-  description: 'Makes whatever runs through it sound like it came out of a classic sampler. MODEL picks the machine: MPC60 (12-bit, warm and saturated), MPC2000 (clean 16-bit punch), SP-1200 (12-bit at ~26 kHz, gritty aliasing), SP-303 (dark, squashed lo-fi), S950 (12-bit with its smooth low-pass) or EMU II (crunchy ~8-bit at ~27 kHz). AMOUNT goes from clean to the full machine. SWING is MPC-style 16th-note swing for everything it receives: 50% is straight, 66% is triplet feel, 75% is the hardest. Put it last, just before OUTPUT, to colour the whole track. It never makes anything cleaner: if an earlier FX already crushes, drives or filters harder, that wins.',
+  description: 'Makes whatever runs through it sound like it came out of a classic sampler. MODEL picks the machine: MPC60 (12-bit, warm and saturated), MPC2000 (clean 16-bit punch), SP-1200 (12-bit at ~26 kHz, gritty aliasing), SP-303 (dark, squashed lo-fi), S950 (12-bit with its smooth low-pass) or EMU II (crunchy ~8-bit at ~27 kHz). AMOUNT goes from clean to the full machine. SWING is MPC-style 16th-note swing for everything it receives: 50% is straight, 66% is triplet feel, 75% is the hardest. Put it last, just before OUTPUT, to color the whole track. It never makes anything cleaner: if an earlier FX already crushes, drives or filters harder, that wins.',
   params: {
     model: { kind: 'rotary', label: 'MODEL', options: Object.entries(VINTAGE_MODELS).map(([v, m]) => ({ v, l: m.l })), default: 'mpc60', structural: true },
     amount: { kind: 'knob', label: 'AMOUNT', min: 0, max: 1, default: 1, size: 'lg' },
@@ -380,7 +380,7 @@ export const khaoz = {
   title: 'Chaos Modulator',
   category: 'Modulate',
   hp: 10,
-  description: 'A simplified chaos oscillator: a Lorenz attractor (the butterfly) that never quite repeats itself, for modulation that feels alive. CHAOS goes from calm (a smooth wobble circling one wing) to wild (jumping between wings every step). LOOP is how many bars it runs before it starts over, so the chaos becomes a riff; DICE rolls a new one. X and Y are two related but different wobbles: patch them into a FILTER and a PAN. TRIG fires once per lap of a wing, a rhythm for a GATE. COLOR tints the butterfly (right-click for the skin colour).',
+  description: 'A simplified chaos oscillator: a Lorenz attractor (the butterfly) that never quite repeats itself, for modulation that feels alive. CHAOS goes from calm (a smooth wobble circling one wing) to wild (jumping between wings every step). LOOP is how many bars it runs before it starts over, so the chaos becomes a riff; DICE rolls a new one. X and Y are two related but different wobbles: patch them into a FILTER and a PAN. TRIG fires once per lap of a wing, a rhythm for a GATE. COLOR tints the butterfly (right-click for the skin color).',
   params: {
     chaos: { kind: 'knob', label: 'CHAOS', min: 0, max: 1, default: 0.3, structural: true },
     loop: { kind: 'rotary', label: 'LOOP', options: [1, 2, 4, 8].map((v) => ({ v, l: `${v} BAR` })), default: 4, structural: true },
@@ -488,7 +488,7 @@ export const output = {
   category: 'Mix',
   hp: 14,
   singleton: true,
-  description: 'Where everything ends up. One cable = mono; L and R both patched = hard left/right. VOLUME and MUTE are your speakers, not part of the music, so they never show up in the code. STYLE picks the scope look, COLOR tints it (right-click for the skin colour), FULL blows the scope up to the whole screen; BACK puts it behind the rack instead, see-through, so you can keep tweaking while it plays.',
+  description: 'Where everything ends up. One cable = mono; L and R both patched = hard left/right. VOLUME and MUTE are your speakers, not part of the music, so they never show up in the code. STYLE picks the scope look, COLOR tints it (right-click for the skin color), FULL blows the scope up to the whole screen; BACK puts it behind the rack instead, see-through, so you can keep tweaking while it plays.',
   params: {
     style: { kind: 'rotary', label: 'STYLE', size: 'sm', hardware: true, default: 'trace', options: [
       { v: 'trace', l: 'TRACE' }, { v: 'orbit', l: 'ORBIT' }, { v: 'bars', l: 'BARS' }, { v: 'halo', l: 'HALO' }, { v: 'fall', l: 'FALL' },

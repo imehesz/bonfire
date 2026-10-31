@@ -1,0 +1,322 @@
+/* Phone shell (src/mobile/). Loaded after app.css, only on the phone layout.
+   Touch rules: tap targets >= 44px, nothing tappable in the bottom ~16px. */
+
+body.m-app { touch-action: manipulation; overscroll-behavior: none; }
+.m-app #app { height: 100dvh; }
+
+/* ---------------- top bar ---------------- */
+.m-top {
+  height: 56px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--ui);
+  border-bottom: 1px solid var(--ui-border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  z-index: 30;
+}
+.m-play {
+  flex: none;
+  min-width: 76px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-raised);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.m-play span { color: var(--accent); margin-right: 4px; }
+.m-play.on { background: var(--accent); color: #1a0d05; border-color: transparent; box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 60%, transparent); }
+.m-play.on span { color: inherit; }
+.m-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-text);
+  font-family: var(--font-panel);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+}
+.m-name:focus { outline: none; border-color: var(--accent); background: var(--ui-raised); }
+
+/* ---------------- buttons ---------------- */
+.m-btn {
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-raised);
+  color: var(--ui-text);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.m-btn:disabled { opacity: 0.3; }
+.m-btn.accent { background: var(--accent); color: #1a0d05; border-color: transparent; }
+.m-btn.big { width: 100%; height: 52px; font-size: 16px; }
+.m-btn.wide { width: 100%; }
+.m-btn.sm { min-width: 40px; height: 36px; font-size: 12px; padding: 0 9px; }
+.m-btn.xs { min-width: 34px; height: 30px; font-size: 11px; padding: 0 8px; border-radius: 6px; }
+.m-btn.on, .m-toggle.on { border-color: var(--accent); color: var(--accent); }
+.m-menu { font-size: 20px; flex: none; }
+.m-toggle { flex: none; font-size: 11px; padding: 0 7px; gap: 5px; letter-spacing: 0.06em; }
+.m-toggle .led { flex: none; }
+.m-toggle.on .led { background: var(--led); box-shadow: 0 0 6px var(--led); }
+
+/* ---------------- stage + tracks ---------------- */
+.m-stage { flex: 1; min-height: 0; position: relative; background: var(--bg); }
+.m-scroll { position: absolute; inset: 0; overflow: hidden auto; -webkit-overflow-scrolling: touch; }
+.m-content { position: relative; padding: 8px 0 72px; } /* bottom: clear of the Android nav bar */
+.m-track { margin-bottom: 14px; }
+.m-track-head { display: flex; padding: 0 10px; }
+/* the label plate: a gray tab bolted onto the track's top rail (tinted by the skin's rail) */
+.m-track-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 22px 5px 22px;
+  border-radius: 7px 7px 0 0;
+  background: linear-gradient(color-mix(in srgb, var(--rail) 35%, #b4b0aa), color-mix(in srgb, var(--rail) 35%, #77736d));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.15), inset -1px 0 0 rgba(0, 0, 0, 0.25), 0 -3px 8px rgba(0, 0, 0, 0.35);
+}
+.m-track-tab::before, .m-track-tab::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f4f1ea, #9a958b 55%, #57534b);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+.m-track-tab::before { left: 7px; }
+.m-track-tab::after { right: 7px; }
+.m-track-n { flex: none; margin-right: 4px; font-family: var(--font-display); font-size: 12px; letter-spacing: 0.14em; color: #1e1a16; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); }
+.m-track-row {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0 10px;
+}
+/* the rails run behind the faceplates, like the desktop rack */
+.m-track-row .rail { left: 0; right: 0; z-index: 0; }
+.m-track-row .rail.bottom { bottom: 0; }
+.m-track-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--rack) 82%, transparent);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+}
+.m-col { position: relative; z-index: 1; flex: none; display: flex; flex-direction: column; }
+/* ⋮ lives in the faceplate's title strip (both faces) */
+.m-head { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px; align-items: center; gap: 2px; padding: 14px 4px 0; }
+.m-title { min-width: 0; text-align: center; }
+.m-title .mod-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-hbtn {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--button);
+  color: var(--button-text);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+.m-hbtn::after { content: ''; position: absolute; inset: -6px; } /* a bit more to hit than to see */
+.m-hbtn:active { transform: translateY(1px); background: var(--accent); color: #1a0d05; }
+.m-newtrack { display: flex; margin: 4px auto 0; width: calc(100% - 20px); height: 52px; border-style: dashed; color: var(--ui-dim); }
+
+/* ---------------- the flip card ---------------- */
+.m-card { perspective: 1400px; }
+.m-flip {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 0.45s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.m-card.flipped .m-flip { transform: rotateY(180deg); }
+.m-face { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.m-back { transform: rotateY(180deg); }
+.m-card.flipped .m-front, .m-card:not(.flipped) .m-back { pointer-events: none; }
+.m-front .module { position: relative; left: auto; top: auto; cursor: default; }
+.m-front .module.selected { outline: none; }
+
+/* FRONT: no jacks; a row that only held jacks goes away */
+.m-front .ctl.jack { display: none; }
+.m-front .mod-row.jacks { background: none; box-shadow: none; padding-top: 0; }
+.m-front .mod-row.jacks:not(:has(> :not(.jack))) { display: none; }
+/* knobs and faders own their drags; the page scrolls everywhere else */
+.m-card .knob-cap, .m-card .fader-track { touch-action: none; }
+
+/* BACK: the rear panel */
+.m-rear {
+  position: relative;
+  height: 380px;
+  background: var(--panel); /* same color as the front: its ink colors stay readable */
+  color: var(--panel-text);
+  border-radius: var(--panel-radius);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.15), inset -1px 0 0 var(--panel-edge), 0 6px 14px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-panel);
+  overflow: hidden;
+}
+.m-rear .mod-tex { opacity: calc(var(--panel-texture-opacity) * 0.6); }
+.m-rear.tinted .mod-tex { mix-blend-mode: multiply; opacity: min(var(--panel-texture-opacity), 0.35); }
+.m-rear > * { position: relative; }
+.m-rear .mod-tex, .m-rear .screw { position: absolute; }
+.m-rear-head { flex: none; padding-bottom: 6px; }
+.m-rear-rows { flex: 1; min-height: 0; overflow: hidden auto; display: flex; flex-direction: column; gap: 4px; padding: 0 5px 6px; touch-action: pan-y; }
+.m-rear-none { margin: auto; font-size: 11px; letter-spacing: 0.2em; color: var(--panel-dim); }
+.m-jrow {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
+  color: var(--panel-text);
+  text-align: left;
+}
+.m-jrow:active { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.m-jrow .jack-socket { flex: none; position: relative; cursor: pointer; }
+.m-plug {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--c) 60%, #fff), var(--c) 60%, color-mix(in srgb, var(--c) 60%, #000));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.m-jtext { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.m-jtext b { font-size: 12px; letter-spacing: 0.08em; white-space: nowrap; }
+.m-jtext b i { font-style: normal; font-weight: 600; font-size: 9px; color: var(--panel-dim); }
+.m-link { font-family: var(--font-display); font-size: 9.5px; line-height: 1.25; overflow-wrap: anywhere; border-left: 3px solid var(--c); padding-left: 3px; }
+.m-link.none { border-left-color: transparent; padding-left: 0; opacity: 0.7; }
+
+/* cables between rear panels: look only */
+.m-cables { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 0; } /* front: behind the modules (.m-col z 1), over the rack */
+.m-content.rear .m-cables { z-index: 5; } /* REAR: over the panels */
+.m-cables .cable .c-main { pointer-events: none; }
+
+/* ---------------- bottom sheets ---------------- */
+.m-sheet-back {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: rgba(5, 3, 2, 0);
+  display: flex;
+  align-items: flex-end;
+  transition: background 0.18s;
+}
+.m-sheet-back.in { background: rgba(5, 3, 2, 0.62); }
+.m-sheet {
+  width: 100%;
+  max-height: 86dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ui);
+  color: var(--ui-text);
+  border-top: 1px solid var(--ui-border);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+  transform: translateY(100%);
+  transition: transform 0.2s ease-out;
+  padding-bottom: 20px; /* keep the last row above the nav bar */
+}
+.m-sheet-back.in .m-sheet { transform: none; }
+.m-sheet-back.out .m-sheet { transform: translateY(100%); }
+.m-sheet-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--ui-border); }
+.m-sheet-head b { flex: 1; min-width: 0; font-size: 14px; letter-spacing: 0.12em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-sheet-x { border: 0; background: transparent; font-size: 18px; }
+.m-sheet-body { flex: 1; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; }
+.m-sheet-foot { flex: none; padding: 10px 12px 0; border-top: 1px solid var(--ui-border); }
+.m-list { display: flex; flex-direction: column; padding: 4px 0; }
+.m-group { padding: 14px 16px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; color: var(--accent); }
+.m-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 16px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-border) 60%, transparent);
+  background: transparent;
+  color: var(--ui-text);
+  text-align: left;
+  width: 100%;
+}
+.m-row:active { background: var(--ui-raised); }
+.m-row:disabled { opacity: 0.32; }
+.m-row.on { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.m-row.on .m-row-label { color: var(--accent); }
+.m-row.danger .m-row-label { color: #e8483b; }
+.m-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-row-label { font-size: 15px; font-weight: 600; }
+.m-row-hint { font-size: 12.5px; color: var(--ui-dim); line-height: 1.3; }
+.m-dot { margin-right: 0; flex: none; }
+.m-check { flex: none; width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--ui-border); }
+.m-check.on { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--ui); }
+.m-icon { flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--ui-raised) center / contain no-repeat; }
+.m-cover { flex: none; width: 56px; height: 42px; border-radius: 6px; background: var(--ui-raised) center / cover no-repeat; }
+.m-info { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--ui-border); display: grid; place-items: center; color: var(--ui-dim); font-weight: 700; }
+.m-empty { padding: 20px 16px; color: var(--ui-dim); }
+.m-help { padding: 4px 18px 12px; font-size: 15px; line-height: 1.5; }
+.m-help ul { padding-left: 18px; }
+.m-help li { margin-bottom: 8px; }
+.m-fine { font-size: 12.5px; color: var(--ui-dim); }
+
+/* splash */
+.m-splash { max-height: 92dvh; }
+.m-splash-in { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 6px; }
+.m-splash-in > p { margin: 0 0 6px; text-align: center; color: var(--ui-dim); line-height: 1.45; }
+.m-splash-logo { width: min(260px, 70%); margin: 0 auto; display: block; }
+.m-splash-in .m-group { padding-left: 0; }
+.m-splash-in .m-row { padding-left: 0; padding-right: 0; }
+
+/* desktop dialogs, popovers and toasts on a phone */
+.m-app .modal { max-width: calc(100vw - 16px); max-height: 88dvh; }
+.m-app .modal-help, .m-app .modal-confirm { padding: 18px 16px; }
+.m-app .popover { max-width: calc(100vw - 16px); }
+.m-app .toasts { top: 64px; width: calc(100vw - 24px); }
+.m-app .toast { max-width: 100%; }
+/* 6-8 HP panels: smaller buttons so the name still fits between them */
+.m-head.narrow { grid-template-columns: 26px minmax(0, 1fr) 26px; gap: 0; padding-left: 2px; padding-right: 2px; }
+.m-head.narrow .m-hbtn { width: 26px; height: 26px; font-size: 15px; }
+.m-head.narrow .mod-name { font-size: 13px; letter-spacing: 0.06em; }
+.m-head.narrow .mod-id { font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* module menu: MOVE TO › TRACK n buttons */
+.m-track-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; padding: 0 16px 8px; }
+.m-track-pick { flex-direction: column; gap: 0; font-size: 13px; height: 48px; }
+.m-track-pick small { font-size: 9px; letter-spacing: 0.14em; color: var(--ui-dim); font-weight: 600; }
+.m-track-pick.on { border-color: var(--accent); color: var(--accent); opacity: 1; }
+.m-nocables .m-cables { display: none; }

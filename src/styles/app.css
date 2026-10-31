@@ -1,4 +1,4 @@
-/* Bonfire STACK — every colour / image / font is a custom property a skin can override. */
+/* Bonfire STACK — every color / image / font is a custom property a skin can override. */
 :root {
   --bg: #120c08;
   --rack: #1a120c;
@@ -238,7 +238,7 @@ a { color: var(--accent); }
   pointer-events: none;
 }
 .module > * { position: relative; }
-/* custom panel colour: some skins' textures are near-opaque, so multiply them over the colour instead */
+/* custom panel color: some skins' textures are near-opaque, so multiply them over the color instead */
 .module.tinted .mod-tex { mix-blend-mode: multiply; opacity: min(var(--panel-texture-opacity), 0.45); }
 .screw {
   position: absolute;
@@ -929,7 +929,7 @@ a { color: var(--accent); }
 .dock-right .stage::before { right: var(--insp-w); bottom: 0; }
 .dock-right.insp-collapsed .stage::before { right: 44px; }
 
-/* OUTPUT scope: colour swatch + fullscreen */
+/* OUTPUT scope: color swatch + fullscreen */
 .swatch-body { position: relative; }
 .swatch {
   width: 26px;

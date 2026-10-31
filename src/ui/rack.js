@@ -512,7 +512,7 @@ function onContext(e) {
   anchor.remove();
 }
 
-// ---------------- module settings: name + panel colour ----------------
+// ---------------- module settings: name + panel color ----------------
 const RECENT_KEY = 'bonfire.recentColors';
 function recentColors() {
   try {
@@ -528,14 +528,14 @@ function rememberColor(c) {
   } catch { /* ignore */ }
 }
 
-function showModuleSettings(id) {
+export function showModuleSettings(id) {
   const m = findModule(id);
   const def = MODULES[m.type];
-  const modEl = modLayer.querySelector(`.module[data-id="${id}"]`);
+  const modEl = document.querySelector(`.module[data-id="${id}"]`); // the rack's, or the phone card's
   let color = m.color ?? null;
   let saved = false;
   const name = h('input', { class: 'set-name', value: m.label ?? '', placeholder: m.id, maxlength: 24, spellcheck: 'false' });
-  const picker = h('input', { type: 'color', class: 'set-picker', value: color ?? '#5a5048', title: 'Pick any colour' });
+  const picker = h('input', { type: 'color', class: 'set-picker', value: color ?? '#5a5048', title: 'Pick any color' });
   const swatches = h('div', { class: 'set-swatches' });
   const pick = (c) => {
     color = c;

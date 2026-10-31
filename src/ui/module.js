@@ -19,7 +19,7 @@ function tapTempo(mod) {
 }
 
 // preview: a look-only faceplate (help dialog) that reads mod.params instead of the store.
-// A custom panel colour, with label ink picked for contrast; null = back to the skin's.
+// A custom panel color, with label ink picked for contrast; null = back to the skin's.
 export function paintPanel(el, color) {
   for (const k of ['--panel', '--panel-text', '--panel-dim']) el.style.removeProperty(k);
   el.classList.toggle('tinted', !!color);

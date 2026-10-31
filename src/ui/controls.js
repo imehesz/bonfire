@@ -318,12 +318,12 @@ export function sound(mod, key, p) {
   return { el, update };
 }
 
-// Swatch over a native colour input. '' = follow the skin; right-click goes back to it.
+// Swatch over a native color input. '' = follow the skin; right-click goes back to it.
 export function color(mod, key, p) {
   const input = h('input', { type: 'color', class: 'color-in', tabindex: -1 });
   const sw = h('button', {
     class: 'swatch',
-    title: 'click to pick · right-click for the skin colour',
+    title: 'click to pick · right-click for the skin color',
     onpointerdown: (e) => e.stopPropagation(),
     onclick: () => {
       checkpoint();

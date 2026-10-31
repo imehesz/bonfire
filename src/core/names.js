@@ -7,7 +7,7 @@ const ADJECTIVES = [
   'Sticky', 'Sunken', 'Tangled', 'Tiny', 'Velvet', 'Wicked', 'Wild', 'Wooden', 'Woolly', 'Young',
   'Ancient', 'Bitter', 'Brave', 'Cracked', 'Crystal', 'Distant', 'Fuzzy', 'Gentle', 'Haunted', 'Heavy',
   'Infinite', 'Magnetic', 'Molten', 'Nervous', 'Polished', 'Secret', 'Strange', 'Sweet', 'Twisted', 'Weird',
-  // colours
+  // colors
   'Azure', 'Black', 'Blue', 'Cobalt', 'Copper', 'Crimson', 'Emerald', 'Indigo', 'Ivory', 'Jade',
   'Lavender', 'Lilac', 'Magenta', 'Orange', 'Pink', 'Red', 'Scarlet', 'Silver', 'Teal', 'White',
 ];
