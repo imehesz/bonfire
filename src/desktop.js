@@ -188,6 +188,7 @@ store.subscribe((kind, detail) => {
     recompile({ immediate: true });
   }
   markMidi();
+  rack.markHotkeys();
 });
 
 // ---------------- animation loop (playheads, LEDs, scope) ----------------
@@ -309,6 +310,7 @@ function showHelp() {
       h('li', {}, 'Space — play / stop'),
       h('li', {}, 'Ctrl+Z / Ctrl+Shift+Z — undo / redo'),
       h('li', {}, 'Delete — remove the module under the mouse · Ctrl+D — duplicate it'),
+      h('li', {}, 'Ctrl+0…9 (or Shift+0…9) — put the selected module on that number key · 0…9 — jump to it (selects it and scrolls it into view; the badge on top shows its number). Again on the same module clears it.'),
       h('li', {}, 'Ctrl+wheel — zoom the rack')),
     h('p', { class: 'fine' }, 'Free software (AGPL-3.0). Sound engine: ', h('a', { href: 'https://strudel.cc', target: '_blank' }, 'Strudel'), '. ',
       h('a', { href: SOURCE_URL, target: '_blank' }, 'Source code'), '.')), { className: 'modal-help' });
@@ -346,6 +348,25 @@ async function showSplash({ first = false } = {}) {
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, textarea, [contenteditable]')) return;
   const mod = e.ctrlKey || e.metaKey;
+  const digit = /^(?:Digit|Numpad)([0-9])$/.exec(e.code)?.[1];
+  if (digit != null && !e.altKey && (mod || e.shiftKey)) {
+    // Ctrl+digit (or Shift+digit: some browsers keep Ctrl+1-9 for switching tabs) stores the selected module
+    e.preventDefault();
+    const id = rack.selectedModule();
+    if (!id) return toast(`Click a module first, then press Ctrl+${digit} to put it on key ${digit}`);
+    const now = store.setHotkey(digit, id);
+    const m = store.findModule(id);
+    toast(now ? `${m?.label || id} is on key ${digit}: press ${digit} to jump to it` : `Key ${digit} cleared`);
+    return;
+  }
+  if (digit != null && !mod && !e.altKey && !e.shiftKey) {
+    const id = store.getPatch().hotkeys?.[digit];
+    if (id) {
+      e.preventDefault();
+      rack.revealModule(id);
+    }
+    return;
+  }
   if (e.code === 'Space') {
     e.preventDefault();
     document.activeElement?.blur?.(); // a focused button would otherwise toggle a second time

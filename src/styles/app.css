@@ -228,6 +228,16 @@ a { color: var(--accent); }
 }
 .module.dragging { z-index: 4; cursor: grabbing; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7); opacity: 0.94; }
 .module.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* number-key badge (Ctrl+digit stores a module, the digit jumps to it) */
+.module > .mod-hotkey {
+  position: absolute; top: 2px; right: 3px; z-index: 3; /* sits on the top-right screw, clear of the name */
+  min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px;
+  background: var(--accent); color: #000; font: 700 10px/15px system-ui, sans-serif; text-align: center;
+  pointer-events: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.module.collapsed > .mod-hotkey { display: none; }
+.module.jumped { animation: mod-jump 0.6s ease-out; }
+@keyframes mod-jump { 0% { outline-width: 6px; outline-offset: 4px; } 100% { outline-width: 2px; outline-offset: 1px; } }
 .module.blocked { outline: 2px dashed #e8483b; }
 .mod-tex {
   position: absolute;

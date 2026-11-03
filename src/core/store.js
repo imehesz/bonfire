@@ -19,6 +19,7 @@ export function emptyPatch() {
     samplePacks: [],
     localSounds: [],
     midiMap: [], // [{ src: 'cc:1:74', m: 'filter1', k: 'cutoff' }]; m '@' = app-wide (PLAY, note-entry REST...)
+    hotkeys: {}, // { '1': 'acid1', ... }: number keys 0-9 jump to a module (Ctrl+digit stores the selected one)
   };
 }
 
@@ -74,6 +75,7 @@ function normalize(p) {
   const ids = new Set(out.modules.map((m) => m.id));
   out.cables = out.cables.filter((c) => ids.has(c.from.m) && ids.has(c.to.m));
   out.midiMap = (out.midiMap ?? []).filter((x) => x.m === '@' || ids.has(x.m));
+  out.hotkeys = Object.fromEntries(Object.entries(out.hotkeys ?? {}).filter(([d, id]) => /^[0-9]$/.test(d) && ids.has(id)));
   return out;
 }
 
@@ -182,6 +184,7 @@ export function removeModule(id) {
   patch.modules = patch.modules.filter((m) => m.id !== id);
   patch.cables = patch.cables.filter((c) => c.from.m !== id && c.to.m !== id);
   patch.midiMap = patch.midiMap.filter((x) => x.m !== id);
+  patch.hotkeys = Object.fromEntries(Object.entries(patch.hotkeys ?? {}).filter(([, m]) => m !== id));
   emit('structure', { removed: id });
 }
 
@@ -300,4 +303,16 @@ export function removeMidiMap(match) {
   checkpoint();
   patch.midiMap = keep;
   emit('params', {});
+}
+
+// Number keys 0-9 -> modules. A module holds at most one number and a number one module; storing
+// a module on the number it already has clears it. Returns the module now on that number (or null).
+export function setHotkey(digit, id) {
+  const d = String(digit);
+  checkpoint();
+  const hk = Object.fromEntries(Object.entries(patch.hotkeys ?? {}).filter(([k, m]) => m !== id && k !== d));
+  if (id && patch.hotkeys?.[d] !== id) hk[d] = id;
+  patch.hotkeys = hk;
+  emit('params', {});
+  return hk[d] ?? null;
 }

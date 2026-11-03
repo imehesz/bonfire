@@ -77,6 +77,42 @@ export function selectModule(id) {
   document.dispatchEvent(new CustomEvent('bonfire:select', { detail: id }));
 }
 
+// Number badges on modules stored on a key (Ctrl+digit). Called after every patch change.
+export function markHotkeys() {
+  const byId = new Map(Object.entries(getPatch().hotkeys ?? {}).map(([d, id]) => [id, d]));
+  for (const [id, v] of views) {
+    let b = v.el.querySelector(':scope > .mod-hotkey');
+    const d = byId.get(id);
+    if (d == null) {
+      b?.remove();
+      continue;
+    }
+    if (!b) v.el.append((b = h('div', { class: 'mod-hotkey', title: `Press ${d} to jump here` })));
+    b.textContent = d;
+  }
+}
+
+// Select a module and, if any of it is off screen, scroll it into the middle (expanding its row
+// if that row is collapsed). Used by the number keys.
+export function revealModule(id) {
+  const m = findModule(id);
+  const v = views.get(id);
+  if (!m || !v) return;
+  if (isCollapsed(m.row)) toggleRow(m.row);
+  selectModule(id);
+  const z = settings.zoom;
+  const x = v.el.offsetLeft * z;
+  const y = v.el.offsetTop * z;
+  const w = v.el.offsetWidth * z;
+  const ht = v.el.offsetHeight * z;
+  const { scrollLeft: sl, scrollTop: st, clientWidth: cw, clientHeight: ch } = scroller;
+  if (x >= sl && x + w <= sl + cw && y >= st && y + ht <= st + ch) return; // already fully in view
+  scroller.scrollTo({ left: Math.max(0, x + w / 2 - cw / 2), top: Math.max(0, y + ht / 2 - ch / 2), behavior: 'smooth' });
+  v.el.classList.remove('jumped');
+  void v.el.offsetWidth; // restart the flash
+  v.el.classList.add('jumped');
+}
+
 export function mountRack(host) {
   rowsLayer = h('div', { class: 'rows-layer' });
   modLayer = h('div', { class: 'modules-layer' });
