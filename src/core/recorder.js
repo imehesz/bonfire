@@ -1,6 +1,8 @@
 // WAV recorder. Taps the mix BEFORE the master VOLUME / MUTE (those are your
 // speakers, not the music), so a quiet or muted OUTPUT still records full level.
 // Audio is captured in real time on the audio thread and written as 16-bit stereo PCM.
+// STEMS: one session can run several taps at once (the full mix + one per stem, each
+// summing that stem's Strudel orbits), all starting and ending on the same sample.
 import { getAudioContext, getSuperdoughAudioController } from '@strudel/webaudio';
 
 // Runs on the audio thread: drops frames before `startAt` (an AudioContext time),
@@ -10,12 +12,14 @@ class BonfireRec extends AudioWorkletProcessor {
   constructor() {
     super();
     this.startAt = Infinity;
+    this.endAt = Infinity;
     this.l = [];
     this.r = [];
     this.n = 0;
     this.done = false;
     this.port.onmessage = (e) => {
       if (e.data.startAt != null) this.startAt = e.data.startAt;
+      if (e.data.endAt != null) this.endAt = e.data.endAt;
       if (e.data.stop) {
         this.flush();
         this.done = true;
@@ -45,9 +49,21 @@ class BonfireRec extends AudioWorkletProcessor {
     const len = inp[0].length;
     if (currentTime + len / sampleRate <= this.startAt) return true;
     const from = currentTime < this.startAt ? Math.round((this.startAt - currentTime) * sampleRate) : 0;
-    this.l.push(inp[0].slice(from));
-    this.r.push((inp[1] || inp[0]).slice(from));
-    this.n += len - from;
+    // frame-exact end (the start frame + a whole number of frames), so every tap is the same length
+    const endFrame = this.endAt === Infinity ? Infinity
+      : Math.round(this.startAt * sampleRate) + Math.round((this.endAt - this.startAt) * sampleRate);
+    const to = Math.max(from, Math.min(len, endFrame - Math.round(currentTime * sampleRate)));
+    if (to > from) {
+      this.l.push(inp[0].slice(from, to));
+      this.r.push((inp[1] || inp[0]).slice(from, to));
+      this.n += to - from;
+    }
+    if (to < len) {
+      this.flush();
+      this.done = true;
+      this.port.postMessage({ done: true, ended: true });
+      return false;
+    }
     if (this.n >= 8192) this.flush();
     return true;
   }
@@ -56,18 +72,19 @@ registerProcessor('bonfire-rec', BonfireRec);
 `;
 
 let loaded = null;
-let rec = null;
+let rec = null; // { taps: [{ name, node, sources, chunks, done }], startAt, endAt, rate }
 
 export const isRecording = () => !!rec;
+export const isStems = () => !!rec?.stems;
 
 // Seconds recorded so far (negative while waiting for the start bar), or null.
 export function elapsed() {
   return rec ? getAudioContext().currentTime - rec.startAt : null;
 }
+// Length of a timed take (stems) in seconds, or null for an open-ended REC.
+export const length = () => (rec && rec.endAt != null ? rec.endAt - rec.startAt : null);
 
-export async function startRecording(startAt) {
-  if (rec) return;
-  const ctx = getAudioContext();
+async function makeTap(ctx, name, sources) {
   await (loaded ??= ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }))));
   const node = new AudioWorkletNode(ctx, 'bonfire-rec', {
     numberOfInputs: 1,
@@ -76,31 +93,84 @@ export async function startRecording(startAt) {
     channelCountMode: 'explicit',
     channelInterpretation: 'discrete', // Strudel's mix lives on channels 0/1
   });
-  const source = getSuperdoughAudioController().output.channelMerger;
-  source.connect(node);
+  for (const src of sources) src.connect(node); // several orbits into one tap = summed
   node.connect(ctx.destination); // keeps the node pulled; it only ever outputs silence
-  const chunks = [];
-  node.port.onmessage = (e) => {
-    if (e.data.l) chunks.push(e.data);
-    if (e.data.done) rec?.resolve();
-  };
-  rec = { node, source, chunks, startAt: startAt ?? ctx.currentTime, rate: ctx.sampleRate };
-  node.port.postMessage({ startAt: rec.startAt });
+  const tap = { name, node, sources, chunks: [] };
+  tap.finished = new Promise((resolve) => {
+    node.port.onmessage = (e) => {
+      if (e.data.l) tap.chunks.push(e.data);
+      if (e.data.done) resolve();
+    };
+  });
+  return tap;
+}
+
+async function begin(ctx, taps, startAt, endAt, stems = false) {
+  rec = { taps, stems, startAt: startAt ?? ctx.currentTime, endAt: endAt ?? null, rate: ctx.sampleRate };
+  for (const t of taps) t.node.port.postMessage({ startAt: rec.startAt, ...(endAt != null ? { endAt } : {}) });
+}
+
+export async function startRecording(startAt) {
+  if (rec) return;
+  const ctx = getAudioContext();
+  const tap = await makeTap(ctx, 'mix', [getSuperdoughAudioController().output.channelMerger]);
+  await begin(ctx, [tap], startAt);
+}
+
+// Stems: `stems` = [{ name, orbits: [n...] }]. Each gets a tap on the sum of its orbits' outputs
+// (after the orbit's own reverb / delay / duck, before the master), plus `mix` = the full mix.
+// Records from startAt to endAt (AudioContext times), then stops by itself.
+export async function startStems(stems, { startAt, endAt, mix = true }) {
+  if (rec) return;
+  const ctx = getAudioContext();
+  const ctrl = getSuperdoughAudioController();
+  const taps = [];
+  if (mix) taps.push(await makeTap(ctx, 'full mix', [ctrl.output.channelMerger]));
+  for (const st of stems) {
+    // creates the orbit now if nothing has played on it yet (same channels Strudel would use)
+    taps.push(await makeTap(ctx, st.name, st.orbits.map((o) => ctrl.getOrbit(o, [0, 1]).output)));
+  }
+  await begin(ctx, taps, startAt, endAt, true);
+  return Promise.all(taps.map((t) => t.finished)); // resolves when the take ends by itself
+}
+
+async function end() {
+  const r = rec;
+  rec = null;
+  for (const t of r.taps) t.node.port.postMessage({ stop: true }); // no-op for taps already done
+  await Promise.all(r.taps.map((t) => t.finished));
+  for (const t of r.taps) {
+    for (const src of t.sources) {
+      try {
+        src.disconnect(t.node);
+      } catch { /* superdough rebuilt its output meanwhile */ }
+    }
+    t.node.disconnect();
+  }
+  return r;
 }
 
 // Ends the take and returns it as a WAV Blob (null if nothing was captured).
 export async function stopRecording() {
   if (!rec) return null;
-  const r = rec;
-  const done = new Promise((resolve) => (r.resolve = resolve));
-  r.node.port.postMessage({ stop: true });
-  await done;
-  rec = null;
-  try {
-    r.source.disconnect(r.node);
-  } catch { /* superdough rebuilt its output meanwhile */ }
-  r.node.disconnect();
-  return toWav(r.chunks, r.rate);
+  const r = await end();
+  return toWav(r.taps[0].chunks, r.rate);
+}
+
+// Ends a stems take: [{ name, blob }], silent stems dropped. All blobs have the same length.
+export async function stopStems() {
+  if (!rec) return [];
+  const r = await end();
+  return r.taps
+    .filter((t) => t.chunks.some((c) => peak(c.l) > 1e-4 || peak(c.r) > 1e-4))
+    .map((t) => ({ name: t.name, blob: toWav(t.chunks, r.rate) }))
+    .filter((t) => t.blob);
+}
+
+function peak(a) {
+  let m = 0;
+  for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i]));
+  return m;
 }
 
 function toWav(chunks, rate) {

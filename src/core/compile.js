@@ -49,6 +49,64 @@ export function compilePatch(patch) {
     }
   })(out?.id);
 
+  // STEMS: every patched, unmuted channel of every MIXER can be exported on its own. A sound can
+  // only sit on one Strudel orbit, so each BOTTOM channel (nothing mixed into it from another
+  // MIXER) gets its own orbit (100, 200, ...) and a channel fed by a sub-MIXER is the sum of that
+  // mixer's orbits; the recorder sums orbits per stem, so any mix of levels exports in one pass.
+  // DUCKs inside a bottom channel take base + n; a DUCK after a sub-MIXER ducks all its orbits.
+  // Channels of the MIXERs feeding OUTPUT are the suggested (preselected) stems.
+  const tops = topMixers(out, inputs, byId);
+  const stemOf = {}; // module id -> its bottom channel's base orbit
+  const chanOrbits = {}; // mixer id -> { ch: base } for bottom channels (the MIXER adds keep(orbit))
+  const mixerOrbits = new Map(); // mixer id -> Set of every orbit under it
+  const stems = [];
+  let nextBase = 100;
+  function visit(mixer) {
+    if (mixerOrbits.has(mixer.id)) return mixerOrbits.get(mixer.id);
+    const all = new Set();
+    mixerOrbits.set(mixer.id, all);
+    if (mixer.params.muteAll) return all;
+    for (let i = 0; i < 4; i++) {
+      const src = inputs[mixer.id]?.[`in${i}`];
+      if (!src || !byId[src.m] || mixer.params[`mute${i}`]) continue;
+      const below = new Set(); // orbits of MIXERs anywhere upstream of this channel
+      const seen = new Set();
+      (function scan(id) {
+        if (!id || seen.has(id) || !byId[id]) return;
+        seen.add(id);
+        if (byId[id].type === 'mixer') return visit(byId[id]).forEach((o) => below.add(o));
+        for (const x of Object.values(inputs[id] ?? {})) scan(x.m);
+      })(src.m);
+      const orbits = new Set(below);
+      if (!throughPass(src.m, inputs, byId, (m) => m.type === 'mixer')) {
+        // a bottom channel (or one that also carries its own sounds): give it an orbit
+        const base = nextBase;
+        nextBase += 100;
+        orbits.add(base);
+        (chanOrbits[mixer.id] ??= {})[i] = base;
+        for (const id of seen) if (byId[id].type !== 'mixer' && stemOf[id] == null) stemOf[id] = base;
+      }
+      stems.push({ mixer: mixer.id, ch: i, name: stemName(src.m, inputs, byId), orbits, top: tops.has(mixer.id) });
+      orbits.forEach((o) => all.add(o));
+    }
+    return all;
+  }
+  for (const m of tops) visit(byId[m]);
+  for (const m of patch.modules) if (m.type === 'mixer' && reachable.has(m.id)) visit(m);
+  // orbits of every MIXER upstream of `id` (the DUCK uses this to duck a whole sub-mix)
+  function mixersAbove(id) {
+    const outSet = new Set();
+    const seen = new Set();
+    (function scan(x) {
+      if (!x || seen.has(x) || !byId[x]) return;
+      seen.add(x);
+      if (byId[x].type === 'mixer') return visit(byId[x]).forEach((o) => outSet.add(o));
+      for (const y of Object.values(inputs[x] ?? {})) scan(y.m);
+    })(id);
+    return [...outSet].sort((p, q) => p - q);
+  }
+  const usedOrbits = new Set();
+
   const results = {};
   const hoisted = {};
   const decls = [];
@@ -68,6 +126,10 @@ export function compilePatch(patch) {
       in: (jack) => resolve(inputs[id]?.[jack]),
       meta: (m) => (meta[id] = m),
       prelude: (key, text) => reachable.has(id) && preludes.set(key, text), // unpatched modules add nothing
+      stemOrbit: stemOf[id] ?? null, // the base orbit of the bottom MIXER channel this module feeds
+      stemOrbits: chanOrbits[id] ?? null, // MIXER only: { ch: orbit } for its bottom channels
+      orbitsAbove: (jack) => (inputs[id]?.[jack] ? mixersAbove(inputs[id][jack].m) : []),
+      useOrbit: (o) => reachable.has(id) && usedOrbits.add(o), // DUCK reports its private orbit
     };
     try {
       results[id] = def.compile(ctx) ?? {};
@@ -130,5 +192,63 @@ export function compilePatch(patch) {
     code = code.replace('\n', `\n// You are using ${n} that Strudel does not support (${names}).\n// This code only plays inside Bonfire STACK, not on strudel.cc.\n`);
   }
 
-  return { code, meta, errors, bpm, playing: !!main, reachable, unsupported: forge.length };
+  // a DUCK's private orbit belongs to every stem holding its channel's base orbit
+  for (const o of usedOrbits) for (const st of stems) if (st.orbits.has(Math.floor(o / 100) * 100)) st.orbits.add(o);
+  const loose = [1, ...[...usedOrbits].filter((o) => o < 100)];
+  return {
+    code, meta, errors, bpm, playing: !!main, reachable, unsupported: forge.length,
+    // tops first, then the rest in the order found
+    stems: [...stems.filter((x) => x.top), ...stems.filter((x) => !x.top)]
+      .map((x) => ({ mixer: x.mixer, ch: x.ch, name: x.name, orbits: [...x.orbits].sort((p, q) => p - q), suggested: x.top })),
+    looseOrbits: loose,
+  };
+}
+
+// Modules that pass one IN straight through (so a MIXER behind them is still "the master").
+const PASS = new Set(['fx', 'vintage', 'tape', 'filter', 'fenv', 'vandal', 'duck', 'octave']);
+
+// Walks back from `id` through one-in PASS modules; true if it lands on a module matching `test`.
+function throughPass(id, inputs, byId, test) {
+  let m = byId[id];
+  for (let guard = 0; m && guard < 50; guard++) {
+    if (test(m)) return true;
+    if (!PASS.has(m.type)) return false;
+    const src = inputs[m.id]?.in;
+    m = src ? byId[src.m] : null;
+  }
+  return false;
+}
+
+// The MIXERs feeding OUTPUT (L and/or R), maybe through FX-type modules: the suggested stems.
+function topMixers(out, inputs, byId) {
+  const found = new Set();
+  if (!out) return found;
+  for (const src of Object.values(inputs[out.id] ?? {})) {
+    let m = byId[src.m];
+    for (let guard = 0; m && guard < 50; guard++) {
+      if (m.type === 'mixer') {
+        found.add(m.id);
+        break;
+      }
+      if (!PASS.has(m.type)) break;
+      const s2 = inputs[m.id]?.in;
+      m = s2 ? byId[s2.m] : null;
+    }
+  }
+  return found;
+}
+
+// A stem is named after what feeds that channel: its label if it has one, else the first labelled /
+// sound-making module up the chain (skipping FX-type modules), else the module id.
+function stemName(id, inputs, byId) {
+  const seen = new Set();
+  let m = byId[id];
+  while (m && !seen.has(m.id)) {
+    seen.add(m.id);
+    if (m.label) return m.label;
+    if (!PASS.has(m.type)) return m.id;
+    const src = inputs[m.id]?.in;
+    m = src ? byId[src.m] : null;
+  }
+  return byId[id]?.label || id;
 }

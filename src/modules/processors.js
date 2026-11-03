@@ -425,10 +425,15 @@ export const duck = {
     if (!e) return { out: null };
     const trig = ctx.in('trig');
     if (!trig) return { out: e };
-    const orbit = 1 + (parseInt(ctx.id.replace(/\D/g, ''), 10) || 1); // duck1 -> orbit 2
-    const ducker = trig.call('duckorbit', num(orbit)).call('duckonset', num(0.005, 3))
+    const duck = (target) => trig.call('duckorbit', target).call('duckonset', num(0.005, 3))
       .call('duckattack', num(ctx.p.release, 3)).call('duckdepth', num(ctx.p.depth, 2)).call('postgain', num(0));
-    return { out: fn('stack', e.call('orbit', num(orbit)), ducker) };
+    // after a sub-MIXER: its sounds already sit on that mixer's own orbits (stems), so duck those
+    const above = ctx.orbitsAbove?.('in') ?? [];
+    if (above.length) return { out: fn('stack', e, duck(above.length === 1 ? num(above[0]) : mini(above.join(':')))) };
+    // otherwise IN moves onto an orbit of its own: duck1 -> orbit 2, or its channel's base + 1
+    const orbit = (ctx.stemOrbit ?? 1) + (parseInt(ctx.id.replace(/\D/g, ''), 10) || 1);
+    ctx.useOrbit?.(orbit);
+    return { out: fn('stack', e.call('orbit', num(orbit)), duck(num(orbit))) };
   },
 };
 
@@ -474,6 +479,8 @@ export const mixer = {
       e = setIf(e, 'pan', ctx.p[`pan${i}`], 0.5, 2);
       e = cutLimit(e, 'hpf', ctx.p[`locut${i}`], 20);
       e = cutLimit(e, 'lpf', ctx.p[`hicut${i}`], 20000);
+      // master MIXER: each channel on its own orbit (a stem); keep = a DUCK's own orbit inside wins
+      if (ctx.stemOrbits?.[i] != null) e = e.call('keep', fn('orbit', num(ctx.stemOrbits[i])));
       parts.push(e);
     }
     if (!parts.length) return { out: null };

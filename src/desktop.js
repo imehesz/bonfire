@@ -11,6 +11,7 @@ import { mountInspector } from './ui/inspector.js';
 import { mountModuleDrawer } from './ui/drawers.js';
 import { h, menu, modal, readout, toast } from './ui/dom.js';
 import { randomName } from './core/names.js';
+import { zip } from './core/zip.js';
 import { globalMenuItems, markMidi, midiButton, setRecordAction } from './ui/midi.js';
 
 const SOURCE_URL = 'https://github.com/imehesz/bonfirestack';
@@ -38,16 +39,20 @@ const showRec = () => {
   const t = recorder.elapsed();
   recBtn.classList.toggle('on', t != null);
   recBtn.classList.toggle('armed', t != null && t < 0);
+  const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const len = recorder.length();
   if (t == null) recBtn.innerHTML = '<span>●</span> REC';
-  else if (t < 0) recBtn.innerHTML = '<span>●</span> WAIT';
-  else recBtn.innerHTML = `<span>●</span> ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  else if (t < 0) recBtn.innerHTML = `<span>●</span> ${recorder.isStems() ? 'STEMS' : 'WAIT'}`;
+  else if (len != null) recBtn.innerHTML = `<span>●</span> ${mmss(Math.min(t, len))}/${mmss(len)}`;
+  else recBtn.innerHTML = `<span>●</span> ${mmss(t)}`;
 };
 setRecordAction(() => toggleRecord());
 async function toggleRecord() {
   if (recBusy) return;
   recBusy = true;
   try {
-    if (recorder.isRecording()) await finishRecording();
+    if (recorder.isStems()) await finishStems(); // REC or STOP during a stem export ends it early
+    else if (recorder.isRecording()) await finishRecording();
     else {
       if (!engine.isPlaying()) await engine.play();
       await recorder.startRecording(await engine.nextBarTime());
@@ -73,6 +78,113 @@ async function finishRecording() {
   toast(`Saved ${a.download}`);
 }
 showRec();
+// ---------------- STEM export ----------------
+// Any MIXER channel can be a stem; the ones on the MIXER(s) feeding OUTPUT come pre-ticked. The
+// compiler gives the bottom channels their own Strudel orbits and the recorder taps them all at
+// once (a channel fed by a sub-MIXER = the sum of its orbits), so one real-time pass gives every
+// chosen stem plus the full mix, sample-aligned. Settings remembered per browser.
+const STEMS_KEY = 'bonfire.stems';
+const fileSafe = (s) => s.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'stem';
+function stemPrefs() {
+  try {
+    return { bars: 8, tail: 2, mix: true, ...JSON.parse(localStorage.getItem(STEMS_KEY)) };
+  } catch {
+    return { bars: 8, tail: 2, mix: true };
+  }
+}
+function showStemExport() {
+  if (recorder.isRecording()) return toast('A recording is already running', 'warn');
+  const stems = compiled?.stems ?? [];
+  if (!stems.length) {
+    const dlg = modal(h('div', { class: 'mod-settings' },
+      h('h2', {}, 'EXPORT STEMS'),
+      h('p', { class: 'stems-note' }, 'Stems are MIXER channels: every channel of every MIXER in the patch can become its own WAV. Patch your parts into a MIXER (and that MIXER into OUTPUT) to get some.'),
+      h('div', { class: 'confirm-actions' }, h('button', { class: 'btn accent', onclick: () => dlg.close() }, 'OK'))), { className: 'modal-confirm' });
+    return;
+  }
+  const prefs = stemPrefs();
+  const checks = stems.map((st) => h('input', { type: 'checkbox', checked: st.suggested }));
+  const label = (id) => store.findModule(id)?.label || id;
+  const groups = [];
+  stems.forEach((st, i) => {
+    let g = groups.find((x) => x.mixer === st.mixer);
+    if (!g) groups.push((g = { mixer: st.mixer, top: st.suggested, rows: [] }));
+    g.rows.push(h('label', { class: 'stems-row' }, checks[i], h('b', {}, `CH ${st.ch + 1}`), ` ${st.name}`));
+  });
+  const mixCheck = h('input', { type: 'checkbox', checked: prefs.mix });
+  const bars = h('input', { class: 'set-name stems-num', type: 'number', min: 1, max: 256, step: 1, value: prefs.bars });
+  const tail = h('input', { class: 'set-name stems-num', type: 'number', min: 0, max: 30, step: 0.5, value: prefs.tail });
+  const info = h('p', { class: 'stems-note' });
+  const secs = () => Math.max(1, Math.round(+bars.value || 1)) * (240 / (compiled?.bpm || 120)) + Math.max(0, +tail.value || 0);
+  const upd = () => (info.textContent = `Takes ${secs().toFixed(1)} s, recorded live from the next bar line (it starts playback if needed). `
+    + 'Every file starts and ends on the same sample, so they line up at zero in any DAW. TAIL lets reverbs and delays ring out.');
+  bars.addEventListener('input', upd);
+  tail.addEventListener('input', upd);
+  upd();
+  const go = () => {
+    const chosen = stems.filter((_, i) => checks[i].checked);
+    if (!chosen.length && !mixCheck.checked) return toast('Tick at least one stem', 'warn');
+    const opts = { bars: Math.max(1, Math.round(+bars.value || 1)), tail: Math.max(0, +tail.value || 0), mix: mixCheck.checked };
+    try {
+      localStorage.setItem(STEMS_KEY, JSON.stringify(opts));
+    } catch { /* ignore */ }
+    dlg.close();
+    startStemExport(chosen, opts);
+  };
+  const dlg = modal(h('div', { class: 'mod-settings stems-dlg' },
+    h('h2', {}, 'EXPORT STEMS', h('small', {}, ` ${store.getPatch().name || ''}`)),
+    h('div', { class: 'set-label' }, 'STEMS',
+      h('div', { class: 'stems-list' },
+        h('label', { class: 'stems-row' }, mixCheck, h('b', {}, 'MIX'), ' full mix'),
+        ...groups.map((g) => h('div', { class: 'stems-group' },
+          h('div', { class: 'stems-head' }, label(g.mixer).toUpperCase(), g.top ? h('small', {}, ' · feeds OUTPUT (suggested)') : null),
+          ...g.rows)))),
+    h('div', { class: 'stems-nums' },
+      h('label', { class: 'set-label' }, 'BARS', bars),
+      h('label', { class: 'set-label' }, 'TAIL (s)', tail)),
+    info,
+    h('p', { class: 'stems-note fine' }, 'Tick any channels, from any MIXER: a channel fed by another MIXER is that whole sub-mix. Files are named after the module feeding each channel (right-click a module → Settings to name it). Everything is held in memory until the ZIP downloads, so this is made for loops and short pieces, not hour-long sets. On heavy patches the speakers may crackle while it records: that is normal, the files are captured cleanly.'),
+    h('div', { class: 'confirm-actions' },
+      h('button', { class: 'btn', onclick: () => dlg.close() }, 'CANCEL'),
+      h('button', { class: 'btn accent', onclick: go }, 'RECORD STEMS'))), { className: 'modal-confirm' });
+}
+async function startStemExport(chosen, { bars, tail, mix }) {
+  if (recBusy || recorder.isRecording()) return;
+  recBusy = true;
+  try {
+    if (!engine.isPlaying()) await engine.play();
+    const startAt = await engine.nextBarTime();
+    if (startAt == null) throw new Error('playback did not start');
+    const endAt = startAt + bars * (240 / (compiled?.bpm || 120)) + tail;
+    const list = chosen.map((st, i) => ({ name: `${String(i + 1).padStart(2, '0')}_${fileSafe(st.name)}`, orbits: st.orbits }));
+    list.push({ name: '99_other', orbits: compiled?.looseOrbits ?? [1] }); // anything not on a MIXER (dropped if silent)
+    const done = recorder.startStems(list, { startAt, endAt, mix });
+    recTimer = setInterval(showRec, 250);
+    done.then(() => recorder.isStems() && !recBusy && toggleRecord());
+  } catch (e) {
+    toast(`Stem export failed: ${e.message}`, 'warn');
+  } finally {
+    recBusy = false;
+    showRec();
+  }
+}
+async function finishStems() {
+  clearInterval(recTimer);
+  const takes = await recorder.stopStems();
+  showRec();
+  if (!takes.length) return toast('Nothing recorded — stopped before the first bar', 'warn');
+  const files = [];
+  for (const t of takes) {
+    const name = t.name === 'full mix' ? '00_full-mix' : t.name;
+    files.push({ name: `${name}.wav`, data: new Uint8Array(await t.blob.arrayBuffer()) });
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(zip(files));
+  a.download = `${fileSafe(store.getPatch().name || 'bonfire')}-stems.zip`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Saved ${a.download} (${files.length} WAV${files.length === 1 ? '' : 's'})`);
+}
 const nameInput = h('input', { class: 'patch-name', spellcheck: 'false', title: 'Patch name' });
 nameInput.addEventListener('change', () => store.setName(nameInput.value.trim() || 'Untitled'));
 nameInput.addEventListener('keydown', (e) => e.key === 'Enter' && nameInput.blur());
@@ -221,6 +333,7 @@ function patchMenu(anchor) {
       }
     } },
     { label: 'Save patch file', hint: '.bonfire.json', action: () => downloadPatch(store.getPatch()) },
+    { label: 'Export stems…', hint: '.zip of WAVs', action: showStemExport },
     { label: 'Copy share link', action: async () => {
       const url = await shareUrl(store.getPatch());
       history.replaceState(null, '', url);
@@ -304,7 +417,8 @@ function showHelp() {
       h('li', {}, 'Knobs & faders: drag up/down (Shift = fine), mouse wheel, or double-click to type an exact value.'),
       h('li', {}, 'Sequencer steps: right-click to cycle ×2 / ×4 rolls.'),
       h('li', {}, 'MIDI: plug in a keyboard or controller and press MIDI in the top bar. Right-click any knob → MIDI learn; right-click a MELODY or CHORDS → MIDI note entry to write its steps from the keys.'),
-      h('li', {}, '● REC records a WAV from the next bar line (starting playback if needed); press it again, or STOP, to download. It records the music before OUTPUT VOLUME / MUTE.')),
+      h('li', {}, '● REC records a WAV from the next bar line (starting playback if needed); press it again, or STOP, to download. It records the music before OUTPUT VOLUME / MUTE.'),
+      h('li', {}, 'PATCH → Export stems… records any MIXER channels you tick (the ones feeding OUTPUT come pre-ticked) as separate WAVs plus the full mix, in one live pass, all sample-aligned, and downloads them as a ZIP. Every MIXER channel gets its own reverb / delay. Everything is held in memory until the download, so it is made for loops and short pieces.')),
     h('h3', {}, 'Keys'),
     h('ul', {},
       h('li', {}, 'Space — play / stop'),
