@@ -80,7 +80,7 @@ export function buildModule(mod, { preview = false } = {}) {
     h('div', { class: 'mod-jacks' }, def.layout.slice(split).map(row)));
 
   const el = h('div', {
-    class: 'module',
+    class: `module${def.strudel === false ? ' forge' : ''}`,
     dataset: { id: mod.id, type: mod.type },
     style: { width: `${def.hp * HP_PX}px` },
   },
@@ -88,7 +88,7 @@ export function buildModule(mod, { preview = false } = {}) {
   h('i', { class: 'screw tl' }), h('i', { class: 'screw tr' }), h('i', { class: 'screw bl' }), h('i', { class: 'screw br' }),
   h('div', { class: 'mod-head' }, h('div', { class: 'mod-name' }, def.name), h('div', { class: 'mod-id' }, mod.label || mod.id)),
   body,
-  h('div', { class: 'mod-foot' }, 'BONFIRE'));
+  h('div', { class: 'mod-foot' }, def.strudel === false ? 'BONFIRE ONLY' : 'BONFIRE'));
 
   paintPanel(el, mod.color);
 

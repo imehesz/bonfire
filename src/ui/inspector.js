@@ -102,6 +102,8 @@ export function mountInspector(host) {
     }
   };
   const open = () => window.open(`https://strudel.cc/#${code2hash(exported())}`, '_blank', 'noopener');
+  const OPEN_TIP = 'Opens this exact code in the strudel.cc REPL';
+  const openBtn = h('button', { class: 'btn accent', onclick: open, title: OPEN_TIP }, 'OPEN IN STRUDEL ↗');
   const toggleBtn = h('button', { class: 'insp-toggle', title: 'Show / hide code' });
   const dock = h('section', { class: 'inspector' },
     h('header', {},
@@ -113,7 +115,7 @@ export function mountInspector(host) {
       status,
       h('div', { class: 'insp-actions' },
         h('button', { class: 'btn', onclick: copy }, 'COPY CODE'),
-        h('button', { class: 'btn accent', onclick: open, title: 'Opens this exact code in the strudel.cc REPL' }, 'OPEN IN STRUDEL ↗'))),
+        openBtn)),
     h('div', { class: 'insp-body' }, pre, modcons.el, samples.el));
   // drag the inner edge to resize, from the default up to half the screen; double-click resets
   const grip = h('div', { class: 'insp-grip', title: 'Drag to resize · double-click to reset' });
@@ -211,7 +213,10 @@ export function mountInspector(host) {
     setShareLink(url) {
       shareLink = url;
     },
-    setCode(c) {
+    // unsupported = how many patched modules strudel.cc can't play (BONFIRE ONLY): no OPEN IN STRUDEL then
+    setCode(c, unsupported = 0) {
+      openBtn.disabled = unsupported > 0;
+      openBtn.title = unsupported > 0 ? 'This patch uses BONFIRE ONLY modules, so it would not play on strudel.cc' : OPEN_TIP;
       if (c === code) return;
       code = c;
       litKey = '';

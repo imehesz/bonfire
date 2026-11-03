@@ -122,5 +122,13 @@ export function compilePatch(patch) {
     code = code.replace('\n', `\n// local samples (not on strudel.cc unless imported there): ${local.join(', ')}\n`);
   }
 
-  return { code, meta, errors, bpm, playing: !!main, reachable };
+  // Bonfire-only modules (strudel: false) that actually reach OUTPUT: say so up top
+  const forge = patch.modules.filter((m) => reachable.has(m.id) && MODULES[m.type]?.strudel === false);
+  if (forge.length) {
+    const names = [...new Set(forge.map((m) => MODULES[m.type].name))].join(', ');
+    const n = forge.length === 1 ? '1 module' : `${forge.length} modules`;
+    code = code.replace('\n', `\n// You are using ${n} that Strudel does not support (${names}).\n// This code only plays inside Bonfire STACK, not on strudel.cc.\n`);
+  }
+
+  return { code, meta, errors, bpm, playing: !!main, reachable, unsupported: forge.length };
 }

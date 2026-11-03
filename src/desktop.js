@@ -148,7 +148,7 @@ function recompile({ immediate = false } = {}) {
   const patch = store.getPatch();
   compiled = compilePatch(patch);
   meta = compiled.meta;
-  inspector.setCode(compiled.code);
+  inspector.setCode(compiled.code, compiled.unsupported);
   engine.setCode(compiled.code, { immediate });
   // kept ready so COPY / OPEN IN STRUDEL can add it without an await (popup blockers)
   const seq = ++shareSeq;

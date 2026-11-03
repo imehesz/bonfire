@@ -4,6 +4,7 @@ import {
   aliasBank, getAudioContext, getSuperdoughAudioController, initAudio, registerZZFXSounds, samples, soundMap, superdough,
 } from '@strudel/webaudio';
 import { initStrudel } from './strudel.js';
+import { loadForge } from './forge-audio.js';
 import { registerSoundfonts } from '@strudel/soundfonts';
 import dirtSubset from './dirt-subset.json';
 
@@ -71,6 +72,7 @@ export async function unlockAudio() {
   const ctx = getAudioContext();
   if (ctx.state !== 'running') await ctx.resume();
   await (audioInit ??= initAudio()); // loads the AudioWorklets (supersaw, crush, ...)
+  await loadForge(); // Bonfire-only sounds (STRING, ...)
   await boot();
   attachOutputStage();
 }

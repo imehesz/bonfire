@@ -4,13 +4,17 @@
 // See README.md "Writing a module" for the full contract.
 import { arp, beats, chain, chords, clock, euclid, melody, octave, seq } from './sources.js';
 import { chopper, drone, sampler, theremin, voice } from './voices.js';
+import { string } from './forge.js';
 import { duck, fenv, filter, fx, khaoz, lfo, mixer, output, tape, vandal, vintage } from './processors.js';
 
 export const MODULES = Object.fromEntries(
-  [clock, chain, seq, beats, euclid, melody, arp, chords, octave, voice, drone, theremin, sampler, chopper, vandal, filter, fenv, fx, vintage, tape, lfo, khaoz, duck, mixer, output].map((m) => [m.type, m]),
+  [clock, chain, seq, beats, euclid, melody, arp, chords, octave, voice, drone, theremin, sampler, chopper, vandal, filter, fenv, fx, vintage, tape, lfo, khaoz, duck, mixer, output, string].map((m) => [m.type, m]),
 );
 
-export const CATEGORY_ORDER = ['Time', 'Rhythm', 'Pitch', 'Sound', 'Mangle', 'Shape', 'Modulate', 'Mix'];
+export const CATEGORY_ORDER = ['Time', 'Rhythm', 'Pitch', 'Sound', 'Mangle', 'Shape', 'Modulate', 'Mix', 'Bonfire Only'];
+
+// Modules with `strudel: false` make sounds strudel.cc doesn't have (Bonfire's own DSP).
+export const isStrudel = (type) => MODULES[type]?.strudel !== false;
 
 export function defaultParams(type) {
   const def = MODULES[type];

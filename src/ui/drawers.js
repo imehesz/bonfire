@@ -48,6 +48,9 @@ export function mountModuleDrawer(host) {
         && (!q || `${d.name} ${d.title} ${d.description}`.toLowerCase().includes(q)));
       if (!defs.length) continue;
       list.append(h('div', { class: 'cat' }, cat.toUpperCase()));
+      if (defs.some((d) => d.strudel === false)) {
+        list.append(h('div', { class: 'cat-note' }, 'Bonfire\'s own sound engine. These play here but NOT on strudel.cc: the code view marks any patch that uses them.'));
+      }
       for (const d of defs) {
         const card = h('div', {
           class: `mod-card ${selected.has(d.type) ? 'selected' : ''}`,
@@ -56,7 +59,7 @@ export function mountModuleDrawer(host) {
         },
           h('div', { class: 'mc-icon', style: { backgroundImage: `url(icons/${d.type}.png)` } }),
           h('div', { class: 'mc-text' },
-            h('div', { class: 'mc-name' }, d.name, h('span', { class: 'mc-hp' }, `${d.hp} HP`)),
+            h('div', { class: 'mc-name' }, d.name, d.strudel === false ? h('span', { class: 'mc-forge', title: 'Bonfire only: not compatible with strudel.cc' }, 'NOT STRUDEL') : null, h('span', { class: 'mc-hp' }, `${d.hp} HP`)),
             h('div', { class: 'mc-title' }, d.title),
             h('div', { class: 'mc-desc' }, d.description)),
           h('div', { class: 'mc-actions' },
