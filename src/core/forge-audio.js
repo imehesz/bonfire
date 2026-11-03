@@ -66,4 +66,22 @@ function registerForgeSounds() {
     bloom: v.foldbloom ?? 0,
     time: v.foldtime ?? 0.2,
   }), { outGain: 0.7, defaultRelease: 0.2 });
+  workletSound('bf_acid', 'bonfire-acid', (v) => ({
+    path: String(v.acidpath ?? '').split(',').filter(Boolean).map((s) => s.split(':').map(Number)),
+    wave: v.acidwave ?? 0,
+    cutoff: v.acidcut ?? 320,
+    res: v.acidres ?? 0.75,
+    envmod: v.acidenv ?? 0.55,
+    decay: v.aciddec ?? 0.3,
+    accent: v.acidacc ?? 0.6,
+    glide: v.acidglide ?? 0.06,
+  }), { outGain: 0.8, defaultRelease: 0.015 });
+  workletSound('bf_modal', 'bonfire-modal', (v) => ({
+    material: v.modalmat ?? 0,
+    strike: v.modalstrike ?? 0.5,
+    pos: v.modalpos ?? 0.2,
+    decay: v.modaldecay ?? 1.5,
+    damp: v.modaldamp ?? 0.5,
+    stretch: v.modalstretch ?? 0,
+  }), { outGain: 0.6, defaultRelease: 1 });
 }

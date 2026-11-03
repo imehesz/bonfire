@@ -243,3 +243,174 @@ class BonfireFold extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-fold', BonfireFold);
+
+// ACID: 303-style mono voice. One node plays a whole run of slid notes (see acidline() in
+// modules/forge.js): `path` = [[when 0..1 across the note, midi, accent 0/1], ...]. The pitch glides
+// to each new target (exponential, like the 303's RC slide) and nothing restarts on a slide, which is
+// the sound. Saw / square (PolyBLEP) -> 4-pole TPT ladder lowpass with resonance feedback and a soft
+// clip. The filter envelope fires at the note start and falls over DECAY; accents add a separate fast
+// envelope that both opens the filter further and lifts the level, and it re-fires on accented
+// slid-to notes too.
+class BonfireAcid extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = options.processorOptions;
+    this.env = new Envelope({ ...o, attack: Math.max(0.002, o.attack ?? 0) });
+    const len = Math.max(1, this.env.end - this.env.start);
+    const fallback = 69 + 12 * Math.log2(o.freq / 440);
+    const path = o.path?.length ? o.path : [[0, fallback, 0]];
+    this.segs = path.map(([w, m, a]) => ({ at: this.env.start + Math.round(w * len), midi: m, acc: a ? 1 : 0 }));
+    this.seg = 0;
+    this.cur = this.segs[0].midi;
+    this.target = this.cur;
+    this.glide = o.glide > 0 ? 1 - Math.exp(-3 / (o.glide * sampleRate)) : 1; // ~95% there after GLIDE
+    this.square = o.wave === 1;
+    this.cut = o.cutoff;
+    this.k = 3.9 * Math.min(1, Math.max(0, o.res)); // ~4 = self-oscillation
+    this.envmod = o.envmod;
+    this.accent = o.accent;
+    this.fenv = 1;
+    this.fdec = Math.exp(-4.6 / (Math.max(0.01, o.decay) * sampleRate)); // falls to 1% over DECAY
+    this.aenv = this.segs[0].acc;
+    this.adec = Math.exp(-4.6 / (0.2 * sampleRate));
+    this.ph = 0;
+    this.s = [0, 0, 0, 0];
+    listenForStop(this);
+  }
+
+  process(_inputs, outputs) {
+    const out = outputs[0][0];
+    if (!out) return true;
+    const { env, segs, s } = this;
+    const nyq = sampleRate * 0.45;
+    const comp = 1 + this.k * 0.18; // win back some of the bass the resonance eats
+    for (let i = 0; i < out.length; i++) {
+      const f = currentFrame + i;
+      const amp = env.at(f);
+      if (amp === 0) {
+        out[i] = 0;
+        continue;
+      }
+      while (this.seg + 1 < segs.length && f >= segs[this.seg + 1].at) {
+        const n = segs[++this.seg];
+        this.target = n.midi;
+        if (n.acc) this.aenv = 1;
+      }
+      this.cur += (this.target - this.cur) * this.glide;
+      const freq = 440 * 2 ** ((this.cur - 69) / 12);
+      const dt = freq / sampleRate;
+      const p = this.ph;
+      const x = this.square ? (p < 0.5 ? 1 : -1) + blep(p, dt) - blep((p + 0.5) % 1, dt) : 2 * p - 1 - blep(p, dt);
+      this.ph = (p + dt) % 1;
+      // cutoff: rest point + up to 4 octaves of envelope + up to 3 more on an accent
+      const oct = this.envmod * 4 * this.fenv + this.accent * 3 * this.aenv;
+      const fc = Math.min(nyq, Math.max(20, this.cut * 2 ** oct));
+      this.fenv *= this.fdec;
+      this.aenv *= this.adec;
+      // 4-pole TPT ladder, feedback solved implicitly (stable under per-sample cutoff changes)
+      const g = Math.tan((Math.PI * fc) / sampleRate);
+      const G = g / (1 + g);
+      const S = (G * G * G * s[0] + G * G * s[1] + G * s[2] + s[3]) / (1 + g);
+      let u = (x * comp - this.k * S) / (1 + this.k * G * G * G * G);
+      u = Math.tanh(u);
+      let y = u;
+      for (let st = 0; st < 4; st++) {
+        const v = (y - s[st]) * G;
+        y = v + s[st];
+        s[st] = y + v;
+      }
+      const lift = 1 + this.accent * 0.7 * this.aenv; // after the clip, or the clip eats the accent
+      out[i] = Math.tanh(y * 1.4) * amp * 0.5 * lift;
+    }
+    return finishBlock(this, outputs, out);
+  }
+}
+
+registerProcessor('bonfire-acid', BonfireAcid);
+
+// MODAL: modal synthesis. A struck object rings at a handful of natural frequencies ("modes"), each
+// fading at its own rate. Every mode is a 2-pole resonator (a decaying sine) and they all get the
+// same mallet hit: a raised-cosine pulse whose width is STRIKE (wide = soft felt, which also can't
+// excite the high modes; narrow + a little noise = hard hammer). POS weights the modes like hitting a
+// bar off-centre, DAMP makes high modes die faster, STRETCH bends the ratios. Ratios per MATERIAL:
+// tuned marimba bar, wine glass, church bell (hum, prime, tierce, quint, nominal...), metal plate.
+const MODAL_RATIOS = [
+  [1, 3.93, 9.54, 16.69, 24.98, 34.9],
+  [1, 2.32, 4.25, 6.63, 9.38, 12.5],
+  [0.5, 1, 1.183, 1.506, 2, 2.514, 2.662, 3.011, 4.166, 5.433],
+  [1, 1.59, 2.14, 2.3, 2.65, 2.92, 3.16, 3.5, 3.6, 4.06],
+];
+// relative loudness of each mode before POS / DAMP (bells: the hum and nominal are strong)
+const MODAL_GAINS = [
+  [1, 0.5, 0.25, 0.12, 0.08, 0.05],
+  [1, 0.7, 0.45, 0.3, 0.2, 0.12],
+  [0.7, 1, 0.8, 0.5, 0.9, 0.4, 0.35, 0.3, 0.25, 0.15],
+  [1, 0.9, 0.8, 0.8, 0.7, 0.7, 0.6, 0.6, 0.5, 0.5],
+];
+
+class BonfireModal extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = options.processorOptions;
+    this.env = new Envelope({ ...o, attack: 0, release: 0.01 }); // only for start/end/stop frames
+    const m = Math.min(3, Math.max(0, o.material | 0));
+    const nyq = sampleRate * 0.45;
+    this.modes = [];
+    let norm = 0;
+    MODAL_RATIOS[m].forEach((r0, k) => {
+      const r = r0 <= 1 ? r0 : 1 + (r0 - 1) * (1 + o.stretch); // stretch keeps the fundamental in place
+      const hz = o.freq * r;
+      if (hz > nyq || hz < 15) return;
+      const w = (2 * Math.PI * hz) / sampleRate;
+      // high modes die faster: T60 / ratio^(2 * DAMP)
+      const t60 = Math.max(0.01, o.decay / Math.max(1, r) ** (2 * o.damp));
+      const t60rel = Math.min(t60, o.release ?? 1);
+      const rad = (t) => Math.exp(-6.9078 / (t * sampleRate));
+      // strike position: like a bar hit at POS along its length (mode k has k+1 half-waves)
+      const g = MODAL_GAINS[m][k] * (0.25 + Math.abs(Math.sin(Math.PI * (k + 1) * o.pos)));
+      norm += g * g;
+      this.modes.push({ c: 2 * Math.cos(w), sw: Math.sin(w), rHold: rad(t60), rRel: rad(t60rel), g, y1: 0, y2: 0 });
+    });
+    this.gain = 1 / Math.sqrt(Math.max(1e-6, norm));
+    // mallet: raised cosine 40% (soft) .. 2% (hard) of the note's period, area 1, plus a little noise
+    // when hard. Wider than ~half a period and the pulse would cancel the note's own fundamental.
+    const width = Math.min(0.01, (0.4 - 0.38 * o.strike) / o.freq);
+    const len = Math.max(2, Math.round(sampleRate * width));
+    this.exc = new Float32Array(len);
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += (this.exc[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * (i + 0.5)) / len));
+    for (let i = 0; i < len; i++) this.exc[i] = this.exc[i] / sum + (Math.random() * 2 - 1) * 0.15 * o.strike ** 2;
+    listenForStop(this);
+  }
+
+  process(_inputs, outputs) {
+    const out = outputs[0][0];
+    if (!out) return true;
+    const { env, modes, exc } = this;
+    for (let i = 0; i < out.length; i++) {
+      const f = currentFrame + i;
+      if (f < env.start || f >= env.stop) {
+        out[i] = 0;
+        continue;
+      }
+      const age = f - env.start;
+      const x = age < exc.length ? exc[age] : 0;
+      const held = f < env.end;
+      let y = 0;
+      for (const md of modes) {
+        const r = held ? md.rHold : md.rRel;
+        const v = md.c * r * md.y1 - r * r * md.y2 + x * md.sw;
+        md.y2 = md.y1;
+        md.y1 = v;
+        y += v * md.g;
+      }
+      // short fade at the very end so a cut-off ring doesn't click
+      const tail = env.stop - f;
+      const fade = tail < 256 ? tail / 256 : 1;
+      out[i] = Math.tanh(y * this.gain * 1.2) * fade;
+    }
+    return finishBlock(this, outputs, out);
+  }
+}
+
+registerProcessor('bonfire-modal', BonfireModal);
