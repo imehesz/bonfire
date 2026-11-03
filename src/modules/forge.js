@@ -12,7 +12,8 @@ import { setIf } from './helpers.js';
 for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'growlres', 'growlfm', 'growlratio', 'growldec',
   'foldamt', 'foldsym', 'foldbloom', 'foldtime',
   'acidwave', 'acidcut', 'acidres', 'acidenv', 'aciddec', 'acidacc', 'acidglide', 'acidpath',
-  'modalmat', 'modalstrike', 'modalpos', 'modaldecay', 'modaldamp', 'modalstretch']) registerControl(c);
+  'modalmat', 'modalstrike', 'modalpos', 'modaldecay', 'modaldamp', 'modalstretch',
+  'hoovmode', 'hoovdet', 'hoovmix', 'hoovwidth', 'hoovdip', 'hoovdiptime', 'hoovsub']) registerControl(c);
 
 // Shared front half of every Bonfire-only voice: PITCH (or a C3 per bar) -> s(sound), GATE, TUNE.
 function voiceStart(ctx, sound) {
@@ -292,6 +293,42 @@ export const modal = {
     e = e.call('modalstrike', num(p.strike, 2)).call('modalpos', num(p.pos, 2)).call('modaldecay', num(p.decay, 2))
       .call('modaldamp', num(p.damp, 2));
     e = setIf(e, 'modalstretch', p.stretch, 0, 2);
+    return { out: voiceEnd(ctx, e) };
+  },
+};
+
+// ---- HOOVER: supersaw / rave hoover ----
+export const hoover = {
+  type: 'hoover',
+  name: 'HOOVER',
+  title: 'Supersaw / Rave Stack',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 16,
+  description: 'The huge rave and trance sound in one voice: seven saw waves, each slightly out of tune with the others, spread across the stereo field so they shimmer and beat against each other like a whole wall of synths. SUPER is the classic supersaw (trance leads, big chords, festival plucks). HOOVER makes every saw a slowly morphing pulse too, for the woozy, chorused "vacuum cleaner" sound of 90s hardcore and techno. DETUNE = how far apart the seven saws are (low = thick unison, high = wide and seasick). MIX = how loud the six outer saws are against the middle one. WIDTH = how far they spread left and right (0 = mono). DIP starts every note this many semitones below and swoops up to it over TIME, the hoover\'s famous "bwoow". SUB adds a plain saw an octave below for weight. Feed it PITCH and/or GATE like a VOICE; it is great with CHORDS (every chord note gets its own seven saws). Run it through a FILTER for sweeps. BONFIRE ONLY: this sound does not exist on strudel.cc.',
+  params: {
+    mode: { kind: 'switch', label: 'MODE', options: [{ v: 'super', l: 'SUPER' }, { v: 'hoover', l: 'HOOVER' }], default: 'super' },
+    detune: { kind: 'knob', label: 'DETUNE', min: 0, max: 1, default: 0.45 },
+    mix: { kind: 'knob', label: 'MIX', min: 0, max: 1, default: 0.6 },
+    width: { kind: 'knob', label: 'WIDTH', min: 0, max: 1, default: 0.7 },
+    dip: { kind: 'knob', label: 'DIP', min: 0, max: 12, default: 0, unit: 'st' },
+    diptime: { kind: 'knob', label: 'TIME', min: 0.01, max: 1, default: 0.15, curve: 'pow', unit: 's' },
+    sub: { kind: 'knob', label: 'SUB', min: 0, max: 1, default: 0 },
+    tune: { kind: 'knob', label: 'TUNE', min: -24, max: 24, default: 0, step: 1, size: 'sm', unit: 'st' },
+    attack: { kind: 'knob', label: 'ATK', min: 0, max: 2, default: 0.01, size: 'sm', curve: 'pow', unit: 's' },
+    release: { kind: 'knob', label: 'REL', min: 0.005, max: 4, default: 0.3, size: 'sm', curve: 'pow', unit: 's' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+  },
+  inputs: VOICE_INPUTS,
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['mode'], ['detune', 'mix', 'width'], ['dip', 'diptime', 'sub'], ['tune', 'attack', 'release'], ['level', 'in:pitch', 'in:gate', 'in:pan', 'out:out']],
+  compile(ctx) {
+    const p = ctx.p;
+    let e = voiceStart(ctx, 'bf_hoover');
+    if (p.mode === 'hoover') e = e.call('hoovmode', num(1));
+    e = e.call('hoovdet', num(p.detune, 2)).call('hoovmix', num(p.mix, 2)).call('hoovwidth', num(p.width, 2));
+    if (p.dip > 0.05) e = e.call('hoovdip', num(p.dip, 1)).call('hoovdiptime', num(p.diptime, 3));
+    e = setIf(e, 'hoovsub', p.sub, 0, 2);
     return { out: voiceEnd(ctx, e) };
   },
 };

@@ -414,3 +414,103 @@ class BonfireModal extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-modal', BonfireModal);
+
+// HOOVER: supersaw. Seven PolyBLEP saws at JP-8000-style detune offsets, random start phases (so no
+// two notes sound alike), the centre saw against the six outer ones by MIX (the JP curves), spread
+// across a STEREO output by WIDTH. HOOVER mode turns each saw into saw + a pulse whose width drifts
+// on its own slow LFO (the Alpha Juno "hoover" wooze). DIP: the note starts DIP semitones flat and
+// swoops up over TIME. SUB: one plain saw an octave down, centred.
+const SUPER_OFFSETS = [-0.11002313, -0.06288439, -0.01952356, 0, 0.01991221, 0.06216538, 0.10745242];
+const SUPER_PANS = [-1, 0.67, -0.33, 0, 0.33, -0.67, 1];
+
+class BonfireHoover extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = options.processorOptions;
+    this.env = new Envelope(o);
+    this.freq = o.freq;
+    this.hoover = o.mode === 1;
+    const d = Math.min(1, Math.max(0, o.detune));
+    const amt = d * d * 0.6 + d * 0.4; // gentle at the bottom, wide at the top
+    const m = Math.min(1, Math.max(0, o.mix));
+    const side = -0.73764 * m * m + 1.2841 * m + 0.044372;
+    const centre = -0.55366 * m + 0.99785;
+    const w = Math.min(1, Math.max(0, o.width));
+    this.oscs = SUPER_OFFSETS.map((off, i) => {
+      const g = (i === 3 ? centre : side) / 2.6;
+      const pan = SUPER_PANS[i] * w; // equal-power
+      const a = ((pan + 1) * Math.PI) / 4;
+      return {
+        ratio: 1 + off * amt,
+        ph: Math.random(),
+        gl: g * Math.cos(a),
+        gr: g * Math.sin(a),
+        lph: Math.random(),
+        lrate: (0.35 + Math.random() * 0.9) / sampleRate, // HOOVER pulse-width drift, ~0.35-1.25 Hz
+      };
+    });
+    this.sub = Math.min(1, Math.max(0, o.sub)) * 0.35;
+    this.subPh = Math.random();
+    this.dip = Math.max(0, o.dip ?? 0);
+    this.dipFrames = Math.max(1, (o.diptime ?? 0.15) * sampleRate / 3); // ~95% there after TIME
+    // DC blocker per side (the pulse mix and detune beats can wander)
+    this.dcL = { x: 0, y: 0 };
+    this.dcR = { x: 0, y: 0 };
+    listenForStop(this);
+  }
+
+  process(_inputs, outputs) {
+    const L = outputs[0][0];
+    const R = outputs[0][1] ?? L;
+    if (!L) return true;
+    const { env, oscs } = this;
+    const saw = (p, dt) => 2 * p - 1 - blep(p, dt);
+    for (let i = 0; i < L.length; i++) {
+      const f = currentFrame + i;
+      const amp = env.at(f);
+      if (amp === 0) {
+        L[i] = 0;
+        R[i] = 0;
+        continue;
+      }
+      const bend = this.dip ? 2 ** ((-this.dip * Math.exp(-(f - env.start) / this.dipFrames)) / 12) : 1;
+      const base = (this.freq * bend) / sampleRate;
+      let l = 0;
+      let r = 0;
+      for (const o of oscs) {
+        const dt = base * o.ratio;
+        let x = saw(o.ph, dt);
+        if (this.hoover) {
+          const pw = 0.5 + 0.4 * Math.sin(2 * Math.PI * o.lph);
+          x = 0.55 * x + 0.45 * (x - saw((o.ph + pw) % 1, dt));
+          o.lph = (o.lph + o.lrate) % 1;
+        }
+        o.ph = (o.ph + dt) % 1;
+        l += x * o.gl;
+        r += x * o.gr;
+      }
+      if (this.sub) {
+        const dt = base * 0.5;
+        const x = saw(this.subPh, dt) * this.sub;
+        this.subPh = (this.subPh + dt) % 1;
+        l += x;
+        r += x;
+      }
+      // one-pole DC block (~10 Hz), then soft clip
+      const k = 0.9986;
+      this.dcL.y = l - this.dcL.x + k * this.dcL.y;
+      this.dcL.x = l;
+      this.dcR.y = r - this.dcR.x + k * this.dcR.y;
+      this.dcR.x = r;
+      L[i] = Math.tanh(this.dcL.y * 1.2) * amp;
+      R[i] = Math.tanh(this.dcR.y * 1.2) * amp;
+    }
+    if (currentFrame + L.length >= env.stop) {
+      this.port.postMessage('done');
+      return false;
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-hoover', BonfireHoover);

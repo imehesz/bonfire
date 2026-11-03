@@ -14,7 +14,7 @@ export function loadForge() {
 
 // Registers sound `name` played by worklet `processor`. opts(value) -> the processor's own knobs;
 // the timing (start / end / stop), pitch and attack / release are filled in here.
-function workletSound(name, processor, opts, { outGain = 0.5, defaultRelease = 0.3 } = {}) {
+function workletSound(name, processor, opts, { outGain = 0.5, defaultRelease = 0.3, channels = 1 } = {}) {
   registerSound(name, (t, value, onended) => {
     const ctx = getAudioContext();
     const duration = value.duration ?? 0.25;
@@ -22,7 +22,7 @@ function workletSound(name, processor, opts, { outGain = 0.5, defaultRelease = 0
     const stop = t + duration + release + 0.05;
     const node = new AudioWorkletNode(ctx, processor, {
       numberOfInputs: 0,
-      outputChannelCount: [1],
+      outputChannelCount: [channels],
       processorOptions: {
         freq: getFrequencyFromValue(value),
         start: t,
@@ -84,4 +84,13 @@ function registerForgeSounds() {
     damp: v.modaldamp ?? 0.5,
     stretch: v.modalstretch ?? 0,
   }), { outGain: 0.6, defaultRelease: 1 });
+  workletSound('bf_hoover', 'bonfire-hoover', (v) => ({
+    mode: v.hoovmode ?? 0,
+    detune: v.hoovdet ?? 0.45,
+    mix: v.hoovmix ?? 0.6,
+    width: v.hoovwidth ?? 0.7,
+    dip: v.hoovdip ?? 0,
+    diptime: v.hoovdiptime ?? 0.15,
+    sub: v.hoovsub ?? 0,
+  }), { outGain: 0.7, defaultRelease: 0.3, channels: 2 });
 }
