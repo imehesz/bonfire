@@ -13,7 +13,9 @@ for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'g
   'foldamt', 'foldsym', 'foldbloom', 'foldtime',
   'acidwave', 'acidcut', 'acidres', 'acidenv', 'aciddec', 'acidacc', 'acidglide', 'acidpath',
   'modalmat', 'modalstrike', 'modalpos', 'modaldecay', 'modaldamp', 'modalstretch',
-  'hoovmode', 'hoovdet', 'hoovmix', 'hoovwidth', 'hoovdip', 'hoovdiptime', 'hoovsub']) registerControl(c);
+  'hoovmode', 'hoovdet', 'hoovmix', 'hoovwidth', 'hoovdip', 'hoovdiptime', 'hoovsub',
+  'drummodel', 'drumkey', 'drumtune', 'drumpunch', 'drumdecay', 'drumtone', 'drumnoise', 'drumclick', 'drumdrive',
+  'grainsrc', 'grainn', 'graintune', 'grainpos', 'grainspray', 'grainscan', 'grainsize', 'graindens', 'grainshim', 'grainwidth']) registerControl(c);
 
 // Shared front half of every Bonfire-only voice: PITCH (or a C3 per bar) -> s(sound), GATE, TUNE.
 function voiceStart(ctx, sound) {
@@ -329,6 +331,100 @@ export const hoover = {
     e = e.call('hoovdet', num(p.detune, 2)).call('hoovmix', num(p.mix, 2)).call('hoovwidth', num(p.width, 2));
     if (p.dip > 0.05) e = e.call('hoovdip', num(p.dip, 1)).call('hoovdiptime', num(p.diptime, 3));
     e = setIf(e, 'hoovsub', p.sub, 0, 2);
+    return { out: voiceEnd(ctx, e) };
+  },
+};
+
+// ---- DRUM: analog-style drum synthesis ----
+export const DRUM_KINDS = [{ v: 'kick', l: 'KICK' }, { v: 'tom', l: 'TOM' }, { v: 'snare', l: 'SNARE' }, { v: 'clap', l: 'CLAP' }, { v: 'hat', l: 'HAT' }];
+// what each model plays with nothing patched into PITCH or GATE (one bar)
+const DRUM_GROOVE = { kick: 'bf_drum*4', tom: '~ ~ ~ [bf_drum bf_drum]', snare: '~ bf_drum ~ bf_drum', clap: '~ bf_drum ~ bf_drum', hat: '[~ bf_drum]*4' };
+
+export const drum = {
+  type: 'drum',
+  name: 'DRUM',
+  title: 'Drum Synth',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 12,
+  description: 'Drums made from scratch, the way the classic analog drum machines did it, instead of from samples. MODEL picks the drum: KICK and TOM are a sine wave that starts high and drops to its note; SNARE adds a second skin and noisy wires; CLAP is three quick noise bursts and a short room tail; HAT is six clanging square waves and noise (short DECAY = closed hat, long = open). PUNCH = how far the pitch drops (the "thump"; on CLAP it tightens the claps, on HAT it sharpens the hit). DECAY = how long it rings, centred on each model\'s classic length. TONE = darker or brighter (a rounder, harder body; brighter noise). NOISE adds more noise (snare wires, a breathy kick). CLICK = the beater hitting the skin. DRIVE saturates it. Patch PITCH and the kick/tom/snare play that note in their own octave, so the kick is always in key with the song (a C4 melody note still gives a low C kick); TUNE fine-tunes it. Patch a rhythm into GATE to choose when it hits; with nothing patched it plays a basic groove for its model. BONFIRE ONLY: this sound does not exist on strudel.cc.',
+  params: {
+    model: { kind: 'rotary', label: 'MODEL', options: DRUM_KINDS, default: 'kick' },
+    punch: { kind: 'knob', label: 'PUNCH', min: 0, max: 1, default: 0.5 },
+    decay: { kind: 'knob', label: 'DECAY', min: 0, max: 1, default: 0.5 },
+    tone: { kind: 'knob', label: 'TONE', min: 0, max: 1, default: 0.3 },
+    noise: { kind: 'knob', label: 'NOISE', min: 0, max: 1, default: 0 },
+    click: { kind: 'knob', label: 'CLICK', min: 0, max: 1, default: 0.3 },
+    tune: { kind: 'knob', label: 'TUNE', min: -24, max: 24, default: 0, step: 1, size: 'sm', unit: 'st' },
+    drive: { kind: 'knob', label: 'DRIVE', min: 0, max: 1, default: 0.2, size: 'sm' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+  },
+  inputs: VOICE_INPUTS,
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['model', 'punch', 'decay'], ['tone', 'noise', 'click'], ['tune', 'drive', 'level'], ['in:pitch', 'in:gate', 'in:pan', 'out:out']],
+  compile(ctx) {
+    const p = ctx.p;
+    const pitch = ctx.in('pitch');
+    const gate = ctx.in('gate');
+    let e;
+    if (pitch) e = pitch.call('s', mini('bf_drum')).call('drumkey', num(1));
+    else e = fn('s', mini(gate ? 'bf_drum' : DRUM_GROOVE[p.model] ?? DRUM_GROOVE.kick));
+    if (gate) e = e.call('struct', gate);
+    const model = Math.max(0, DRUM_KINDS.findIndex((k) => k.v === p.model));
+    if (model) e = e.call('drummodel', num(model));
+    e = setIf(e, 'drumtune', p.tune, 0, 0);
+    e = e.call('drumpunch', num(p.punch, 2)).call('drumdecay', num(p.decay, 2)).call('drumtone', num(p.tone, 2));
+    e = setIf(e, 'drumnoise', p.noise, 0, 2);
+    e = e.call('drumclick', num(p.click, 2)).call('drumdrive', num(p.drive, 2));
+    e = setIf(e, 'gain', p.level, 1);
+    const pan = ctx.in('pan');
+    return { out: pan ? e.call('pan', pan) : e };
+  },
+};
+
+// ---- GRAIN: granular cloud ----
+export const grain = {
+  type: 'grain',
+  name: 'GRAIN',
+  title: 'Granular Cloud',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 16,
+  description: 'Granular synthesis: chops a sample into dozens of tiny, softly faded slices ("grains") every second and plays them overlapping, so any sound (a piano note, a voice, a drum hit) smears into pads, shimmering clouds and strange textures. POS = where in the sample the grains come from (start to end; a long fading sample like a piano note is trimmed to the part you can hear, so the end of POS is its quiet tail). SPRAY scatters them around POS. SCAN moves POS through the sample while the note plays (0 = frozen in place, 1 = at normal speed, below 0 = backwards). SIZE = how long each grain is (short = buzzy, glitchy; long = smooth and recognisable). DENSITY = grains per second. SHIMMER detunes the grains and sends some of them an octave up, for that heavenly sparkle. WIDTH spreads them across the stereo field. Patch an LFO or KHAOZ into POS to make the cloud wander. Feed it PITCH (notes play the sample at that pitch, like a sample VOICE) and/or GATE; with nothing patched it plays one long note per bar. Pick the SAMPLE by clicking its display or dropping one from the SAMPLES tab (samples and GM instruments work; the plain synth waves and noises in the synth tab have no recording to chop, so they stay silent). The very first note of a new sample can be silent while it loads. BONFIRE ONLY: this sound does not exist on strudel.cc.',
+  params: {
+    sound: { kind: 'sound', label: 'SAMPLE', default: 'piano', structural: true, recorded: true },
+    n: { kind: 'knob', label: 'VARIANT', min: 0, max: 15, default: 0, step: 1, size: 'sm' },
+    pos: { kind: 'knob', label: 'POS', min: 0, max: 1, default: 0.1 },
+    spray: { kind: 'knob', label: 'SPRAY', min: 0, max: 1, default: 0.1 },
+    scan: { kind: 'knob', label: 'SCAN', min: -1, max: 1, default: 0 },
+    size: { kind: 'knob', label: 'SIZE', min: 0.01, max: 0.5, default: 0.12, curve: 'pow', unit: 's' },
+    density: { kind: 'knob', label: 'DENSITY', min: 1, max: 80, default: 18, curve: 'pow' },
+    shimmer: { kind: 'knob', label: 'SHIMMER', min: 0, max: 1, default: 0 },
+    width: { kind: 'knob', label: 'WIDTH', min: 0, max: 1, default: 0.6, size: 'sm' },
+    tune: { kind: 'knob', label: 'TUNE', min: -24, max: 24, default: 0, step: 1, size: 'sm', unit: 'st' },
+    attack: { kind: 'knob', label: 'ATK', min: 0, max: 4, default: 0.3, size: 'sm', curve: 'pow', unit: 's' },
+    release: { kind: 'knob', label: 'REL', min: 0.02, max: 8, default: 1.5, size: 'sm', curve: 'pow', unit: 's' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+  },
+  inputs: { ...VOICE_INPUTS, pos: { type: 'cv', label: 'POS' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['sound', 'n'], ['pos', 'spray', 'scan'], ['size', 'density', 'shimmer'], ['width', 'tune', 'attack', 'release'],
+    ['level', 'in:pos', 'in:pitch', 'in:gate', 'in:pan', 'out:out']],
+  compile(ctx) {
+    const p = ctx.p;
+    const pitch = ctx.in('pitch');
+    const gate = ctx.in('gate');
+    let e = pitch ? pitch.call('s', mini('bf_grain')) : fn('s', mini('bf_grain'));
+    if (gate) e = e.call('struct', gate);
+    e = e.call('grainsrc', mini(p.sound));
+    e = setIf(e, 'grainn', p.n, 0, 0);
+    e = setIf(e, 'graintune', p.tune, 0, 0);
+    const pos = ctx.in('pos');
+    e = e.call('grainpos', pos ?? num(p.pos, 3)).call('grainspray', num(p.spray, 2));
+    e = setIf(e, 'grainscan', p.scan, 0, 2);
+    e = e.call('grainsize', num(p.size, 3)).call('graindens', num(p.density, 1));
+    e = setIf(e, 'grainshim', p.shimmer, 0, 2);
+    e = e.call('grainwidth', num(p.width, 2));
     return { out: voiceEnd(ctx, e) };
   },
 };

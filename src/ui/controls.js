@@ -4,7 +4,7 @@ import { checkpoint, findModule, setParam } from '../core/store.js';
 import { SOUND_CATEGORIES, prettySound } from '../core/music.js';
 import { audition } from '../core/engine.js';
 import { GROUP_ORDER, getLocalNames, library } from '../core/samples.js';
-import { closePopover, h, hideTip, popover, setReadout, showTip } from './dom.js';
+import { closePopover, h, hideTip, popover, setReadout, showTip, toast } from './dom.js';
 
 const optValue = (o) => (typeof o === 'object' ? o.v : o);
 const optLabel = (o) => (typeof o === 'object' ? o.l : String(o).toUpperCase());
@@ -295,7 +295,12 @@ export function soundPicker(anchor, current, onPick) {
 export function sound(mod, key, p) {
   const disp = h('button', { class: 'lcd sound-disp', onpointerdown: (e) => e.stopPropagation() });
   const el = h('div', { class: 'ctl sound' }, disp, h('label', {}, p.label));
-  disp.addEventListener('click', () => soundPicker(disp, findModule(mod.id).params[key], (n) => setParam(mod.id, key, n)));
+  // recorded: the module needs real audio (GRAIN); the plain synth waves / noises have none
+  const pick = (n) => {
+    if (p.recorded && SOUND_CATEGORIES.synth.includes(n) && !n.startsWith('gm_')) toast(`${prettySound(n).toUpperCase()} is a synth wave, not a recording: ${mod.type.toUpperCase()} needs a sample or a GM instrument`, 'warn');
+    setParam(mod.id, key, n);
+  };
+  disp.addEventListener('click', () => soundPicker(disp, findModule(mod.id).params[key], pick));
   el.addEventListener('dragover', (e) => {
     if (e.dataTransfer.types.includes('text/bonfire-sound')) {
       e.preventDefault();
@@ -308,7 +313,7 @@ export function sound(mod, key, p) {
     const n = e.dataTransfer.getData('text/bonfire-sound');
     if (n) {
       e.preventDefault();
-      setParam(mod.id, key, n);
+      pick(n);
     }
   });
   const update = (v) => {

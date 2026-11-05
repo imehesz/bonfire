@@ -514,3 +514,251 @@ class BonfireHoover extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-hoover', BonfireHoover);
+
+// ---- shared: TPT state-variable filter (lowpass / bandpass / highpass out of one update) ----
+class Svf {
+  constructor(cutoff, q = 0.7) {
+    this.s1 = 0;
+    this.s2 = 0;
+    this.set(cutoff, q);
+  }
+
+  set(cutoff, q) {
+    const g = Math.tan((Math.PI * Math.min(cutoff, sampleRate * 0.45)) / sampleRate);
+    this.k = 1 / q;
+    this.a1 = 1 / (1 + g * (g + this.k));
+    this.g = g;
+  }
+
+  // returns this; read .lp / .bp / .hp
+  run(x) {
+    const v1 = this.a1 * (this.s1 + this.g * (x - this.s2));
+    const v2 = this.s2 + this.g * v1;
+    this.s1 = 2 * v1 - this.s1;
+    this.s2 = 2 * v2 - this.s2;
+    this.lp = v2;
+    this.bp = v1;
+    this.hp = x - this.k * v1 - v2;
+    return this;
+  }
+}
+
+// DRUM: analog-style drum synthesis (808 / 909 family). One-shot: it ignores the note length.
+// KICK / TOM / SNARE = a sine body whose pitch starts PUNCH octaves high and falls to the note,
+// plus filtered noise; CLAP = three fast noise bursts and a tail through a bandpass; HAT = six
+// detuned square waves at the 808's metallic ratios plus noise, through a highpass.
+const HAT_RATIOS = [205.3, 304.4, 369.6, 522.7, 540, 800];
+const DRUM_PUNCH = [4, 2, 1.2, 0, 0]; // octaves of pitch drop at PUNCH 1
+const DRUM_DROP = [0.03, 0.045, 0.02, 0, 0]; // pitch-drop time constant, s
+const DRUM_NOISE = [0, 0.04, 0.55, 1, 0.35]; // noise already there at NOISE 0
+
+class BonfireDrum extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = options.processorOptions;
+    this.env = { start: Math.round(o.start * sampleRate), stop: Math.round(o.stop * sampleRate) };
+    const m = (this.model = o.model);
+    this.freq = o.freq;
+    this.punch = Math.min(1, Math.max(0, o.punch));
+    this.tone = Math.min(1, Math.max(0, o.tone));
+    this.click = Math.min(1, Math.max(0, o.click)) * (m === 4 ? 0.4 : 1);
+    this.drive = Math.min(1, Math.max(0, o.drive));
+    const n = Math.min(1, Math.max(0, o.noise));
+    this.noiseAmt = DRUM_NOISE[m] + (1 - DRUM_NOISE[m]) * n * (m === 0 ? 0.35 : 1);
+    // per-sample decay multipliers for a T60 of `s` seconds
+    const k = (s) => Math.exp(-6.91 / (Math.max(0.005, s) * sampleRate));
+    const d = o.decay;
+    this.kBody = k(m === 2 ? d * 0.55 : d);
+    this.kNoise = k(m === 0 ? Math.min(0.08, d * 0.3) : m === 1 ? d * 0.25 : d);
+    this.kClick = k(0.004);
+    this.kDrop = Math.exp(-1 / (DRUM_DROP[m] * (1.3 - this.punch * 0.6) * sampleRate || 1));
+    this.drop = DRUM_PUNCH[m] * this.punch;
+    this.body = m <= 2 ? 1 : 0;
+    this.nAmp = 1;
+    this.cAmp = 1;
+    this.ph = 0;
+    this.ph2 = 0;
+    // CLAP: bursts SP apart (PUNCH 1 = tight, 0 = loose), then the tail
+    this.sp = Math.round((0.006 + (1 - this.punch) * 0.012) * sampleRate);
+    this.kBurst = k(0.03);
+    // noise colour
+    if (m === 0 || m === 1) this.nf = new Svf(300 + this.tone * 4000, 0.7);
+    else if (m === 2) this.nf = new Svf(900 + this.tone * 5000, 0.8);
+    else if (m === 3) this.nf = new Svf((700 + this.tone * 1900) * o.freq, 1.6);
+    else this.nf = new Svf((5000 + this.tone * 5000) * (0.85 + 0.3 * (o.freq - 1)), 0.9);
+    if (m === 4) {
+      this.metal = HAT_RATIOS.map((r) => ({ dt: (r * 1.5 * (0.85 + 0.3 * (o.freq - 1))) / sampleRate, ph: Math.random() }));
+      this.mf = new Svf(9000 + this.tone * 3000, 1.2);
+      this.mh = new Svf(6500, 0.7);
+    }
+    this.dc = { x: 0, y: 0 };
+    this.port.onmessage = (e) => {
+      if (e.data?.stop != null) this.env.stop = Math.min(this.env.stop, Math.round(e.data.stop * sampleRate));
+    };
+  }
+
+  process(_inputs, outputs) {
+    const out = outputs[0][0];
+    if (!out) return true;
+    const m = this.model;
+    const drv = 1 + this.drive * 5;
+    const norm = 1 / Math.tanh(drv);
+    for (let i = 0; i < out.length; i++) {
+      const f = currentFrame + i;
+      if (f < this.env.start || f >= this.env.stop) {
+        out[i] = 0;
+        continue;
+      }
+      const n = f - this.env.start;
+      let x = 0;
+      if (this.body) {
+        // pitch sweep: PUNCH octaves above the note, falling exponentially
+        const fr = this.freq * 2 ** (this.drop * this.kDrop ** n);
+        this.ph = (this.ph + fr / sampleRate) % 1;
+        let b = Math.sin(2 * Math.PI * this.ph);
+        if (m === 2) {
+          // snare: second membrane mode
+          this.ph2 = (this.ph2 + (fr * 1.6) / sampleRate) % 1;
+          b = 0.6 * b + 0.4 * Math.sin(2 * Math.PI * this.ph2);
+        }
+        // TONE rounds the sine off into a harder, rounder-square body
+        const sh = 1 + this.tone * this.tone * 5;
+        b = Math.tanh(b * sh) / Math.tanh(sh);
+        x += b * this.body * (m === 2 ? 0.7 : 1);
+        this.body *= this.kBody;
+      }
+      if (this.noiseAmt) {
+        let env = this.nAmp;
+        if (m === 3) {
+          // three fast claps then the room tail
+          const sp = this.sp;
+          env = n < 3 * sp ? this.kBurst ** (n % sp) * (1 - 0.15 * Math.floor(n / sp)) : 0.75 * this.nAmp;
+          if (n >= 3 * sp) this.nAmp *= this.kNoise;
+        } else {
+          this.nAmp *= this.kNoise;
+        }
+        const r = this.nf.run(Math.random() * 2 - 1);
+        const v = m <= 1 ? r.lp : m === 3 ? r.bp * 2.2 : r.hp;
+        x += v * env * this.noiseAmt * (m === 2 ? 0.8 : 1);
+      }
+      if (this.metal) {
+        let s = 0;
+        for (const o of this.metal) {
+          o.ph = (o.ph + o.dt) % 1;
+          s += o.ph < 0.5 ? 1 : -1;
+        }
+        const mv = this.mh.run(this.mf.run(s / 6).bp).hp;
+        // PUNCH: a sharper hit in the first few ms
+        const hit = 1 + this.punch * 2 * Math.exp(-n / (0.004 * sampleRate));
+        x += mv * 2.5 * this.nAmp * hit * (1 - 0.5 * this.noiseAmt);
+      }
+      if (this.click && n < 0.01 * sampleRate) {
+        x += (Math.random() * 2 - 1) * 0.6 * this.cAmp * this.click + (n < 2 ? this.click * 0.5 : 0);
+        this.cAmp *= this.kClick;
+      }
+      // DC block, then DRIVE (level-compensated tanh)
+      this.dc.y = x - this.dc.x + 0.9995 * this.dc.y;
+      this.dc.x = x;
+      out[i] = Math.tanh(this.dc.y * drv) * norm * (1 / (1 + this.drive * 0.8));
+    }
+    for (let c = 1; c < outputs[0].length; c++) outputs[0][c].set(out);
+    if (currentFrame + out.length >= this.env.stop) {
+      this.port.postMessage('done');
+      return false;
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-drum', BonfireDrum);
+
+// GRAIN: granular cloud. Many short, overlapping, smoothly faded slices ("grains") of a sample,
+// each read from around POS (+/- SPRAY), so a single sound smears into pads, shimmer and texture.
+// The sample's audio is sent once per sample and kept here, shared by every GRAIN note.
+const GRAIN_BUFS = new Map(); // id -> { data, rate }
+const HANN = new Float32Array(1025).map((_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / 1024));
+const MAX_GRAINS = 64;
+
+class BonfireGrain extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = options.processorOptions;
+    if (o.data) GRAIN_BUFS.set(o.buf, { data: o.data, rate: o.bufRate });
+    this.src = GRAIN_BUFS.get(o.buf);
+    this.env = new Envelope(o);
+    const c = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    this.rate = o.rate * ((this.src?.rate ?? sampleRate) / sampleRate); // source frames per output frame
+    this.pos = c(o.pos, 0, 1);
+    this.spray = c(o.spray, 0, 1);
+    this.scan = c(o.scan, -2, 2);
+    this.size = Math.max(32, Math.round(c(o.size, 0.005, 2) * sampleRate));
+    this.density = c(o.density, 0.5, 200);
+    this.shimmer = c(o.shimmer, 0, 1);
+    this.width = c(o.width, 0, 1);
+    this.gain = 1 / Math.sqrt(Math.max(1, this.density * (this.size / sampleRate)));
+    this.grains = [];
+    this.next = this.env.start;
+    listenForStop(this);
+  }
+
+  spawn(f) {
+    const len = this.src.data.length;
+    const t = (f - this.env.start) / sampleRate;
+    // SCAN 1 = the read point moves through the sample at normal speed, 0 = frozen
+    let p = this.pos * len + this.scan * t * this.src.rate + (Math.random() * 2 - 1) * this.spray * 0.25 * len;
+    p = ((p % len) + len) % len;
+    let st = (Math.random() * 2 - 1) * this.shimmer * 0.3;
+    if (Math.random() < this.shimmer * 0.35) st += 12; // SHIMMER: some grains an octave up
+    const pan = (Math.random() * 2 - 1) * this.width;
+    const a = ((pan + 1) * Math.PI) / 4;
+    this.grains.push({ p, r: this.rate * 2 ** (st / 12), n: 0, gl: Math.cos(a), gr: Math.sin(a) });
+  }
+
+  process(_inputs, outputs) {
+    const L = outputs[0][0];
+    const R = outputs[0][1] ?? L;
+    if (!L) return true;
+    const { env, src } = this;
+    if (!src) {
+      L.fill(0);
+      R.fill(0);
+      this.port.postMessage('done');
+      return false;
+    }
+    const data = src.data;
+    const len = data.length;
+    const step = sampleRate / this.density;
+    const ws = 1024 / this.size;
+    for (let i = 0; i < L.length; i++) {
+      const f = currentFrame + i;
+      const amp = env.at(f);
+      if (f >= this.next && f < env.stop) {
+        if (this.grains.length < MAX_GRAINS) this.spawn(f);
+        this.next += step * (0.7 + Math.random() * 0.6); // a little irregular = no buzz at the grain rate
+      }
+      let l = 0;
+      let r = 0;
+      for (let g = this.grains.length - 1; g >= 0; g--) {
+        const gr = this.grains[g];
+        const i0 = Math.floor(gr.p);
+        const fr = gr.p - i0;
+        const s = data[i0 % len] * (1 - fr) + data[(i0 + 1) % len] * fr;
+        const w = HANN[Math.min(1024, Math.round(gr.n * ws))];
+        l += s * w * gr.gl;
+        r += s * w * gr.gr;
+        gr.p += gr.r;
+        if (gr.p >= len) gr.p -= len;
+        if (++gr.n >= this.size) this.grains.splice(g, 1);
+      }
+      L[i] = l * this.gain * amp;
+      R[i] = r * this.gain * amp;
+    }
+    if (currentFrame + L.length >= env.stop) {
+      this.port.postMessage('done');
+      return false;
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-grain', BonfireGrain);
