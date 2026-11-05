@@ -192,7 +192,9 @@ export function resetModule(id) {
   const m = findModule(id);
   if (!m) return;
   checkpoint();
-  m.params = defaultParams(m.type);
+  // MIXER channel colors are labels, not sound: they survive a knob reset
+  const keep = Object.fromEntries(Object.entries(MODULES[m.type].params).filter(([, p]) => p.kind === 'tag').map(([k]) => [k, m.params[k]]));
+  m.params = { ...defaultParams(m.type), ...keep };
   emit('reset');
 }
 

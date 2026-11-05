@@ -318,6 +318,57 @@ export function sound(mod, key, p) {
   return { el, update };
 }
 
+// Recent panel colors (module Settings + MIXER channel tags share the list).
+const RECENT_KEY = 'bonfire.recentColors';
+export function recentColors() {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENT_KEY));
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+export function rememberColor(c) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([c, ...recentColors().filter((x) => x !== c)].slice(0, 10)));
+  } catch { /* ignore */ }
+}
+
+// MIXER channel tag: a thin line over the channel (default black). Click = color
+// picker + the recent swatches, so a channel can match the module patched into it.
+export function tag(mod, key, p) {
+  const line = h('span', { class: 'tag-line', dataset: { ch: key.replace('tag', '') } });
+  const el = h('button', {
+    class: 'ctl tag',
+    title: 'Channel color: click to pick',
+    onpointerdown: (e) => e.stopPropagation(),
+    onclick: () => openTag(el, mod, key),
+  }, line);
+  const update = (v) => line.style.setProperty('--tag', v || '#000');
+  return { el, update };
+}
+
+function openTag(anchor, mod, key) {
+  checkpoint();
+  let color = findModule(mod.id)?.params[key] || '';
+  const set = (c, remember) => {
+    color = c;
+    setParam(mod.id, key, c, { record: false });
+    if (remember && c) rememberColor(c);
+    draw();
+  };
+  const picker = h('input', { type: 'color', class: 'set-picker', value: color || '#000000', title: 'Pick any color' });
+  picker.addEventListener('input', () => set(picker.value, false));
+  picker.addEventListener('change', () => set(picker.value, true));
+  const swatches = h('div', { class: 'set-swatches' });
+  const draw = () => swatches.replaceChildren(
+    h('button', { class: `swatch none ${color ? '' : 'on'}`, title: 'Default (black)', onclick: () => set('', false) }),
+    ...recentColors().map((c) => h('button', { class: `swatch ${c === color ? 'on' : ''}`, title: c, style: { background: c }, onclick: () => set(c, false) })),
+  );
+  draw();
+  popover(anchor, h('div', { class: 'tag-pop' }, h('div', { class: 've-title' }, 'CHANNEL COLOR'), h('div', { class: 'set-colors' }, picker, swatches)), { className: 'pop-tag' });
+}
+
 // Swatch over a native color input. '' = follow the skin; right-click goes back to it.
 export function color(mod, key, p) {
   const input = h('input', { type: 'color', class: 'color-in', tabindex: -1 });
@@ -368,4 +419,4 @@ export function led(mod, id) {
   return { el: h('div', { class: 'ctl ledbox' }, h('span', { class: 'led big', dataset: { led: id } }), h('label', {}, id === 'beat' ? 'RUN' : id)), update() {} };
 }
 
-export const FACTORIES = { knob, rotary: knob, fader, switch: switcher, toggle, select, sound, color };
+export const FACTORIES = { knob, rotary: knob, fader, switch: switcher, toggle, select, sound, color, tag };

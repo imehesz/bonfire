@@ -454,9 +454,10 @@ export const mixer = {
   title: '4-Channel Mixer',
   category: 'Mix',
   hp: 16,
-  description: 'Stacks up to four patterns so they play together, each with its own level, pan and mute. LO CUT trims the rumble below its frequency (keep it down on kick and bass, turn it up on everything else so the low end stays clean); HI CUT tames harsh tops. Fully counter-clockwise LO CUT / fully clockwise HI CUT = off; the little LED lights while a cut is on. A cut is a limit, not an override: if a FILTER or TAPE earlier in the chain already filters, it keeps working, but HI CUT never lets it get brighter than its setting, and LO CUT never lets it reach lower. ALL mutes the whole mix and leaves the channel mutes as they were.',
+  description: 'Stacks up to four patterns so they play together, each with its own level, pan and mute. LO CUT trims the rumble below its frequency (keep it down on kick and bass, turn it up on everything else so the low end stays clean); HI CUT tames harsh tops. Fully counter-clockwise LO CUT / fully clockwise HI CUT = off; the little LED lights while a cut is on. A cut is a limit, not an override: if a FILTER or TAPE earlier in the chain already filters, it keeps working, but HI CUT never lets it get brighter than its setting, and LO CUT never lets it reach lower. ALL mutes the whole mix and leaves the channel mutes as they were. Click the thin line over a LVL knob to color-code that channel (e.g. to match the module patched into it); it is only a label, it never changes the sound.',
   params: {
     ...Object.fromEntries(CH.flatMap((i) => [
+      [`tag${i}`, { kind: 'tag', label: `CH ${i + 1} COLOR`, default: '', hardware: true }],
       [`level${i}`, { kind: 'knob', label: `LVL ${i + 1}`, min: 0, max: 1.5, default: 1 }],
       [`pan${i}`, { kind: 'knob', label: 'PAN', min: 0, max: 1, default: 0.5, size: 'sm' }],
       [`locut${i}`, { kind: 'knob', label: 'LO CUT', min: 20, max: 2000, default: 20, curve: 'log', size: 'sm', unit: 'Hz', led: true }],
@@ -468,7 +469,7 @@ export const mixer = {
   inputs: Object.fromEntries(CH.map((i) => [`in${i}`, { type: 'pattern', label: `IN ${i + 1}` }])),
   outputs: { out: { type: 'pattern', label: 'MIX' } },
   // rows sit on a 5-column grid (CSS) so each channel lines up over its IN jack
-  layout: [CH.map((i) => `level${i}`), CH.map((i) => `pan${i}`), CH.map((i) => `locut${i}`), CH.map((i) => `hicut${i}`), [...CH.map((i) => `mute${i}`), 'muteAll'], [...CH.map((i) => `in:in${i}`), 'out:out']],
+  layout: [CH.map((i) => `tag${i}`), CH.map((i) => `level${i}`), CH.map((i) => `pan${i}`), CH.map((i) => `locut${i}`), CH.map((i) => `hicut${i}`), [...CH.map((i) => `mute${i}`), 'muteAll'], [...CH.map((i) => `in:in${i}`), 'out:out']],
   compile(ctx) {
     if (ctx.p.muteAll) return { out: ident('silence') };
     const parts = [];

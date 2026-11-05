@@ -8,6 +8,7 @@ import { wouldCycle } from '../core/compile.js';
 import { skinCableSag } from '../core/skins.js';
 import { addLocalFiles } from '../core/samples.js';
 import { buildModule, paintPanel } from './module.js';
+import { recentColors, rememberColor } from './controls.js';
 import { h, menu, modal, s, toast } from './dom.js';
 import { midiMenuItems } from './midi.js';
 
@@ -549,21 +550,6 @@ function onContext(e) {
 }
 
 // ---------------- module settings: name + panel color ----------------
-const RECENT_KEY = 'bonfire.recentColors';
-function recentColors() {
-  try {
-    const list = JSON.parse(localStorage.getItem(RECENT_KEY));
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
-}
-function rememberColor(c) {
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify([c, ...recentColors().filter((x) => x !== c)].slice(0, 10)));
-  } catch { /* ignore */ }
-}
-
 export function showModuleSettings(id) {
   const m = findModule(id);
   const def = MODULES[m.type];

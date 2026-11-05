@@ -104,6 +104,11 @@ export function buildModule(mod, { preview = false } = {}) {
     }
     if (mod.type === 'sampler') el.dataset.mode = p.mode;
     if (mod.type === 'chords') el.dataset.face = p.face;
+    if (mod.type === 'mixer') markLive(p);
+  };
+  // MIXER: a channel's color tag glows while it plays (not muted, ALL not on)
+  const markLive = (p) => {
+    for (let i = 0; i < 4; i++) el.classList.toggle(`live${i}`, !p[`mute${i}`] && !p.muteAll);
   };
   update();
 
@@ -116,6 +121,7 @@ export function buildModule(mod, { preview = false } = {}) {
       if (controls[key]) controls[key].update(p[key]);
       widgets.forEach((w) => w.update(p));
       if (key === 'mode' || key === 'face') update();
+      if (mod.type === 'mixer' && key?.startsWith('mute')) markLive(p);
     },
     tick(cycle, meta) {
       for (const w of widgets) w.tick(cycle, meta);

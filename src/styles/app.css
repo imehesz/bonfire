@@ -288,6 +288,14 @@ a { color: var(--accent); }
 }
 /* MIXER: one column per channel (+ MIX/ALL), so controls line up over their jacks */
 .module[data-type="mixer"] .mod-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); justify-items: center; gap: 5px; padding-left: 4px; padding-right: 4px; }
+/* MIXER channel color tag: 2px line, bigger invisible hit area */
+.ctl.tag { justify-self: stretch; display: block; height: 10px; padding: 4px 3px; margin: -2px 0; border: 0; background: none; cursor: pointer; }
+.ctl.tag .tag-line { display: block; height: 2px; border-radius: 1px; background: var(--tag, #000); transition: box-shadow 0.15s; }
+.module.live0 .tag-line[data-ch="0"], .module.live1 .tag-line[data-ch="1"],
+.module.live2 .tag-line[data-ch="2"], .module.live3 .tag-line[data-ch="3"] { box-shadow: 0 0 4px 1px var(--tag), 0 0 9px 1px var(--tag); }
+.ctl.tag:hover .tag-line { outline: 1px solid var(--accent); outline-offset: 1px; }
+.tag-pop { padding: 4px 2px; max-width: 260px; }
+.tag-pop .ve-title { margin-bottom: 8px; }
 .mod-foot { flex: none; text-align: center; font-size: 8px; letter-spacing: 0.4em; color: var(--panel-dim); padding: 0 0 9px; font-weight: 600; }
 .module.forge .mod-foot { color: #c2410c; letter-spacing: 0.25em; }
 
