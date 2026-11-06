@@ -103,7 +103,7 @@ export function buildModule(mod, { preview = false } = {}) {
       el.classList.toggle('mode-sample', p.mode === 'sample');
     }
     if (mod.type === 'sampler') el.dataset.mode = p.mode;
-    if (mod.type === 'chords') el.dataset.face = p.face;
+    if (p.face) el.dataset.face = p.face; // CHORDS / FM4: BASIC or ADVANCED
     if (mod.type === 'mixer') markLive(p);
   };
   // MIXER: a channel's color tag glows while it plays (not muted, ALL not on)

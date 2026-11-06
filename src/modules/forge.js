@@ -15,6 +15,8 @@ for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'g
   'modalmat', 'modalstrike', 'modalpos', 'modaldecay', 'modaldamp', 'modalstretch',
   'hoovmode', 'hoovdet', 'hoovmix', 'hoovwidth', 'hoovdip', 'hoovdiptime', 'hoovsub',
   'drummodel', 'drumkey', 'drumtune', 'drumpunch', 'drumdecay', 'drumtone', 'drumnoise', 'drumclick', 'drumdrive',
+  'fmalgo', 'fmfb', 'fmsus', 'fmhold', 'fmchorus', 'fmbright', 'fmtime', 'fmmetal', 'fmsoft', 'fmacc',
+  ...[0, 1, 2, 3].flatMap((i) => [`fmr${i}`, `fml${i}`, `fma${i}`, `fmd${i}`]),
   'grainsrc', 'grainn', 'graintune', 'grainpos', 'grainspray', 'grainscan', 'grainsize', 'graindens', 'grainshim', 'grainwidth']) registerControl(c);
 
 // Shared front half of every Bonfire-only voice: PITCH (or a C3 per bar) -> s(sound), GATE, TUNE.
@@ -425,6 +427,104 @@ export const grain = {
     e = e.call('grainsize', num(p.size, 3)).call('graindens', num(p.density, 1));
     e = setIf(e, 'grainshim', p.shimmer, 0, 2);
     e = e.call('grainwidth', num(p.width, 2));
+    return { out: voiceEnd(ctx, e) };
+  },
+};
+
+// ---- FM4: 4-operator FM voice ----
+// Operator 1 is always a carrier; a modulator always has a higher number than what it modulates, so
+// the worklet can run 4 -> 1 in one pass. mods[i] = operators feeding operator i; FEEDBACK is on 4.
+export const FM_ALGOS = [
+  { l: 'STACK', mods: [[1], [2], [3], []], car: [0] }, // 4>3>2>1
+  { l: 'TWO PAIRS', mods: [[1], [], [3], []], car: [0, 2] }, // 2>1, 4>3
+  { l: '3 INTO 1', mods: [[1, 2, 3], [], [], []], car: [0] }, // 2,3,4>1
+  { l: 'BRANCH', mods: [[2], [2], [3], []], car: [0, 1] }, // 4>3>(1,2)
+  { l: 'STACK + 1', mods: [[], [2], [3], []], car: [0, 1] }, // 4>3>2, 1
+  { l: '1 INTO 3', mods: [[3], [3], [3], []], car: [0, 1, 2] }, // 4>(1,2,3)
+  { l: 'PAIR + 2', mods: [[1], [], [], []], car: [0, 2, 3] }, // 2>1, 3, 4
+  { l: 'ORGAN', mods: [[], [], [], []], car: [0, 1, 2, 3] }, // all carriers
+];
+export const FM_RATIOS = [0.5, 1, 1.41, 2, 2.76, 3, 3.5, 4, 5, 5.4, 6, 7, 8, 9, 10, 11, 12, 14];
+const OPS = [0, 1, 2, 3];
+// one preset = algo, feedback, sustain, hold, chorus + per operator [ratio, level, attack, decay]
+const fmp = (v, l, algo, fb, ops, { sus = 0.7, hold = false, chorus = false } = {}) => ({ v, l, algo, fb, sus, hold, chorus, ops });
+export const FM_PRESETS = [
+  fmp('epiano', 'E.PIANO', 1, 0, [[1, 0.9, 0, 3], [1, 0.4, 0, 1.2], [1, 0.45, 0, 2], [14, 0.22, 0, 0.25]], { chorus: true }),
+  fmp('tine', 'TINE EP', 1, 0, [[1, 0.9, 0, 2.5], [1, 0.6, 0, 0.9], [1, 0.45, 0, 1.6], [14, 0.45, 0, 0.3]], { chorus: true }),
+  fmp('bell', 'BELL', 1, 0, [[1, 0.8, 0, 6], [3.5, 0.45, 0, 4], [2, 0.4, 0, 5], [5.4, 0.35, 0, 2.5]]),
+  fmp('tubular', 'TUBULAR', 1, 0, [[1, 0.8, 0, 8], [3.5, 0.55, 0, 6], [1, 0.4, 0, 7], [1.41, 0.4, 0, 4]]),
+  fmp('glass', 'GLASS', 4, 0, [[1, 0.55, 0, 4], [4, 0.45, 0, 3], [7, 0.3, 0, 2], [1, 0.2, 0, 1]]),
+  fmp('fmbass', 'FM BASS', 0, 0.55, [[0.5, 0.95, 0, 1.5], [1, 0.6, 0, 0.4], [1, 0.4, 0, 0.2], [1, 0.3, 0, 0.15]]),
+  fmp('slap', 'SLAP BASS', 2, 0, [[1, 0.9, 0, 1], [1, 0.5, 0, 0.3], [3, 0.35, 0, 0.08], [5, 0.3, 0, 0.04]]),
+  fmp('brass', 'BRASS', 0, 0.4, [[1, 0.9, 0.05, 3], [1, 0.6, 0.08, 1], [1, 0.3, 0.05, 1], [1, 0.3, 0.02, 0.5]], { hold: true, sus: 0.8 }),
+  fmp('organ', 'ORGAN', 7, 0, [[1, 0.7, 0.005, 1], [2, 0.5, 0.005, 1], [3, 0.4, 0.005, 1], [4, 0.3, 0.005, 1]], { hold: true, sus: 1 }),
+  fmp('marimba', 'MARIMBA', 1, 0, [[1, 0.9, 0, 0.6], [4, 0.3, 0, 0.05], [4, 0.15, 0, 0.2], [10, 0.2, 0, 0.02]]),
+  fmp('clav', 'CLAV', 2, 0.3, [[1, 0.9, 0, 0.8], [3, 0.55, 0, 0.4], [1, 0.3, 0, 0.3], [5, 0.2, 0, 0.1]]),
+  fmp('metal', 'METAL HIT', 5, 0.7, [[1, 0.6, 0, 1.5], [1.41, 0.6, 0, 1.2], [2.76, 0.6, 0, 1], [3.5, 0.8, 0, 0.6]]),
+  fmp('space', 'SPACE PAD', 1, 0, [[1, 0.7, 1, 2], [2, 0.35, 1.5, 3], [1, 0.5, 1.2, 2], [3, 0.25, 2, 3]], { hold: true, sus: 0.7, chorus: true }),
+];
+// a preset as the params it sets (what the presets list and DICE write)
+export function fmPresetParams(pr) {
+  const out = { preset: pr.v, algo: pr.algo, fb: pr.fb, sus: pr.sus, hold: pr.hold, chorus: pr.chorus };
+  pr.ops.forEach(([r, l, a, d], i) => Object.assign(out, { [`ratio${i}`]: r, [`level${i}`]: l, [`atk${i}`]: a, [`dec${i}`]: d }));
+  return out;
+}
+const FM_DEFAULT = fmPresetParams(FM_PRESETS[0]);
+
+export const fm4 = {
+  type: 'fm4',
+  name: 'FM4',
+  title: '4-Operator FM Voice',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 24,
+  description: 'FM synthesis, the sound of the 80s: electric pianos, bells, glassy keys, slap and synth basses, brass, organs and clangy metal. Four sine waves ("operators") bend each other\'s pitch thousands of times a second, which makes rich, bright, often bell-like tones. Two faces. BASIC: pick a PRESET (or roll DICE for a random new sound), then shape it with four knobs: BRIGHT = how hard the operators push each other (dull to biting), TIME = how long it rings, METAL = pulls the tuning away from whole numbers (musical to clangy), SOFTEN = a slower attack (a stab becomes a pad). ADVANCED shows what the preset really is: ALGO picks how the four operators are wired (the diagram flows left to right: the filled boxes are the ones you hear, an outlined box shapes the tone of the box its line runs into), FEEDBACK makes operator 4 modulate itself (rougher, saw-like), and every operator has a RATIO (its pitch compared to the note), a LEVEL, an ATK and a DEC. The BASIC knobs stay on top of the ADVANCED settings, so you can switch back and forth. HOLD makes notes sustain while held (at SUS, for pads, organ, brass) instead of dying away like a struck key. CHORUS adds the classic stereo shimmer. ACC: accented steps play brighter, the way a harder key press does. BRIGHT CV: patch an LFO for a "wah" sweep. Feed it PITCH and/or GATE like a VOICE. BONFIRE ONLY: this sound does not exist on strudel.cc.',
+  params: {
+    face: { kind: 'switch', label: 'FACE', options: [{ v: 'basic', l: 'BASIC' }, { v: 'advanced', l: 'ADVANCED' }], default: 'basic' },
+    preset: { kind: 'data', default: FM_DEFAULT.preset },
+    algo: { kind: 'data', default: FM_DEFAULT.algo },
+    bright: { kind: 'knob', label: 'BRIGHT', min: 0, max: 1, default: 0.5 },
+    time: { kind: 'knob', label: 'TIME', min: 0, max: 1, default: 0.5 },
+    metal: { kind: 'knob', label: 'METAL', min: 0, max: 1, default: 0 },
+    soften: { kind: 'knob', label: 'SOFTEN', min: 0, max: 1, default: 0 },
+    fb: { kind: 'knob', label: 'FEEDBACK', min: 0, max: 1, default: FM_DEFAULT.fb, size: 'sm' },
+    sus: { kind: 'knob', label: 'SUS', min: 0, max: 1, default: FM_DEFAULT.sus, size: 'sm' },
+    ...Object.fromEntries(OPS.flatMap((i) => [
+      [`ratio${i}`, { kind: 'rotary', label: `OP ${i + 1}`, options: FM_RATIOS.map((r) => ({ v: r, l: `×${r}` })), default: FM_DEFAULT[`ratio${i}`], size: 'sm' }],
+      [`level${i}`, { kind: 'knob', label: 'LEVEL', min: 0, max: 1, default: FM_DEFAULT[`level${i}`], size: 'sm' }],
+      [`atk${i}`, { kind: 'knob', label: 'ATK', min: 0, max: 3, default: FM_DEFAULT[`atk${i}`], curve: 'pow', size: 'sm', unit: 's' }],
+      [`dec${i}`, { kind: 'knob', label: 'DEC', min: 0.02, max: 10, default: FM_DEFAULT[`dec${i}`], curve: 'pow', size: 'sm', unit: 's' }],
+    ])),
+    hold: { kind: 'toggle', label: 'HOLD', default: FM_DEFAULT.hold },
+    chorus: { kind: 'toggle', label: 'CHORUS', default: FM_DEFAULT.chorus },
+    tune: { kind: 'knob', label: 'TUNE', min: -24, max: 24, default: 0, step: 1, size: 'sm', unit: 'st' },
+    release: { kind: 'knob', label: 'REL', min: 0.02, max: 6, default: 0.4, size: 'sm', curve: 'pow', unit: 's' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+  },
+  inputs: { ...VOICE_INPUTS, acc: { type: 'rhythm', label: 'ACC' }, bright: { type: 'cv', label: 'BRIGHT' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['face'], ['widget:fmPresets'], ['bright', 'time', 'metal', 'soften'], ['widget:fmAlgo', 'fb', 'sus'],
+    ...[[0, 1], [2, 3]].map((pair) => pair.flatMap((i) => [`ratio${i}`, `level${i}`, `atk${i}`, `dec${i}`])),
+    ['hold', 'chorus', 'tune', 'release', 'level'], ['in:pitch', 'in:gate', 'in:acc', 'in:bright', 'in:pan', 'out:out']],
+  compile(ctx) {
+    const p = ctx.p;
+    let e = voiceStart(ctx, 'bf_fm');
+    const acc = ctx.in('acc');
+    if (acc) e = e.call('fmacc', acc);
+    e = setIf(e, 'fmalgo', p.algo, 0, 0);
+    e = setIf(e, 'fmfb', p.fb, 0, 2);
+    for (const i of OPS) {
+      e = e.call(`fmr${i}`, num(p[`ratio${i}`], 2)).call(`fml${i}`, num(p[`level${i}`], 2));
+      e = setIf(e, `fma${i}`, p[`atk${i}`], 0, 3);
+      e = e.call(`fmd${i}`, num(p[`dec${i}`], 2));
+    }
+    if (p.hold) e = e.call('fmhold', num(1)).call('fmsus', num(p.sus, 2));
+    if (p.chorus) e = e.call('fmchorus', num(1));
+    const bright = ctx.in('bright');
+    e = bright ? e.call('fmbright', bright) : setIf(e, 'fmbright', p.bright, 0.5, 2);
+    e = setIf(e, 'fmtime', p.time, 0.5, 2);
+    e = setIf(e, 'fmmetal', p.metal, 0, 2);
+    e = setIf(e, 'fmsoft', p.soften, 0, 2);
     return { out: voiceEnd(ctx, e) };
   },
 };

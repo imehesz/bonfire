@@ -217,5 +217,18 @@ function registerForgeSounds() {
     sub: v.hoovsub ?? 0,
   }), { outGain: 0.7, defaultRelease: 0.3, channels: 2 });
   workletSound('bf_drum', 'bonfire-drum', drumOpts, { outGain: 0.9, tail: (v) => drumDecay(v) * (drumModel(v) === DRUM_MODELS[3] ? 1.2 : 1) + 0.06 });
+  workletSound('bf_fm', 'bonfire-fm', (v) => ({
+    algo: v.fmalgo ?? 0,
+    fb: v.fmfb ?? 0,
+    ops: [0, 1, 2, 3].map((i) => [v[`fmr${i}`] ?? 1, v[`fml${i}`] ?? 0, v[`fma${i}`] ?? 0, v[`fmd${i}`] ?? 1]),
+    hold: v.fmhold ? 1 : 0,
+    sus: v.fmsus ?? 0.7,
+    chorus: v.fmchorus ? 1 : 0,
+    bright: v.fmbright ?? 0.5,
+    time: v.fmtime ?? 0.5,
+    metal: v.fmmetal ?? 0,
+    soften: v.fmsoft ?? 0,
+    acc: v.fmacc ?? 0,
+  }), { outGain: 0.6, defaultRelease: 0.4, channels: 2 });
   workletSound('bf_grain', 'bonfire-grain', grainOpts, { outGain: 0.8, defaultRelease: 1.5, channels: 2 });
 }

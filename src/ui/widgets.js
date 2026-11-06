@@ -6,6 +6,7 @@ import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
 import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, arpOrder, beats, chordPlan } from '../modules/sources.js';
 import { FENV_PRESETS, khaozPath } from '../modules/processors.js';
 import { CHOP_STEPS } from '../modules/voices.js';
+import { FM_ALGOS, FM_PRESETS, fmPresetParams } from '../modules/forge.js';
 import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
 import { editValue, knob, select } from './controls.js';
 import { noteEntry, setCursor } from './midi.js';
@@ -483,6 +484,143 @@ function fenvPresets(mod) {
       disp.textContent = pr && FENV_KEYS.every((k) => Math.abs(pr[k] - p[k]) < 0.005) ? pr.l : 'CUSTOM';
     },
     tick() {},
+  };
+}
+
+// FM4 BASIC: PRESET picker (‹ name ›, click for the list + DICE). Loading writes the ADVANCED
+// settings; the name turns to CUSTOM once any of them is changed.
+const FM_KEYS = Object.keys(fmPresetParams(FM_PRESETS[0])).filter((k) => k !== 'preset');
+function fmPresets(mod) {
+  const load = (vals) => {
+    checkpoint();
+    for (const [k, x] of Object.entries(vals)) setParam(mod.id, k, x, { record: false });
+  };
+  // DICE: a random but playable patch: a sensible wiring, carriers mostly at the note's pitch,
+  // modulators on whole-number ratios, all struck (no HOLD) unless the current one holds
+  const dice = () => {
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const r = (lo, hi) => Number((lo + Math.random() * (hi - lo)).toFixed(2));
+    const algo = Math.floor(Math.random() * FM_ALGOS.length);
+    const vals = { preset: '', algo, fb: Math.random() < 0.4 ? r(0.1, 0.7) : 0, chorus: Math.random() < 0.4 };
+    for (let i = 0; i < 4; i++) {
+      const car = FM_ALGOS[algo].car.includes(i);
+      vals[`ratio${i}`] = car ? pick([1, 1, 1, 0.5, 2]) : pick([1, 1, 2, 2, 3, 4, 5, 7, 1.41, 3.5, 14]);
+      vals[`level${i}`] = car ? (i === 0 ? r(0.7, 0.95) : r(0.3, 0.6)) : r(0.15, 0.7);
+      vals[`atk${i}`] = Math.random() < 0.8 ? 0 : r(0.01, 0.3);
+      vals[`dec${i}`] = car ? r(0.4, 4) : r(0.05, 2);
+    }
+    load(vals);
+  };
+  const pickPreset = (pr) => load(fmPresetParams(pr));
+  const step = (d) => {
+    const i = FM_PRESETS.findIndex((pr) => pr.v === findModule(mod.id).params.preset);
+    pickPreset(FM_PRESETS[(i + d + FM_PRESETS.length) % FM_PRESETS.length]);
+  };
+  const disp = h('button', { class: 'lcd sel-disp', onpointerdown: stop });
+  disp.addEventListener('click', () => {
+    const cur = findModule(mod.id).params.preset;
+    const item = (l, cls, fn) => h('button', { class: `pick ${cls}`, onclick: () => { closePopover(); fn(); } }, l);
+    popover(disp, h('div', { class: 'pick-list' },
+      FM_PRESETS.map((pr) => item(pr.l, pr.v === cur ? 'active' : '', () => pickPreset(pr))),
+      item('⚄ DICE', 'fe-dice', dice)), { className: 'pop-select' });
+  });
+  const arrow = (d, t) => h('button', { class: 'sel-arrow', onpointerdown: stop, onclick: () => step(d) }, t);
+  const diceBtn = h('button', { class: 'btn fm-dice', title: 'Roll a random new sound', onpointerdown: stop, onclick: dice }, '⚄ DICE');
+  return {
+    el: h('div', { class: 'ctl select fm-presets' }, h('div', { class: 'sel-body' }, arrow(-1, '‹'), disp, arrow(1, '›'), diceBtn), h('label', {}, 'PRESET')),
+    update(p) {
+      const pr = FM_PRESETS.find((x) => x.v === p.preset);
+      const same = pr && Object.entries(fmPresetParams(pr)).every(([k, v]) => k === 'preset' || (typeof v === 'number' ? Math.abs(v - p[k]) < 0.005 : v === p[k]));
+      disp.textContent = same ? pr.l : 'CUSTOM';
+    },
+    tick() {},
+  };
+}
+
+// FM4 ADVANCED: the operator wiring, flowing left to right: filled boxes (right column) are the
+// carriers you hear, an outlined box feeds whatever its line runs into, the loop is FEEDBACK on 4.
+// ‹ › step through the algorithms.
+function fmAlgo(mod) {
+  const W = 176, H = 54;
+  let shown = '';
+  let last = 0;
+  const c = h('canvas', { class: 'w-fm-algo', width: W * 2, height: H * 2 });
+  const g = c.getContext('2d');
+  const draw = (algo) => {
+    const a = FM_ALGOS[algo] ?? FM_ALGOS[0];
+    // column of each op = how many hops it is from a carrier (carriers rightmost)
+    const depth = [0, 0, 0, 0];
+    for (let pass = 0; pass < 4; pass++) for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if (a.mods[j].includes(i)) depth[i] = Math.max(depth[i], depth[j] + 1);
+    const cols = Math.max(...depth) + 1;
+    const top = 14;
+    const pos = [];
+    for (let d = 0; d < cols; d++) {
+      const ids = [0, 1, 2, 3].filter((i) => depth[i] === d);
+      ids.forEach((id, k) => { pos[id] = { x: W - 30 - d * ((W - 56) / Math.max(1, cols - 1)), y: top + ((H - top) * (k + 0.5)) / ids.length }; });
+    }
+    // LCD colours come from the skin; until the faceplate is in the page they can't be read
+    const ink = c.isConnected ? getComputedStyle(c).color : '#ffb648';
+    const bg = c.isConnected ? getComputedStyle(c.parentElement).backgroundColor : '#111';
+    shown = c.isConnected ? `${algo}|${ink}` : '';
+    g.setTransform(2, 0, 0, 2, 0, 0);
+    g.clearRect(0, 0, W, H);
+    g.strokeStyle = ink;
+    g.fillStyle = ink;
+    g.lineWidth = 1.1;
+    g.font = 'bold 8px monospace';
+    g.textBaseline = 'middle';
+    g.textAlign = 'left';
+    g.fillText(`ALGO ${algo + 1} · ${a.l}`, 3, 6);
+    const bw = 7, bh = 5; // half box size
+    for (let j = 0; j < 4; j++) for (const i of a.mods[j]) {
+      g.beginPath();
+      g.moveTo(pos[i].x + bw, pos[i].y);
+      g.lineTo(pos[j].x - bw, pos[j].y);
+      g.stroke();
+    }
+    // carriers -> out
+    const outX = W - 6;
+    for (const i of a.car) {
+      g.beginPath();
+      g.moveTo(pos[i].x + bw, pos[i].y);
+      g.lineTo(outX, pos[i].y);
+      g.stroke();
+    }
+    g.beginPath();
+    g.moveTo(outX, Math.min(...a.car.map((i) => pos[i].y)));
+    g.lineTo(outX, Math.max(...a.car.map((i) => pos[i].y)));
+    g.stroke();
+    // feedback loop on op 4 (over its box)
+    const p4 = pos[3];
+    g.beginPath();
+    g.arc(p4.x, p4.y - bh - 3, 3, Math.PI * 0.1, Math.PI * 0.9, true);
+    g.stroke();
+    g.textAlign = 'center';
+    for (let i = 0; i < 4; i++) {
+      const { x, y } = pos[i];
+      const car = a.car.includes(i);
+      if (car) g.fillRect(x - bw, y - bh, bw * 2, bh * 2);
+      else g.strokeRect(x - bw, y - bh, bw * 2, bh * 2);
+      g.fillStyle = car ? bg : ink;
+      g.fillText(String(i + 1), x, y + 0.5);
+      g.fillStyle = ink;
+    }
+  };
+  const step = (d) => {
+    const cur = findModule(mod.id).params.algo ?? 0;
+    setParam(mod.id, 'algo', (cur + d + FM_ALGOS.length) % FM_ALGOS.length);
+  };
+  const arrow = (d, t) => h('button', { class: 'sel-arrow', onpointerdown: stop, onclick: () => step(d) }, t);
+  return {
+    el: h('div', { class: 'ctl fm-algo' }, h('div', { class: 'sel-body' }, arrow(-1, '‹'), h('div', { class: 'lcd fm-algo-lcd' }, c), arrow(1, '›'))),
+    update(p) {
+      last = p.algo ?? 0;
+      draw(last);
+    },
+    tick() {
+      // first frame on the page, or the skin changed the LCD colours: redraw
+      if (c.isConnected && shown !== `${last}|${getComputedStyle(c).color}`) draw(last);
+    },
   };
 }
 
@@ -1096,4 +1234,4 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck };
+export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck };

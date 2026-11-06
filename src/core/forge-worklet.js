@@ -762,3 +762,154 @@ class BonfireGrain extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-grain', BonfireGrain);
+
+// FM4: four sine operators doing phase modulation (the DX7 way). ALGO = who modulates whom;
+// operators feeding a carrier bend its phase by up to MOD_DEPTH radians at LEVEL 1. Runs at 2x
+// the sample rate so bright settings and feedback don't alias. Same wiring as FM_ALGOS in
+// modules/forge.js (kept in sync by hand): mods[i] = operators feeding i, car = the ones you hear.
+const FM_WIRING = [
+  { mods: [[1], [2], [3], []], car: [0] },
+  { mods: [[1], [], [3], []], car: [0, 2] },
+  { mods: [[1, 2, 3], [], [], []], car: [0] },
+  { mods: [[2], [2], [3], []], car: [0, 1] },
+  { mods: [[], [2], [3], []], car: [0, 1] },
+  { mods: [[3], [3], [3], []], car: [0, 1, 2] },
+  { mods: [[1], [], [], []], car: [0, 2, 3] },
+  { mods: [[], [], [], []], car: [0, 1, 2, 3] },
+];
+const MOD_DEPTH = 7;
+const METAL_SPREAD = [0, 0.137, 0.291, 0.413]; // METAL nudges each modulator's ratio by a different amount
+
+class BonfireFm extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = options.processorOptions;
+    const c = (v, lo, hi) => Math.min(hi, Math.max(lo, Number(v) || 0));
+    this.start = Math.round(o.start * sampleRate);
+    this.end = Math.round(o.end * sampleRate);
+    this.stopFrame = Math.round(o.stop * sampleRate);
+    const w = FM_WIRING[Math.round(c(o.algo, 0, 7))];
+    this.mods = w.mods;
+    const isCar = [0, 1, 2, 3].map((i) => w.car.includes(i));
+    this.carGain = 1 / Math.sqrt(w.car.length);
+    // BASIC macros on top of the operator settings
+    const bright = 2 ** ((c(o.bright, 0, 1) - 0.5) * 3) * (o.acc ? 1.6 : 1);
+    const time = 4 ** ((c(o.time, 0, 1) - 0.5) * 2);
+    const metal = c(o.metal, 0, 1);
+    const soften = c(o.soften, 0, 1) * 1.5;
+    this.accLift = o.acc ? 1.15 : 1;
+    this.hold = !!o.hold;
+    this.sus = c(o.sus, 0, 1);
+    const sr2 = sampleRate * 2;
+    const relK = Math.exp(-6.91 / (Math.max(0.01, o.release ?? 0.4) * sr2));
+    this.ops = o.ops.map(([ratio, level, atk, dec], i) => {
+      const r = c(ratio, 0.1, 32) * (isCar[i] ? 1 : 1 + metal * METAL_SPREAD[i] * 2);
+      const a = c(atk, 0, 6) + (isCar[i] ? soften : soften * 0.5);
+      return {
+        dt: (o.freq * r) / sr2,
+        ph: 0,
+        // a carrier's LEVEL = loudness, a modulator's = how hard it bends (BRIGHT scales only these)
+        level: c(level, 0, 1) * (isCar[i] ? 1 : bright * MOD_DEPTH),
+        car: isCar[i],
+        atkN: Math.max(2, Math.round(a * sr2)),
+        decK: Math.exp(-6.91 / (Math.max(0.01, c(dec, 0.01, 30) * time) * sr2)),
+        relK,
+        env: 0,
+        decaying: 1, // level above the sustain floor, decays toward 0
+        out: 0,
+      };
+    });
+    this.fb = c(o.fb, 0, 1) * 2.2;
+    this.fbHist = [0, 0];
+    // CHORUS: two short delay lines swung by slow LFOs, one per side
+    this.chorus = !!o.chorus;
+    if (this.chorus) {
+      this.dl = new Float32Array(2048);
+      this.dw = 0;
+      this.lfo = Math.random();
+    }
+    this.port.onmessage = (e) => {
+      if (e.data?.stop != null) this.stopFrame = Math.min(this.stopFrame, Math.round(e.data.stop * sampleRate));
+    };
+  }
+
+  // one 2x-rate sample; n2 = frames since note start at the 2x rate, held = note still down
+  tick(n2, held) {
+    const { ops, mods } = this;
+    for (let i = 3; i >= 0; i--) {
+      const op = ops[i];
+      // envelope: linear attack, then exponential decay (to SUS while held with HOLD); after the
+      // note ends it releases from wherever it was (a struck note also keeps its own decay)
+      let target;
+      if (n2 < op.atkN) target = n2 / op.atkN;
+      else {
+        op.decaying *= op.decK;
+        target = held && this.hold ? this.sus + (1 - this.sus) * op.decaying : op.decaying;
+      }
+      if (held) op.env = target;
+      else {
+        if (op.rel == null) op.rel = op.env;
+        op.rel *= op.relK;
+        op.env = this.hold ? op.rel : Math.min(op.rel, target);
+      }
+      let pm = 0;
+      for (const m of mods[i]) pm += ops[m].out;
+      if (i === 3 && this.fb) pm += this.fb * (this.fbHist[0] + this.fbHist[1]) * 0.5;
+      op.ph += op.dt;
+      if (op.ph >= 1) op.ph -= 1;
+      op.out = Math.sin(2 * Math.PI * op.ph + pm) * op.env * op.level;
+      if (i === 3) {
+        this.fbHist[1] = this.fbHist[0];
+        this.fbHist[0] = Math.sin(2 * Math.PI * op.ph + pm);
+      }
+    }
+    let y = 0;
+    for (const op of ops) if (op.car) y += op.out;
+    return y * this.carGain;
+  }
+
+  process(_inputs, outputs) {
+    const L = outputs[0][0];
+    const R = outputs[0][1] ?? L;
+    if (!L) return true;
+    for (let i = 0; i < L.length; i++) {
+      const f = currentFrame + i;
+      if (f < this.start || f >= this.stopFrame) {
+        L[i] = 0;
+        R[i] = 0;
+        continue;
+      }
+      const n2 = (f - this.start) * 2;
+      const held = f < this.end;
+      const x = (this.tick(n2, held) + this.tick(n2 + 1, held)) * 0.5 * this.accLift;
+      // 5 ms fade at the very end so a cut-off tail never clicks
+      const tail = Math.min(1, (this.stopFrame - f) / (0.005 * sampleRate));
+      if (!this.chorus) {
+        L[i] = x * tail;
+        R[i] = L[i];
+        continue;
+      }
+      const { dl } = this;
+      dl[this.dw] = x;
+      this.lfo = (this.lfo + 0.6 / sampleRate) % 1;
+      const tap = (phase) => {
+        const d = (0.007 + 0.0025 * Math.sin(2 * Math.PI * (this.lfo + phase))) * sampleRate;
+        let r = this.dw - d;
+        if (r < 0) r += 2048;
+        const i0 = Math.floor(r);
+        const fr = r - i0;
+        return dl[i0 & 2047] * (1 - fr) + dl[(i0 + 1) & 2047] * fr;
+      };
+      L[i] = (x * 0.75 + tap(0) * 0.55) * tail;
+      R[i] = (x * 0.75 + tap(0.5) * 0.55) * tail;
+      this.dw = (this.dw + 1) & 2047;
+    }
+    if (currentFrame + L.length >= this.stopFrame) {
+      this.port.postMessage('done');
+      return false;
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-fm', BonfireFm);

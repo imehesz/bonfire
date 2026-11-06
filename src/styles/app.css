@@ -535,6 +535,16 @@ a { color: var(--accent); }
 .step.ch-dice b { color: var(--accent); opacity: 1; }
 /* FILTER ENV: SHAPE picker + envelope LCD */
 .fe-shape .sel-disp { min-width: 72px; }
+/* FM4: BASIC = preset + macros, ADVANCED = wiring + operators; whole rows hide */
+.module[data-type='fm4'][data-face='basic'] .mod-row:is(:has([data-widget='fmAlgo']), :has([data-param^='ratio'])),
+.module[data-type='fm4'][data-face='advanced'] .mod-row:is(:has([data-widget='fmPresets']), :has([data-param='bright'])) { display: none; }
+.module[data-type='fm4'] .mod-row:has([data-param^='ratio']) { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); justify-items: center; column-gap: 2px; padding: 0 6px; }
+/* a hairline between the two operators sharing a row */
+.module[data-type='fm4'] .mod-row:has([data-param^='ratio']) > :nth-child(5) { border-left: 1px solid var(--panel-dim); padding-left: 4px; }
+.fm-presets .sel-disp { min-width: 96px; }
+.fm-dice { margin-left: 8px; font-size: 11px; padding: 4px 8px; }
+.fm-algo-lcd { padding: 2px 3px; }
+.w-fm-algo { width: 176px; height: 54px; display: block; }
 .pick.fe-dice { color: var(--accent); }
 /* CHORDS faces: BASIC = moods + chord names only; ADVANCED = everything else */
 .module[data-face='basic'] :is([data-param='scale'], [data-param='size'], [data-param='voicing'], [data-param='inv'],
