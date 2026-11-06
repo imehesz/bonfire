@@ -2,7 +2,7 @@
 // s("bf_string") etc. and every superdough effect (FILTER, FX, pan, gain, the recorder) still
 // applies after them. strudel.cc doesn't have these sounds; the compiler flags them in the code view.
 // Each sound = one AudioWorklet processor in forge-worklet.js, one node per note.
-import { getAudioContext, getFrequencyFromValue, getSampleBuffer, getSound, registerSound } from '@strudel/webaudio';
+import { getAudioContext, getFrequencyFromValue, getSampleBuffer, getSound, getSuperdoughAudioController, registerSound } from '@strudel/webaudio';
 import { getFontBufferSource } from '@strudel/soundfonts';
 import workletUrl from './forge-worklet.js?url';
 
@@ -231,4 +231,50 @@ function registerForgeSounds() {
     acc: v.fmacc ?? 0,
   }), { outGain: 0.6, defaultRelease: 0.4, channels: 2 });
   workletSound('bf_grain', 'bonfire-grain', grainOpts, { outGain: 0.8, defaultRelease: 1.5, channels: 2 });
+}
+
+// ---- TAPE: one tape-loop worklet per TAPE module, fed by its superdough send bus ----
+// Called for every event just before it plays (engine wraps the REPL output). Events that went
+// through a TAPE carry bus 'bftape_<id>' + the tape* knobs. First event: make the loop, connect
+// the bus into it and the loop into the orbit those notes play on (so stems / DUCK / recorder
+// get the echoes too). Later events only push changed knobs. After a superdough reset (new buses
+// and orbits) everything is re-wired on the next event.
+const tapes = new Map(); // bus name -> { ctx, node, bus, orbit, key }
+const TAPE_KEYS = [['tapetime', 'time'], ['tapeheads', 'heads'], ['tapefb', 'fb'], ['tapeecho', 'echo'], ['tapetone', 'tone'],
+  ['tapeage', 'age'], ['tapesat', 'sat'], ['tapewow', 'wow']];
+
+export function routeTape(v) {
+  const name = v?.bus;
+  if (typeof name !== 'string' || !name.startsWith('bftape_')) return;
+  const ctx = getAudioContext();
+  const ctrl = getSuperdoughAudioController();
+  let t = tapes.get(name);
+  if (!t || t.ctx !== ctx) {
+    try {
+      const node = new AudioWorkletNode(ctx, 'bonfire-tapebus', {
+        numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit',
+      });
+      t = { ctx, node, bus: null, orbit: null, key: '' };
+      tapes.set(name, t);
+    } catch {
+      return; // worklet not loaded yet (audio still starting): the next event tries again
+    }
+  }
+  const bus = ctrl.getBus(name);
+  if (t.bus !== bus) {
+    bus.connect(t.node);
+    t.bus = bus;
+  }
+  const orbit = ctrl.nodes[v.orbit ?? 1]; // superdough makes the orbit when the first note plays
+  if (orbit && t.orbit !== orbit) {
+    if (t.orbit) t.node.disconnect();
+    orbit.connectToOutput(t.node);
+    t.orbit = orbit;
+  }
+  const knobs = Object.fromEntries(TAPE_KEYS.filter(([k]) => v[k] != null).map(([k, as]) => [as, v[k]]));
+  const key = JSON.stringify(knobs);
+  if (key !== t.key) {
+    t.node.port.postMessage(knobs);
+    t.key = key;
+  }
 }

@@ -778,6 +778,17 @@ const FM_WIRING = [
   { mods: [[], [], [], []], car: [0, 1, 2, 3] },
 ];
 const MOD_DEPTH = 7;
+// sine of x CYCLES from a 4096-point table (linear interpolation): far cheaper than Math.sin and
+// FM4 needs ~8 per output sample per voice
+const SIN_N = 4096;
+const SIN_T = new Float32Array(SIN_N + 1).map((_, i) => Math.sin((2 * Math.PI * i) / SIN_N));
+const INV_TAU = 1 / (2 * Math.PI);
+function fmSin(x) {
+  x -= Math.floor(x);
+  const p = x * SIN_N;
+  const i = p | 0;
+  return SIN_T[i] + (SIN_T[i + 1] - SIN_T[i]) * (p - i);
+}
 const METAL_SPREAD = [0, 0.137, 0.291, 0.413]; // METAL nudges each modulator's ratio by a different amount
 
 class BonfireFm extends AudioWorkletProcessor {
@@ -816,11 +827,14 @@ class BonfireFm extends AudioWorkletProcessor {
         relK,
         env: 0,
         decaying: 1, // level above the sustain floor, decays toward 0
+        rel: -1, // level the release falls from (-1 = note still held)
         out: 0,
       };
     });
     this.fb = c(o.fb, 0, 1) * 2.2;
-    this.fbHist = [0, 0];
+    this.fb1 = 0;
+    this.fb2 = 0;
+    this.silentFor = 0; // 2x-rate samples in a row with every carrier faded out
     // CHORUS: two short delay lines swung by slow LFOs, one per side
     this.chorus = !!o.chorus;
     if (this.chorus) {
@@ -834,8 +848,11 @@ class BonfireFm extends AudioWorkletProcessor {
   }
 
   // one 2x-rate sample; n2 = frames since note start at the 2x rate, held = note still down
+  // one 2x-rate sample; n2 = frames since note start at the 2x rate, held = note still down.
+  // Hot loop: table sine, phases in cycles (modulation converted from radians once).
   tick(n2, held) {
     const { ops, mods } = this;
+    let alive = false;
     for (let i = 3; i >= 0; i--) {
       const op = ops[i];
       // envelope: linear attack, then exponential decay (to SUS while held with HOLD); after the
@@ -848,23 +865,33 @@ class BonfireFm extends AudioWorkletProcessor {
       }
       if (held) op.env = target;
       else {
-        if (op.rel == null) op.rel = op.env;
+        if (op.rel < 0) op.rel = op.env;
         op.rel *= op.relK;
         op.env = this.hold ? op.rel : Math.min(op.rel, target);
       }
-      let pm = 0;
-      for (const m of mods[i]) pm += ops[m].out;
-      if (i === 3 && this.fb) pm += this.fb * (this.fbHist[0] + this.fbHist[1]) * 0.5;
       op.ph += op.dt;
       if (op.ph >= 1) op.ph -= 1;
-      op.out = Math.sin(2 * Math.PI * op.ph + pm) * op.env * op.level;
+      const amp = op.env * op.level;
+      if (amp < 1e-6 && i !== 3) {
+        op.out = 0; // silent operator: skip its sine
+        continue;
+      }
+      if (op.car && op.env > 1e-4) alive = true;
+      let pm = 0;
+      const mi = mods[i];
+      for (let k = 0; k < mi.length; k++) pm += ops[mi[k]].out;
+      if (i === 3 && this.fb) pm += this.fb * (this.fb1 + this.fb2) * 0.5;
+      const x = fmSin(op.ph + pm * INV_TAU);
+      op.out = x * amp;
       if (i === 3) {
-        this.fbHist[1] = this.fbHist[0];
-        this.fbHist[0] = Math.sin(2 * Math.PI * op.ph + pm);
+        this.fb2 = this.fb1;
+        this.fb1 = x;
       }
     }
+    if (n2 > 64 && !alive) this.silentFor++;
+    else this.silentFor = 0;
     let y = 0;
-    for (const op of ops) if (op.car) y += op.out;
+    for (let i = 0; i < 4; i++) if (ops[i].car) y += ops[i].out;
     return y * this.carGain;
   }
 
@@ -904,6 +931,9 @@ class BonfireFm extends AudioWorkletProcessor {
       R[i] = (x * 0.75 + tap(0.5) * 0.55) * tail;
       this.dw = (this.dw + 1) & 2047;
     }
+    // a struck note that has died away (every carrier under -80 dB for 20 ms): free the voice now
+    // instead of running silent until its scheduled stop
+    if (this.silentFor > sampleRate * 0.04) this.stopFrame = Math.min(this.stopFrame, currentFrame + L.length);
     if (currentFrame + L.length >= this.stopFrame) {
       this.port.postMessage('done');
       return false;
@@ -913,3 +943,93 @@ class BonfireFm extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-fm', BonfireFm);
+
+// TAPE: one continuous stereo tape loop per TAPE module (not per note). Input = the module's send
+// bus (every note fed into TAPE, after its gain / pan). Three playback heads at TIME, 2x and 3x;
+// HEADS is a bitmask. What the active heads play is fed back (REPEATS) through the "tape": a
+// lowpass at TONE (AGE darkens it and adds a low cut), then SAT. TIME changes glide like a tape
+// changing speed; WOW wobbles the read point (slow wow + fast flutter). Output = echoes only.
+const TAPE_SECONDS = 20; // 1 BAR at 40 BPM x head 3 = 18 s
+class BonfireTapeBus extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.size = Math.ceil(sampleRate * TAPE_SECONDS);
+    this.buf = [new Float32Array(this.size), new Float32Array(this.size)];
+    this.w = 0;
+    this.p = { time: 0.375, heads: 1, fb: 0.5, echo: 0.6, tone: 3200, age: 0.4, sat: 0.25, wow: 0.3 };
+    this.t = -1; // current (gliding) head-1 delay in frames
+    this.lfo1 = 0;
+    this.lfo2 = 0;
+    this.lp = [0, 0];
+    this.hp = [0, 0];
+    this.echoNow = 0;
+    this.coef();
+    this.port.onmessage = (e) => {
+      Object.assign(this.p, e.data);
+      this.coef();
+    };
+  }
+
+  coef() {
+    const { tone, age } = this.p;
+    const cut = Math.max(200, tone * (1 - age * 0.5));
+    this.aLp = Math.exp((-2 * Math.PI * cut) / sampleRate);
+    this.aHp = Math.exp((-2 * Math.PI * (40 + age * 220)) / sampleRate);
+    this.satG = 1 + this.p.sat * 3;
+    this.heads = [1, 2, 3].filter((k) => this.p.heads & (1 << (k - 1)));
+    this.headNorm = 1 / Math.sqrt(this.heads.length || 1);
+  }
+
+  read(ch, d) {
+    let r = this.w - d;
+    while (r < 0) r += this.size;
+    const i0 = r | 0;
+    const fr = r - i0;
+    const b = this.buf[ch];
+    return b[i0] + (b[i0 + 1 === this.size ? 0 : i0 + 1] - b[i0]) * fr;
+  }
+
+  process(inputs, outputs) {
+    const inp = inputs[0];
+    const out = outputs[0];
+    const L = out[0];
+    const R = out[1] ?? L;
+    const inL = inp?.[0];
+    const inR = inp?.[1] ?? inL;
+    const { p, heads, headNorm } = this;
+    const target = Math.min(this.size / 3 - 4, Math.max(16, p.time * sampleRate));
+    if (this.t < 0) this.t = target;
+    const glide = 1 - Math.exp(-1 / (0.12 * sampleRate)); // ~0.12 s tape-speed change
+    const fb = Math.min(0.97, Math.max(0, p.fb));
+    const wow = p.wow;
+    for (let i = 0; i < L.length; i++) {
+      this.t += (target - this.t) * glide;
+      this.lfo1 += 0.55 / sampleRate;
+      this.lfo2 += 6.3 / sampleRate;
+      if (this.lfo1 >= 1) this.lfo1 -= 1;
+      if (this.lfo2 >= 1) this.lfo2 -= 1;
+      const mod = 1 + wow * (0.0035 * Math.sin(2 * Math.PI * this.lfo1) + 0.0008 * Math.sin(2 * Math.PI * this.lfo2));
+      const d = this.t * mod;
+      this.echoNow += (p.echo - this.echoNow) * 0.001; // no zipper when ECHO is turned
+      for (let ch = 0; ch < 2; ch++) {
+        let wet = 0;
+        for (let k = 0; k < heads.length; k++) wet += this.read(ch, d * heads[k]);
+        wet *= headNorm;
+        const x = (ch === 0 ? inL?.[i] : inR?.[i]) ?? 0;
+        // the tape: lowpass, low cut, saturation, then onto the loop
+        let y = x + fb * wet;
+        this.lp[ch] = y + (this.lp[ch] - y) * this.aLp;
+        y = this.lp[ch];
+        this.hp[ch] = y + (this.hp[ch] - y) * this.aHp;
+        y -= this.hp[ch];
+        if (this.p.sat > 0.005) y = (Math.tanh(y * this.satG) / this.satG) * (1 + this.p.sat * 0.6);
+        this.buf[ch][this.w] = y;
+        (ch === 0 ? L : R)[i] = wet * this.echoNow;
+      }
+      this.w = this.w + 1 === this.size ? 0 : this.w + 1;
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-tapebus', BonfireTapeBus);

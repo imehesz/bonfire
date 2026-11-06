@@ -2,9 +2,10 @@
 // hardware-side output stage (master volume / mute / analysers for the scope).
 import {
   aliasBank, getAudioContext, getSuperdoughAudioController, initAudio, registerZZFXSounds, samples, soundMap, superdough,
+  webaudioOutput,
 } from '@strudel/webaudio';
 import { initStrudel } from './strudel.js';
-import { loadForge } from './forge-audio.js';
+import { loadForge, routeTape } from './forge-audio.js';
 import { registerSoundfonts } from '@strudel/soundfonts';
 import dirtSubset from './dirt-subset.json';
 
@@ -47,6 +48,15 @@ export function boot() {
   if (ready) return ready;
   ready = initStrudel({
     prebake,
+    // every event passes here on its way to superdough: TAPE's tape loops get wired up from it
+    // (again once superdough has made the note's orbit, the very first time an orbit is used)
+    defaultOutput: (hap, ...rest) => {
+      const tape = hap.value?.bus != null;
+      if (tape) routeTape(hap.value);
+      const done = webaudioOutput(hap, ...rest);
+      if (tape) Promise.resolve(done).then(() => routeTape(hap.value), () => {});
+      return done;
+    },
     onEvalError: (e) => {
       state.error = e?.message ?? String(e);
       emit();

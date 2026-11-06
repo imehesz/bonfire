@@ -1,5 +1,6 @@
 // Pattern processors: VANDALIZER, FILTER, FILTER ENV, FX, VINTAGE, TAPE, LFO, KHAOZ, DUCK, MIXER, OUTPUT.
-import { arrow, fn, ident, lambda, mini, num, printExpr, raw } from '../core/expr.js';
+import { registerControl } from '@strudel/core';
+import { fn, ident, lambda, mini, num, printExpr, raw } from '../core/expr.js';
 import { RATES, isDefault, miniExpr, rated, setIf, timed } from './helpers.js';
 
 const SOMETIMES = {
@@ -222,26 +223,31 @@ export const vintage = {
   },
 };
 
-// TAPE: a multi-head tape echo built from pattern echoes, not the orbit delay.
-// Each repeat is a re-triggered copy of the event that comes back quieter,
-// darker and wobblier than the one before, the way a worn tape loop does.
+// TAPE (Bonfire only since 2026-11-06): a real three-head tape loop running in its own AudioWorklet
+// (core/forge-worklet.js 'bonfire-tapebus'). Notes reach it through superdough's send bus: every
+// event gets .bus('bftape_<id>') (the send is taken after its gain / pan / filters) and the TAPE's
+// knobs as tape* controls; core/forge-audio.js routeTape() wires each bus to its loop and the loop
+// back into the orbit the notes play on, so stems, DUCK and the recorder all hear the echoes.
+// One loop costs the same whatever plays into it (the old pattern-echo TAPE copied every note
+// up to 12 times, which made busy patches crackle).
+for (const c of ['tapetime', 'tapeheads', 'tapefb', 'tapeecho', 'tapetone', 'tapeage', 'tapesat', 'tapewow']) registerControl(c);
 const TAPE_TIMES = [
   { v: 1 / 16, l: '1/16' }, { v: 1 / 8, l: '1/8' }, { v: 3 / 16, l: '3/16' }, { v: 1 / 4, l: '1/4' },
   { v: 3 / 8, l: '3/8' }, { v: 1 / 2, l: '1/2' }, { v: 3 / 4, l: '3/4' }, { v: 1, l: '1 BAR' },
 ];
 const TAPE_HEADS = ['1', '2', '3', '1+2', '2+3', '1+3', '1+2+3'];
-const TAPE_MAX_ECHOES = 12; // per input event, shared by the active heads
 
 export const tape = {
   type: 'tape',
   name: 'TAPE',
   title: 'Tape Echo',
-  category: 'Shape',
+  category: 'Bonfire Only',
+  strudel: false,
   hp: 16,
-  description: 'A three-head tape echo. TIME is the spacing of head 1; heads 2 and 3 sit at twice and three times that, and HEADS picks which ones play. Every repeat comes back quieter (REPEATS), darker (TONE, then AGE per pass), saturated (SAT) and warbling (WOW). ECHO is the wet level; the dry signal always passes. If the input already has a lowpass, the echoes keep it and AGE darkens it further. CV swells the ECHO level.',
+  description: 'A three-head tape echo: a real loop of "tape" that records what you feed it and plays it back from three heads. TIME is the spacing of head 1; heads 2 and 3 sit at twice and three times that, and HEADS picks which ones play. Every trip round the loop comes back quieter (REPEATS: high = long, near the top it runs away into a howl), darker (TONE, plus AGE for a worn tape), saturated (SAT) and warbling (WOW: slow wow plus fast flutter). ECHO is the wet level; the dry signal always passes. Turning TIME while it plays bends the pitch of the echoes like speeding up a real tape. CV swells how much gets sent into the tape. Echoes keep ringing after the notes stop. BONFIRE ONLY: use EMBERS FX DELAY for a Strudel-compatible echo.',
   params: {
-    time: { kind: 'rotary', label: 'TIME', options: TAPE_TIMES, default: 3 / 16, size: 'sm', structural: true },
-    heads: { kind: 'rotary', label: 'HEADS', options: TAPE_HEADS.map((v) => ({ v, l: v })), default: '1', size: 'sm', structural: true },
+    time: { kind: 'rotary', label: 'TIME', options: TAPE_TIMES, default: 3 / 16, size: 'sm' },
+    heads: { kind: 'rotary', label: 'HEADS', options: TAPE_HEADS.map((v) => ({ v, l: v })), default: '1', size: 'sm' },
     repeats: { kind: 'knob', label: 'REPEATS', min: 0, max: 0.95, default: 0.5, size: 'sm' },
     echo: { kind: 'knob', label: 'ECHO', min: 0, max: 1, default: 0.6, size: 'sm' },
     tone: { kind: 'knob', label: 'TONE', min: 300, max: 20000, default: 3200, curve: 'log', size: 'sm', unit: 'Hz' },
@@ -259,33 +265,13 @@ export const tape = {
     ctx.meta({ time: p.time, heads });
     if (!e) return { out: null };
     if (p.echo < 0.005) return { out: e };
-    const fb = p.repeats;
-    const cap = Math.floor(TAPE_MAX_ECHOES / heads.length);
-    const wanted = fb < 0.02 ? 1 : Math.ceil(Math.log(0.03) / Math.log(fb));
-    const count = Math.max(1, Math.min(cap, wanted));
-    // a tail cut short by the cap fades out instead of stopping dead
-    const taper = wanted > count ? ` * (1 - n / ${count})` : '';
-    const level = p.echo / Math.sqrt(heads.length);
-    const hasLpf = /\.lpf\(/.test(printExpr(e));
-    const darken = 1 - p.age * 0.5;
     const cv = ctx.in('cv');
-    const n6 = (v) => num(v, 6).text;
-
-    const head = (k) => lambda((x) => {
-      const spacing = num(p.time * k, 6);
-      let w = x.call('late', spacing);
-      if (cv) w = w.call('velocity', cv.call('range', num(0), num(level, 3)));
-      w = w.callIf(p.sat > 0.005, 'shape', num(p.sat, 2));
-      w = w.callIf(p.wow > 0.005, 'vib', num(3.5));
-      let r = ident('e');
-      const gain = `${fb > 0 ? `${n6(fb)} ** n` : '(n ? 0 : 1)'}${taper}`;
-      r = cv ? r.call('mul', fn('velocity', raw(gain))) : r.call('velocity', raw(`${n6(level)} * ${gain}`));
-      if (hasLpf) r = r.callIf(darken < 0.999, 'mul', fn('lpf', raw(`${n6(darken)} ** n`)));
-      else if (p.tone < 19999) r = r.call('lpf', raw(`${Math.round(p.tone)}${darken < 0.999 ? ` * ${n6(darken)} ** n` : ''}`));
-      if (p.wow > 0.005) r = r.call('vibmod', raw(`${n6(p.wow * 0.35)} * (1 + n * 0.3)`));
-      return w.call('echoWith', num(count), spacing, arrow('e, n', r));
-    });
-    return { out: e.call('superimpose', ...heads.map(head)) };
+    let w = e.call('bus', mini(`bftape_${ctx.id}`)).call('busgain', cv ? cv.call('range', num(0), num(1)) : num(1));
+    w = w.call('tapetime', num((p.time * 240) / ctx.global.bpm, 4))
+      .call('tapeheads', num(heads.reduce((m, k) => m | (1 << (k - 1)), 0)))
+      .call('tapefb', num(p.repeats, 2)).call('tapeecho', num(p.echo, 2)).call('tapetone', num(Math.round(p.tone)))
+      .call('tapeage', num(p.age, 2)).call('tapesat', num(p.sat, 2)).call('tapewow', num(p.wow, 2));
+    return { out: w };
   },
 };
 
