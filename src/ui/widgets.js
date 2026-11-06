@@ -1223,7 +1223,8 @@ function tapeDeck() {
       last = cycle;
       const revs = cycle * (0.125 / time);
       const deg = (revs * 360) % 360;
-      for (const r of reels) r.style.transform = `rotate(${deg}deg)`;
+      // the tape leaves both reels along the bottom, moving right: both turn counter-clockwise
+      for (const r of reels) r.style.transform = `rotate(${-deg}deg)`;
       flow.style.strokeDashoffset = String(-(revs * 2 * Math.PI * pack) % 24);
       glows.forEach((g, i) => {
         const span = time * (i + 1);
