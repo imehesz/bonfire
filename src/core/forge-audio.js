@@ -279,13 +279,13 @@ export function routeTape(v) {
   }
 }
 
-// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER, MIRAGE): one worklet per module that hears live audio ----
+// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER, MIRAGE, SCORCH): one worklet per module that hears live audio ----
 // Notes that went through such a module carry bfin = "kind:id" (several, comma-separated, when
 // they are chained) and are sent into bus 'bfin_<id>' -> the module's worklet -> bus 'bfout_<id>'.
 // The module also plays a held s("bus") note reading that out bus (tagged bfout = id, bfkind =
 // kind, plus the module's knobs), so the effect's sound runs through whatever comes after the
 // module (FILTER, FX, TAPE, MIXER) like any other sound.
-// An `insert` kind (STUTTER) carries ALL of its notes' sound: the notes themselves are silenced on
+// An `insert` kind (STUTTER, SCORCH) carries ALL of its notes' sound: the notes themselves are silenced on
 // their way out (dry 0; only reverb / delay patched BEFORE the module still rings directly) and
 // are otherwise only heard through the worklet.
 // A step on a TRIG jack arrives as a soundless event tagged fridgetrig / stuttrig = id.
@@ -298,6 +298,11 @@ const BUS_FX = {
     keys: [['haloshim', 'shimmer'], ['halodecay', 'decay'], ['halosize', 'size'], ['halotone', 'tone'], ['halopitch', 'pitch'], ['halolvl', 'level']],
   },
   stutter: { processor: 'bonfire-stutter', keys: [['stutfade', 'fade']], insert: true },
+  scorch: {
+    processor: 'bonfire-scorch',
+    keys: [['scorchmode', 'mode'], ['scorchgain', 'gain'], ['scorchtone', 'tone'], ['scorchcab', 'cab'], ['scorchmix', 'mix'], ['scorchlvl', 'level']],
+    insert: true,
+  },
   mirage: { processor: 'bonfire-mirage', keys: [['mirmode', 'mode'], ['mirrate', 'rate'], ['mirdepth', 'depth'], ['mirwidth', 'width'], ['mirlvl', 'level']] },
 };
 const busFx = new Map(); // module id -> { ctx, node, kind, inBus, outBus, key, state, until }

@@ -20,6 +20,7 @@ for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'g
   'bfin', 'bfpg', 'bfout', 'bfkind', 'fridgelvl', 'fridgesmooth', 'fridgetrig', 'fridgelen',
   'bfroom', 'bfdelay', 'stutfade', 'stuttrig', 'stutlen', 'stutdur',
   'mirmode', 'mirrate', 'mirdepth', 'mirwidth', 'mirlvl',
+  'scorchmode', 'scorchgain', 'scorchtone', 'scorchcab', 'scorchmix', 'scorchlvl',
   'haloshim', 'halodecay', 'halosize', 'halotone', 'halopitch', 'halolvl',
   'grainsrc', 'grainn', 'graintune', 'grainpos', 'grainspray', 'grainscan', 'grainsize', 'graindens', 'grainshim', 'grainwidth']) registerControl(c);
 
@@ -533,7 +534,7 @@ export const fm4 = {
   },
 };
 
-// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER, MIRAGE): modules that hear the live sound, not just the notes ----
+// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER, MIRAGE, SCORCH): modules that hear the live sound, not just the notes ----
 // The notes pass straight through; .bfsend(id, kind) only tags them so the engine also sends their
 // sound into this module's worklet (core/forge-audio.js). What the worklet makes comes back as a
 // held s("bus") note stacked next to them, so everything patched after the module treats it like
@@ -695,5 +696,40 @@ export const mirage = {
     const [notes, wet] = busFxParts(ctx, e, 'mirage');
     return { out: fn('stack', notes, wet.call('mirmode', num(Math.max(0, MIRAGE_MODES.findIndex((m) => m.v === p.mode))))
       .call('mirrate', num(p.rate, 2)).call('mirdepth', num(p.depth, 2)).call('mirwidth', num(p.width, 2)).call('mirlvl', num(p.level, 2))) };
+  },
+};
+
+// ---- SCORCH: distortion ----
+// An insert like STUTTER: the notes' sound only reaches the output through SCORCH's worklet, all
+// summed, so it distorts the whole chord / mix at once, not note by note.
+const SCORCH_MODES = [{ v: 'drive', l: 'DRIVE' }, { v: 'dist', l: 'DIST' }, { v: 'fuzz', l: 'FUZZ' }];
+
+export const scorch = {
+  type: 'scorch',
+  name: 'SCORCH',
+  title: 'Distortion',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 10,
+  description: 'A distortion pedal. Everything patched into it is squashed and clipped together, so chords growl and grind like through a real pedal or amp (the DRIVE in EMBERS only roughs up one note at a time). MODE: DRIVE is a warm overdrive with a tight low end; DIST is harder and meaner; FUZZ is a wall of buzz that sputters as notes die away. GAIN is how hard it clips (low = a bit of grit, high = flat-out). TONE goes from dark to bright. CAB plays it through a guitar speaker, which takes the fizz off the top. MIX blends the clean sound back in (handy on bass, to keep the low end solid). LEVEL is the volume after all that. Patch it after a sound, or after a MIXER to scorch several at once.',
+  params: {
+    mode: { kind: 'rotary', label: 'MODE', options: SCORCH_MODES, default: 'drive' },
+    gain: { kind: 'knob', label: 'GAIN', min: 0, max: 1, default: 0.5, size: 'lg' },
+    tone: { kind: 'knob', label: 'TONE', min: 0, max: 1, default: 0.6, size: 'sm' },
+    mix: { kind: 'knob', label: 'MIX', min: 0, max: 1, default: 1, size: 'sm' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+    cab: { kind: 'switch', label: 'CAB', options: [{ v: 'off', l: 'OFF' }, { v: 'on', l: 'ON' }], default: 'off' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['gain'], ['mode', 'cab'], ['tone', 'mix', 'level'], ['in:in', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    if (!e) return { out: null };
+    const p = ctx.p;
+    const [notes, wet] = busFxParts(ctx, e, 'scorch', 0.01);
+    return { out: fn('stack', notes, wet.call('scorchmode', num(Math.max(0, SCORCH_MODES.findIndex((m) => m.v === p.mode))))
+      .call('scorchgain', num(p.gain, 2)).call('scorchtone', num(p.tone, 2)).call('scorchcab', num(p.cab === 'on' ? 1 : 0))
+      .call('scorchmix', num(p.mix, 2)).call('scorchlvl', num(p.level, 2))) };
   },
 };

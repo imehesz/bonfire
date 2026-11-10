@@ -1523,3 +1523,118 @@ class BonfireMirage extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-mirage', BonfireMirage);
+
+// SCORCH: distortion. One per SCORCH module and, like STUTTER, an insert: all the sound of the
+// notes going through the module runs through here, summed, so chords grind against each other
+// the way they do in a real pedal or amp (per-note distortion can't do that).
+// Per channel: low cut (how tight the bass stays, per mode) -> GAIN -> the clipper, run at 4x the
+// sample rate so the new harmonics don't fold back as fizz -> DC blocker -> TONE lowpass -> CAB
+// (optional speaker: low cut + steep 4.5 kHz rolloff) -> makeup -> MIX with the clean sound.
+//   DRIVE  soft, slightly lopsided clipping, tight low end (overdrive pedal)
+//   DIST   harder knee, more gain (distortion pedal)
+//   FUZZ   huge gain, very lopsided, sputters as notes die (fuzz box)
+const SCORCH_MODES = [
+  { hp: 180, lo: 1, hi: 40 },
+  { hp: 90, lo: 2, hi: 160 },
+  { hp: 45, lo: 8, hi: 500 },
+];
+function scorchLp(fc, q, rate) {
+  const w = (2 * Math.PI * fc) / rate;
+  const al = Math.sin(w) / (2 * q);
+  const c = Math.cos(w);
+  const a0 = 1 + al;
+  return { b0: (1 - c) / 2 / a0, b1: (1 - c) / a0, b2: (1 - c) / 2 / a0, a1: (-2 * c) / a0, a2: (1 - al) / a0 };
+}
+class BonfireScorch extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    const sr = sampleRate;
+    // 4th-order lowpass at the oversampled rate, before dropping back to the normal rate
+    this.down = [scorchLp(0.42 * sr, 0.541, 4 * sr), scorchLp(0.42 * sr, 1.307, 4 * sr)];
+    this.cab = [scorchLp(4500, 0.9, sr), scorchLp(5600, 0.7, sr)];
+    const ch = () => ({ hp: 0, prev: 0, dc: 0, dcx: 0, tone: 0, cabhp: 0, z: new Float32Array(8), zc: new Float32Array(8) });
+    this.ch = [ch(), ch()];
+    this.p = { mode: 0, gain: 0.5, tone: 0.6, cab: 0, mix: 1, level: 1 };
+    this.gNow = 1;
+    this.mixNow = 1;
+    this.levelNow = 1;
+    this.port.onmessage = (e) => Object.assign(this.p, e.data);
+  }
+
+  process(inputs, outputs) {
+    const inp = inputs[0];
+    const out = outputs[0];
+    const sr = sampleRate;
+    const { p, down, cab } = this;
+    const mode = Math.min(2, Math.max(0, Math.round(p.mode)));
+    const m = SCORCH_MODES[mode];
+    const gTarget = m.lo * (m.hi / m.lo) ** Math.min(1, Math.max(0, p.gain));
+    const aHp = 1 - Math.exp((-2 * Math.PI * m.hp) / sr);
+    const aTone = 1 - Math.exp((-2 * Math.PI * 700 * 16 ** Math.min(1, Math.max(0, p.tone))) / sr);
+    const aCabHp = 1 - Math.exp((-2 * Math.PI * 85) / sr);
+    const n = out[0].length;
+    for (let c = 0; c < out.length; c++) {
+      const st = this.ch[c & 1];
+      const x = inp?.[c] ?? inp?.[0];
+      const y = out[c];
+      let g = this.gNow;
+      let mix = this.mixNow;
+      let level = this.levelNow;
+      for (let i = 0; i < n; i++) {
+        g += (gTarget - g) * 0.002;
+        mix += (p.mix - mix) * 0.002;
+        level += (p.level - level) * 0.002;
+        const dry = x?.[i] ?? 0;
+        st.hp += (dry - st.hp) * aHp;
+        const pre = dry - st.hp;
+        let s = 0;
+        for (let k = 1; k <= 4; k++) {
+          const v = (st.prev + (pre - st.prev) * (k / 4)) * g;
+          let w;
+          if (mode === 0) w = Math.tanh(v + 0.2) - 0.1974; // soft, a little lopsided
+          else if (mode === 1) w = v / (1 + Math.abs(v) ** 2.5) ** 0.4; // harder knee
+          else w = v > 0 ? Math.tanh(v) : Math.tanh(v * 0.35 + 0.08 * Math.tanh(v * 3)) * 0.9; // lopsided fuzz
+          // two lowpass sections (transposed direct form II)
+          for (let b = 0; b < 2; b++) {
+            const f = down[b];
+            const o = f.b0 * w + st.z[b * 2];
+            st.z[b * 2] = f.b1 * w - f.a1 * o + st.z[b * 2 + 1];
+            st.z[b * 2 + 1] = f.b2 * w - f.a2 * o;
+            w = o;
+          }
+          s = w;
+        }
+        st.prev = pre;
+        // DC blocker (lopsided clipping shifts the wave off centre)
+        const d = s - st.dcx + 0.9975 * st.dc;
+        st.dcx = s;
+        st.dc = d;
+        st.tone += (d - st.tone) * aTone;
+        let wet = st.tone;
+        if (p.cab > 0.5) {
+          st.cabhp += (wet - st.cabhp) * aCabHp;
+          wet -= st.cabhp;
+          for (let b = 0; b < 2; b++) {
+            const f = cab[b];
+            const o = f.b0 * wet + st.zc[b * 2];
+            st.zc[b * 2] = f.b1 * wet - f.a1 * o + st.zc[b * 2 + 1];
+            st.zc[b * 2 + 1] = f.b2 * wet - f.a2 * o;
+            wet = o;
+          }
+          wet *= 1.15;
+        }
+        // makeup: unity while clean, pulled down as GAIN squares the wave off
+        wet *= 0.14 + 0.86 / g ** 0.75;
+        y[i] = (dry * (1 - mix) + wet * mix) * level;
+      }
+      if (c === out.length - 1) {
+        this.gNow = g;
+        this.mixNow = mix;
+        this.levelNow = level;
+      }
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-scorch', BonfireScorch);
