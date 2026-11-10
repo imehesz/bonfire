@@ -279,7 +279,7 @@ export function routeTape(v) {
   }
 }
 
-// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER): one worklet per module that hears live audio ----
+// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER, MIRAGE): one worklet per module that hears live audio ----
 // Notes that went through such a module carry bfin = "kind:id" (several, comma-separated, when
 // they are chained) and are sent into bus 'bfin_<id>' -> the module's worklet -> bus 'bfout_<id>'.
 // The module also plays a held s("bus") note reading that out bus (tagged bfout = id, bfkind =
@@ -298,6 +298,7 @@ const BUS_FX = {
     keys: [['haloshim', 'shimmer'], ['halodecay', 'decay'], ['halosize', 'size'], ['halotone', 'tone'], ['halopitch', 'pitch'], ['halolvl', 'level']],
   },
   stutter: { processor: 'bonfire-stutter', keys: [['stutfade', 'fade']], insert: true },
+  mirage: { processor: 'bonfire-mirage', keys: [['mirmode', 'mode'], ['mirrate', 'rate'], ['mirdepth', 'depth'], ['mirwidth', 'width'], ['mirlvl', 'level']] },
 };
 const busFx = new Map(); // module id -> { ctx, node, kind, inBus, outBus, key, state, until }
 

@@ -19,6 +19,7 @@ for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'g
   ...[0, 1, 2, 3].flatMap((i) => [`fmr${i}`, `fml${i}`, `fma${i}`, `fmd${i}`]),
   'bfin', 'bfpg', 'bfout', 'bfkind', 'fridgelvl', 'fridgesmooth', 'fridgetrig', 'fridgelen',
   'bfroom', 'bfdelay', 'stutfade', 'stuttrig', 'stutlen', 'stutdur',
+  'mirmode', 'mirrate', 'mirdepth', 'mirwidth', 'mirlvl',
   'haloshim', 'halodecay', 'halosize', 'halotone', 'halopitch', 'halolvl',
   'grainsrc', 'grainn', 'graintune', 'grainpos', 'grainspray', 'grainscan', 'grainsize', 'graindens', 'grainshim', 'grainwidth']) registerControl(c);
 
@@ -532,7 +533,7 @@ export const fm4 = {
   },
 };
 
-// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER): modules that hear the live sound, not just the notes ----
+// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER, MIRAGE): modules that hear the live sound, not just the notes ----
 // The notes pass straight through; .bfsend(id, kind) only tags them so the engine also sends their
 // sound into this module's worklet (core/forge-audio.js). What the worklet makes comes back as a
 // held s("bus") note stacked next to them, so everything patched after the module treats it like
@@ -662,5 +663,37 @@ export const stutter = {
     const trig = ctx.in('trig');
     if (trig) parts.push(fn('n', num(0)).call('struct', trig).call('stuttrig', mini(ctx.id)).call('stutlen', secs(p.rate)).call('stutdur', secs(p.span)));
     return { out: fn('stack', ...parts) };
+  },
+};
+
+// ---- MIRAGE: chorus / ensemble / flanger ----
+const MIRAGE_MODES = [{ v: 'chorus', l: 'CHORUS' }, { v: 'ensemble', l: 'ENSEMBLE' }, { v: 'flange', l: 'FLANGE' }];
+
+export const mirage = {
+  type: 'mirage',
+  name: 'MIRAGE',
+  title: 'Chorus / Ensemble',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 10,
+  description: 'A chorus pedal: adds slightly delayed copies of the sound whose timing keeps drifting, so one note sounds like several players, wider and thicker, with a slow watery wobble. MODE: CHORUS is the classic pedal (clean guitar, post-punk bass, 80s synths); ENSEMBLE stacks three copies for the lush string-machine sound; FLANGE is the jet-plane sweep. RATE is how fast it wobbles, DEPTH how far (low = gentle thickening, high = seasick), WIDTH how far apart left and right drift (0 = mono), LEVEL how loud the copies are next to your notes. Your notes pass through untouched; whatever you patch after MIRAGE works on its sound too.',
+  params: {
+    mode: { kind: 'rotary', label: 'MODE', options: MIRAGE_MODES, default: 'chorus' },
+    rate: { kind: 'knob', label: 'RATE', min: 0.05, max: 8, default: 0.6, curve: 'log', unit: 'Hz' },
+    depth: { kind: 'knob', label: 'DEPTH', min: 0, max: 1, default: 0.5 },
+    width: { kind: 'knob', label: 'WIDTH', min: 0, max: 1, default: 1, size: 'sm' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['mode'], ['rate', 'depth'], ['width', 'level'], ['in:in', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    if (!e) return { out: null };
+    const p = ctx.p;
+    if (p.level < 0.005) return { out: e };
+    const [notes, wet] = busFxParts(ctx, e, 'mirage');
+    return { out: fn('stack', notes, wet.call('mirmode', num(Math.max(0, MIRAGE_MODES.findIndex((m) => m.v === p.mode))))
+      .call('mirrate', num(p.rate, 2)).call('mirdepth', num(p.depth, 2)).call('mirwidth', num(p.width, 2)).call('mirlvl', num(p.level, 2))) };
   },
 };

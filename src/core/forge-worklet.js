@@ -1444,3 +1444,82 @@ class BonfireStutter extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-stutter', BonfireStutter);
+
+// MIRAGE: chorus / ensemble / flanger. One per MIRAGE module, fed by the module's send bus; the
+// notes themselves still play dry, this adds delayed copies whose delay time keeps drifting (an
+// LFO), which is what makes the pitch wobble and the sound seem doubled. Left and right drift out
+// of step by WIDTH, which is where the stereo spread comes from. Output = the copies only.
+//   CHORUS    one copy around 8 ms (the pedal sound)
+//   ENSEMBLE  three copies at 10 / 13 / 17 ms, a third of a turn apart, plus a small fast wobble
+//             (the string-machine sound)
+//   FLANGE    one copy around 2.5 ms fed back into itself: a sweeping, hollow comb
+const MIRAGE_MODES = [
+  { base: [8], swing: 4, fast: 0, fb: 0, gain: 1 },
+  { base: [10, 13, 17], swing: 3, fast: 0.18, fb: 0, gain: 0.62 },
+  { base: [2.5], swing: 2.2, fast: 0, fb: 0.6, gain: 1 },
+];
+class BonfireMirage extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.cap = Math.ceil(sampleRate * 0.06) + 8;
+    this.buf = [new Float32Array(this.cap), new Float32Array(this.cap)];
+    this.w = 0;
+    this.ph = 0;
+    this.ph2 = 0;
+    this.lp = [0, 0];
+    this.last = [0, 0];
+    this.p = { mode: 0, rate: 0.6, depth: 0.5, width: 1, level: 1 };
+    this.depthNow = 0.5;
+    this.levelNow = 1;
+    this.port.onmessage = (e) => Object.assign(this.p, e.data);
+  }
+
+  process(inputs, outputs) {
+    const inp = inputs[0];
+    const out = outputs[0];
+    const L = out[0];
+    const R = out[1] ?? L;
+    const inL = inp?.[0];
+    const inR = inp?.[1] ?? inL;
+    const sr = sampleRate;
+    const { p, buf, cap } = this;
+    const m = MIRAGE_MODES[Math.min(2, Math.max(0, Math.round(p.mode)))];
+    const rate = Math.min(12, Math.max(0.02, p.rate));
+    // a faster wobble swings less far, or the pitch bend gets seasick
+    const swing = ((m.swing / 1000) * sr) / Math.max(1, rate / 0.8);
+    const aLp = 1 - Math.exp((-2 * Math.PI * 9000) / sr);
+    const n = m.base.length;
+    for (let i = 0; i < L.length; i++) {
+      this.depthNow += (p.depth - this.depthNow) * 0.0005;
+      this.levelNow += (p.level - this.levelNow) * 0.001;
+      this.ph += rate / sr;
+      if (this.ph >= 1) this.ph -= 1;
+      this.ph2 += (rate * 9.7) / sr;
+      if (this.ph2 >= 1) this.ph2 -= 1;
+      for (let ch = 0; ch < 2; ch++) {
+        const b = buf[ch];
+        b[this.w] = ((ch ? inR?.[i] : inL?.[i]) ?? 0) + this.last[ch] * m.fb;
+        const side = ch * p.width * (n > 1 ? 0.25 : 0.5); // right channel's LFO runs this far ahead
+        let s = 0;
+        for (let v = 0; v < n; v++) {
+          const a = 2 * Math.PI * (this.ph + v / n + side);
+          const lfo = Math.sin(a) + m.fast * Math.sin(2 * Math.PI * (this.ph2 + v / n + side));
+          const d = (m.base[v] / 1000) * sr + lfo * swing * this.depthNow;
+          let r = this.w - Math.max(2, d);
+          if (r < 0) r += cap;
+          const i0 = r | 0;
+          const fr = r - i0;
+          s += b[i0] + (b[i0 + 1 === cap ? 0 : i0 + 1] - b[i0]) * fr;
+        }
+        s *= m.gain;
+        this.lp[ch] += (s - this.lp[ch]) * aLp;
+        this.last[ch] = this.lp[ch];
+        (ch ? R : L)[i] = this.lp[ch] * this.levelNow;
+      }
+      if (++this.w >= cap) this.w = 0;
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-mirage', BonfireMirage);
