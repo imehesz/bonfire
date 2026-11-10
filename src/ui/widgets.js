@@ -1,7 +1,7 @@
 // Custom panel widgets. Each returns { el, update(params), tick(cycle, meta) }.
 import { checkpoint, findModule, setParam } from '../core/store.js';
 import { bjorklund } from '@strudel/core';
-import { analysers } from '../core/engine.js';
+import { analysers, fridgeState, fridgeToggle, isPlaying } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
 import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, arpOrder, beats, chordPlan } from '../modules/sources.js';
 import { FENV_PRESETS, khaozPath } from '../modules/processors.js';
@@ -1235,4 +1235,35 @@ function tapeDeck() {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck };
+// FRIDGE: a little display for the freeze state. The FREEZE push button arrives as an action
+// (so MIDI learn can press it too); the state lives in the audio engine, not in the patch.
+const FRIDGE_TEXT = { off: 'READY', rec: 'REC', on: 'FROZEN' };
+function fridgeDoor(mod) {
+  const el = h('div', { class: 'lcd w-fridge' }, 'READY');
+  let hint = 0;
+  let shown = '';
+  return {
+    el,
+    update() {},
+    action(spec) {
+      if (spec !== 'freeze') return;
+      if (!isPlaying() && fridgeState(mod.id) === 'off') {
+        hint = performance.now() + 1200; // nothing is sounding: there would be only silence to freeze
+        return;
+      }
+      fridgeToggle(mod.id, findModule(mod.id)?.params.length ?? 0.5);
+    },
+    tick() {
+      const st = fridgeState(mod.id);
+      const text = performance.now() < hint ? 'PRESS PLAY' : FRIDGE_TEXT[st];
+      if (text === shown) return;
+      shown = text;
+      el.textContent = text;
+      const m = el.closest('.module');
+      m?.classList.toggle('fridge-rec', st === 'rec');
+      m?.classList.toggle('fridge-on', st === 'on');
+    },
+  };
+}
+
+export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor };

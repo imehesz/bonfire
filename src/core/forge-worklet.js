@@ -1033,3 +1033,323 @@ class BonfireTapeBus extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-tapebus', BonfireTapeBus);
+
+// FRIDGE: a freeze pedal. One per FRIDGE module, fed by the module's send bus (every note going
+// through it). { freeze: seconds, at?: time } records that much of the input (plus a short overlap)
+// and then plays it for as long as it is held; { release: true } fades it out. There are two
+// slots, so a new freeze is recorded while the old one keeps playing and they swap with a fade.
+// LOOP plays the slice round and round (the overlap is crossfaded over the start of each pass, so
+// the loop point doesn't click). SMOOTH plays it as overlapping grains taken from random spots in
+// the slice, so there is no audible repeat. Each new grain is slid (up to 20 ms) to where it lines
+// up best with what the previous grain was about to play, so the waves stay in step and a held
+// note or chord comes out as a steady pad instead of warbling. Output = the frozen sound only.
+const FRIDGE_MAX = 1; // seconds, the LENGTH knob's top
+const FRIDGE_XFADE = 0.03;
+const FRIDGE_GRAIN = 0.1; // seconds; two grains, half overlapped (their Hann windows add up to 1)
+const FRIDGE_SEARCH = 0.02; // how far a grain may slide to line up
+const FRIDGE_MATCH = 256; // samples compared (every 2nd one)
+class BonfireFridge extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    const cap = Math.ceil(sampleRate * (FRIDGE_MAX + FRIDGE_XFADE)) + 8;
+    const slot = () => ({ buf: [new Float32Array(cap), new Float32Array(cap)], mono: new Float32Array(cap), n: 0, x: 0, r: 0, on: 0, gain: 0, grains: [], size: 128, next: 0 });
+    this.slots = [slot(), slot()];
+    this.cur = 0; // the slot that is (or was last) playing
+    this.rec = -1; // the slot being recorded, -1 = none
+    this.w = 0;
+    this.pend = null; // a freeze waiting for its start time: { at: frame, len }
+    this.smooth = 0;
+    this.level = 1;
+    this.levelNow = 1;
+    this.port.onmessage = (e) => {
+      const d = e.data;
+      if (d.level != null) this.level = d.level;
+      if (d.smooth != null) this.smooth = d.smooth ? 1 : 0;
+      if (d.freeze != null) this.pend = { at: d.at != null ? Math.round(d.at * sampleRate) : 0, len: d.freeze };
+      if (d.release) {
+        this.pend = null;
+        this.rec = -1;
+        this.slots[this.cur].on = 0;
+      }
+    };
+  }
+
+  startRec(len) {
+    const c = this.slots[this.cur];
+    this.rec = c.on || c.gain > 1e-4 ? 1 - this.cur : this.cur;
+    const s = this.slots[this.rec];
+    s.n = Math.round(Math.min(FRIDGE_MAX, Math.max(0.02, len)) * sampleRate);
+    s.x = Math.min(Math.round(FRIDGE_XFADE * sampleRate), s.n >> 2);
+    s.on = 0;
+    s.gain = 0;
+    this.w = 0;
+  }
+
+  // Start a grain at a random spot; with `after` (the grain playing now) slide it to the best match
+  // for what that grain plays next.
+  newGrain(s, g, after) {
+    const total = s.n + s.x;
+    const range = Math.max(1, Math.min(Math.round(FRIDGE_SEARCH * sampleRate), total - s.size - 1));
+    const base = Math.floor(Math.random() * Math.max(1, total - s.size - range));
+    let best = 0;
+    if (after) {
+      const m = s.mono;
+      const want = after.start + after.i;
+      const len = Math.min(FRIDGE_MATCH, s.size >> 1);
+      let top = -Infinity;
+      for (let d = 0; d < range; d++) {
+        let dot = 0;
+        let energy = 1e-9;
+        for (let j = 0; j < len; j += 2) {
+          const y = m[base + d + j];
+          dot += y * m[want + j];
+          energy += y * y;
+        }
+        const score = dot / Math.sqrt(energy);
+        if (score > top) {
+          top = score;
+          best = d;
+        }
+      }
+    }
+    g.start = base + best;
+    g.i = 0;
+  }
+
+  endRec() {
+    const s = this.slots[this.rec];
+    if (this.rec !== this.cur) this.slots[this.cur].on = 0;
+    this.cur = this.rec;
+    this.rec = -1;
+    s.on = 1;
+    s.r = 0;
+    const total = s.n + s.x;
+    for (let i = 0; i < total; i++) s.mono[i] = s.buf[0][i] + s.buf[1][i];
+    s.size = Math.max(128, Math.min(Math.round(FRIDGE_GRAIN * sampleRate), total >> 1) & ~1);
+    s.grains = [{ start: 0, i: 0 }, { start: 0, i: s.size }]; // the 2nd one starts half a grain later
+    this.newGrain(s, s.grains[0], null);
+    s.next = s.size >> 1;
+  }
+
+  process(inputs, outputs) {
+    const inp = inputs[0];
+    const out = outputs[0];
+    const L = out[0];
+    const R = out[1] ?? L;
+    const inL = inp?.[0];
+    const inR = inp?.[1] ?? inL;
+    const up = 1 - Math.exp(-1 / (0.012 * sampleRate));
+    const down = 1 - Math.exp(-1 / (0.09 * sampleRate));
+    for (let i = 0; i < L.length; i++) {
+      if (this.pend && currentFrame + i >= this.pend.at) {
+        this.startRec(this.pend.len);
+        this.pend = null;
+      }
+      if (this.rec >= 0) {
+        const s = this.slots[this.rec];
+        s.buf[0][this.w] = inL?.[i] ?? 0;
+        s.buf[1][this.w] = inR?.[i] ?? 0;
+        if (++this.w >= s.n + s.x) this.endRec();
+      }
+      this.levelNow += (this.level - this.levelNow) * 0.001;
+      let l = 0;
+      let r = 0;
+      for (let k = 0; k < 2; k++) {
+        const s = this.slots[k];
+        if (k === this.rec || (!s.on && s.gain < 1e-4)) continue;
+        s.gain += (s.on - s.gain) * (s.on > s.gain ? up : down);
+        const b0 = s.buf[0];
+        const b1 = s.buf[1];
+        let a = 0;
+        let b = 0;
+        if (this.smooth) {
+          if (--s.next < 0) {
+            // every half grain: the grain that just ended starts again, lined up with the other one
+            const [g0, g1] = s.grains;
+            const done = g0.i >= s.size ? g0 : g1;
+            this.newGrain(s, done, done === g0 ? g1 : g0);
+            s.next = (s.size >> 1) - 1;
+          }
+          for (const g of s.grains) {
+            if (g.i >= s.size) continue;
+            const win = 0.5 - 0.5 * Math.cos((2 * Math.PI * g.i) / s.size);
+            a += b0[g.start + g.i] * win;
+            b += b1[g.start + g.i] * win;
+            g.i++;
+          }
+        } else {
+          const p = s.r;
+          if (p < s.x) {
+            // the bit recorded past the loop's end fades out under the loop's start fading in
+            const t = (p / s.x) * (Math.PI / 2);
+            const fin = Math.sin(t);
+            const fout = Math.cos(t);
+            a = b0[p] * fin + b0[s.n + p] * fout;
+            b = b1[p] * fin + b1[s.n + p] * fout;
+          } else {
+            a = b0[p];
+            b = b1[p];
+          }
+        }
+        if (++s.r >= s.n) s.r = 0;
+        l += a * s.gain;
+        r += b * s.gain;
+      }
+      L[i] = l * this.levelNow;
+      R[i] = r * this.levelNow;
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-fridge', BonfireFridge);
+
+// HALO: shimmer reverb. One per HALO module, fed by the module's send bus. The reverb is eight
+// delay lines feeding each other (a feedback delay network) behind a few short smearing
+// allpasses; DECAY sets how fast the lines die, TONE how fast their highs die, SIZE scales their
+// lengths (changes glide, like a tape changing speed). The shimmer: the reverb's own output goes
+// through a pitch shifter (two overlapping read heads moving through a short delay) and back into
+// the reverb's input, so every trip round climbs by PITCH. Output = the reverb only.
+const HALO_MS = [29.7, 37.1, 41.1, 43.7, 53.3, 59.9, 67.7, 73.1]; // line lengths at SIZE 0 x1 .. 1 x2.2
+const HALO_AP_MS = [[4.7, 3.6, 12.7], [5.3, 3.1, 11.9]]; // per channel
+const HALO_SHIFT = 0.085; // seconds, the pitch shifter's window
+class BonfireHalo extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    const sr = sampleRate;
+    this.cap = Math.ceil(sr * 0.18) + 8;
+    this.lines = HALO_MS.map(() => new Float32Array(this.cap));
+    this.len = HALO_MS.map(() => -1); // current (gliding) length of each line in frames
+    this.damp = new Float32Array(8);
+    this.y = new Float32Array(8);
+    this.g = new Float32Array(8);
+    this.w = 0;
+    this.ap = HALO_AP_MS.map((ch) => ch.map((ms) => ({ buf: new Float32Array(Math.round((ms / 1000) * sr)), i: 0 })));
+    this.scap = Math.ceil(sr * (HALO_SHIFT + 0.02)) + 8;
+    this.sbuf = [new Float32Array(this.scap), new Float32Array(this.scap)];
+    this.sw = 0;
+    this.sph = 0;
+    this.fb = [0, 0];
+    this.fbLp = [0, 0];
+    this.fbHp = [0, 0];
+    this.lfo = 0;
+    this.p = { shimmer: 0.5, decay: 6, size: 0.6, tone: 6000, pitch: 12, level: 0.7 };
+    this.shimNow = 0.5;
+    this.levelNow = 0.7;
+    this.port.onmessage = (e) => {
+      if (e.data.clear) {
+        for (const b of [...this.lines, ...this.sbuf, ...this.ap.flat().map((a) => a.buf)]) b.fill(0);
+        this.damp.fill(0);
+        this.fb = [0, 0];
+        this.fbLp = [0, 0];
+        this.fbHp = [0, 0];
+        return;
+      }
+      Object.assign(this.p, e.data);
+    };
+  }
+
+  process(inputs, outputs) {
+    const inp = inputs[0];
+    const out = outputs[0];
+    const L = out[0];
+    const R = out[1] ?? L;
+    const inL = inp?.[0];
+    const inR = inp?.[1] ?? inL;
+    const sr = sampleRate;
+    const { p, lines, len, damp, y, g, cap, sbuf, scap } = this;
+    const scale = 1 + Math.min(1, Math.max(0, p.size)) * 1.2;
+    const decay = Math.min(30, Math.max(0.2, p.decay));
+    const aDamp = 1 - Math.exp((-2 * Math.PI * Math.min(18000, Math.max(500, p.tone))) / sr);
+    const aFbLp = 1 - Math.exp((-2 * Math.PI * Math.min(7000, Math.max(500, p.tone))) / sr);
+    const aFbHp = 1 - Math.exp((-2 * Math.PI * 150) / sr);
+    const glide = 1 - Math.exp(-1 / (0.15 * sr));
+    const ratio = 2 ** ((p.pitch ?? 12) / 12);
+    // a long DECAY makes the reverb louder: turn the feedback down to match, so SHIMMER feels the same
+    const fbGain = HALO_FB / Math.sqrt(Math.min(4, Math.max(0.15, decay / 6)));
+    const win = HALO_SHIFT * sr;
+    const step = Math.abs(ratio - 1) / win;
+    for (let k = 0; k < 8; k++) {
+      const target = (HALO_MS[k] / 1000) * sr * scale;
+      if (len[k] < 0) len[k] = target;
+      g[k] = 10 ** ((-3 * (target / sr)) / decay);
+    }
+    for (let i = 0; i < L.length; i++) {
+      this.shimNow += (p.shimmer - this.shimNow) * 0.0005;
+      this.levelNow += (p.level - this.levelNow) * 0.001;
+      this.lfo += 0.37 / sr;
+      if (this.lfo >= 1) this.lfo -= 1;
+      const wob = Math.sin(2 * Math.PI * this.lfo) * 6;
+      // input + the shimmer coming back, smeared by the allpasses
+      const x = [(inL?.[i] ?? 0) + this.fb[0], (inR?.[i] ?? 0) + this.fb[1]];
+      for (let ch = 0; ch < 2; ch++) {
+        let s = x[ch];
+        for (const a of this.ap[ch]) {
+          const d = a.buf[a.i];
+          const v = s + d * 0.6;
+          a.buf[a.i] = v;
+          if (++a.i >= a.buf.length) a.i = 0;
+          s = d - v * 0.6;
+        }
+        x[ch] = s;
+      }
+      // read the eight lines (two of them wobble a little, which keeps the tail from ringing)
+      let sum = 0;
+      for (let k = 0; k < 8; k++) {
+        len[k] += ((HALO_MS[k] / 1000) * sr * scale - len[k]) * glide;
+        let r = this.w - len[k] - (k === 1 ? wob : k === 6 ? -wob : 0);
+        while (r < 0) r += cap;
+        const i0 = r | 0;
+        const fr = r - i0;
+        const b = lines[k];
+        const v = b[i0] + (b[i0 + 1 === cap ? 0 : i0 + 1] - b[i0]) * fr;
+        damp[k] += (v - damp[k]) * aDamp;
+        y[k] = damp[k];
+        sum += y[k];
+      }
+      // every line feeds every other one (Householder mix), minus what DECAY takes away
+      const mix = sum * 0.25;
+      let oL = 0;
+      let oR = 0;
+      for (let k = 0; k < 8; k++) {
+        lines[k][this.w] = (y[k] - mix) * g[k] + x[k & 1] * 0.5;
+        if (k & 1) oR += y[k];
+        else oL += y[k];
+      }
+      if (++this.w >= cap) this.w = 0;
+      oL *= 0.5;
+      oR *= 0.5;
+      // pitch shifter on the reverb's output -> back into the input
+      this.sph += step;
+      if (this.sph >= 1) this.sph -= 1;
+      const o = [oL, oR];
+      for (let ch = 0; ch < 2; ch++) {
+        const b = sbuf[ch];
+        b[this.sw] = o[ch];
+        let s = 0;
+        for (let t = 0; t < 2; t++) {
+          let ph = this.sph + t * 0.5;
+          if (ph >= 1) ph -= 1;
+          const d = 1 + (ratio > 1 ? 1 - ph : ph) * win;
+          let r = this.sw - d;
+          if (r < 0) r += scap;
+          const i0 = r | 0;
+          const fr = r - i0;
+          const sn = Math.sin(Math.PI * ph);
+          s += (b[i0] + (b[i0 + 1 === scap ? 0 : i0 + 1] - b[i0]) * fr) * sn * sn;
+        }
+        this.fbLp[ch] += (s - this.fbLp[ch]) * aFbLp;
+        this.fbHp[ch] += (this.fbLp[ch] - this.fbHp[ch]) * aFbHp;
+        this.fb[ch] = Math.tanh((this.fbLp[ch] - this.fbHp[ch]) * this.shimNow * fbGain);
+      }
+      if (++this.sw >= scap) this.sw = 0;
+      L[i] = oL * this.levelNow * HALO_OUT;
+      R[i] = oR * this.levelNow * HALO_OUT;
+    }
+    return true;
+  }
+}
+const HALO_FB = 1.3; // how much of the shifted tail goes back in at SHIMMER 1 (DECAY 6 s)
+const HALO_OUT = 0.5;
+
+registerProcessor('bonfire-halo', BonfireHalo);

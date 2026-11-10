@@ -205,7 +205,7 @@ export function compilePatch(patch) {
 }
 
 // Modules that pass one IN straight through (so a MIXER behind them is still "the master").
-const PASS = new Set(['fx', 'vintage', 'tape', 'filter', 'fenv', 'vandal', 'duck', 'octave']);
+const PASS = new Set(['fx', 'vintage', 'tape', 'fridge', 'halo', 'filter', 'fenv', 'vandal', 'duck', 'octave']);
 
 // Walks back from `id` through one-in PASS modules; true if it lands on a module matching `test`.
 function throughPass(id, inputs, byId, test) {

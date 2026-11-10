@@ -5,7 +5,9 @@ import {
   webaudioOutput,
 } from '@strudel/webaudio';
 import { initStrudel } from './strudel.js';
-import { loadForge, routeTape } from './forge-audio.js';
+import { busFxEvents, fridgeReset, fridgeState, fridgeToggle, loadForge, routeTape } from './forge-audio.js';
+
+export { fridgeReset, fridgeState, fridgeToggle };
 import { registerSoundfonts } from '@strudel/soundfonts';
 import dirtSubset from './dirt-subset.json';
 
@@ -51,11 +53,16 @@ export function boot() {
     // every event passes here on its way to superdough: TAPE's tape loops get wired up from it
     // (again once superdough has made the note's orbit, the very first time an orbit is used)
     defaultOutput: (hap, ...rest) => {
-      const tape = hap.value?.bus != null;
-      if (tape) routeTape(hap.value);
-      const done = webaudioOutput(hap, ...rest);
-      if (tape) Promise.resolve(done).then(() => routeTape(hap.value), () => {});
-      return done;
+      const send = (h) => {
+        const tape = h.value?.bus != null;
+        if (tape) routeTape(h.value);
+        const done = webaudioOutput(h, ...rest);
+        if (tape) Promise.resolve(done).then(() => routeTape(h.value), () => {});
+        return done;
+      };
+      // FRIDGE / HALO: notes going through one are also sent into its worklet (sometimes as a silent copy)
+      const frozen = busFxEvents(hap.value, rest[3]);
+      return frozen ? Promise.all(frozen.map((v) => send(hap.withValue(() => v)))) : send(hap);
     },
     onEvalError: (e) => {
       state.error = e?.message ?? String(e);

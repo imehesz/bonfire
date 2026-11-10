@@ -278,3 +278,133 @@ export function routeTape(v) {
     t.key = key;
   }
 }
+
+// ---- BUS EFFECTS (FRIDGE, HALO): one worklet per module that hears live audio ----
+// Notes that went through such a module carry bfin = "kind:id" (several, comma-separated, when
+// they are chained) and are sent into bus 'bfin_<id>' -> the module's worklet -> bus 'bfout_<id>'.
+// The module also plays a held s("bus") note reading that out bus (tagged bfout = id, bfkind =
+// kind, plus the module's knobs), so the effect's sound runs through whatever comes after the
+// module (FILTER, FX, TAPE, MIXER) like any other sound.
+// A step on FRIDGE's TRIG jack arrives as a soundless event tagged fridgetrig = id.
+// busFxEvents(value, time) is called by the engine for every event: null = play it as it is, else
+// the list of values to play instead (empty = nothing).
+const BUS_FX = {
+  fridge: { processor: 'bonfire-fridge', keys: [['fridgelvl', 'level'], ['fridgesmooth', 'smooth']] },
+  halo: {
+    processor: 'bonfire-halo',
+    keys: [['haloshim', 'shimmer'], ['halodecay', 'decay'], ['halosize', 'size'], ['halotone', 'tone'], ['halopitch', 'pitch'], ['halolvl', 'level']],
+  },
+};
+const busFx = new Map(); // module id -> { ctx, node, kind, inBus, outBus, key, state, until }
+
+function fxOf(id, kind) {
+  const ctx = getAudioContext();
+  let f = busFx.get(id);
+  if (f?.ctx === ctx && f.kind === kind) return f;
+  if (!BUS_FX[kind]) return null;
+  try {
+    const node = new AudioWorkletNode(ctx, BUS_FX[kind].processor, {
+      numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit',
+    });
+    f = { ctx, node, kind, inBus: null, outBus: null, key: '', state: 'off', until: 0 };
+    busFx.set(id, f);
+    return f;
+  } catch {
+    return null; // worklet not loaded yet (audio still starting)
+  }
+}
+
+// superdough makes new buses after a reset: (re)connect whichever one changed
+function wireFx(id, kind) {
+  const f = fxOf(id, kind);
+  if (!f) return null;
+  const ctrl = getSuperdoughAudioController();
+  const inBus = ctrl.getBus(`bfin_${id}`);
+  const outBus = ctrl.getBus(`bfout_${id}`);
+  if (f.inBus !== inBus) {
+    inBus.connect(f.node);
+    f.inBus = inBus;
+  }
+  if (f.outBus !== outBus) {
+    if (f.outBus) f.node.disconnect();
+    f.node.connect(outBus);
+    f.outBus = outBus;
+  }
+  return f;
+}
+
+export function busFxEvents(v, t) {
+  if (v?.bfout == null && v?.bfin == null && v?.fridgetrig == null) return null;
+  if (v.fridgetrig != null) {
+    // a step on the TRIG jack: freeze at that step's own time. The event itself makes no sound.
+    const f = wireFx(String(v.fridgetrig), 'fridge');
+    if (f) {
+      const seconds = v.fridgelen ?? 0.5;
+      f.node.port.postMessage({ freeze: seconds, at: t });
+      f.state = 'rec';
+      f.until = performance.now() + (Math.max(0, (t ?? 0) - f.ctx.currentTime) + seconds) * 1000 + 40;
+    }
+    return [];
+  }
+  if (v.bfout != null) {
+    // the held note that plays the effect's output: it carries the knobs
+    const kind = String(v.bfkind);
+    const f = wireFx(String(v.bfout), kind);
+    if (f) {
+      const knobs = Object.fromEntries(BUS_FX[kind].keys.filter(([k]) => v[k] != null).map(([k, as]) => [as, Number(v[k])]));
+      const key = JSON.stringify(knobs);
+      if (key !== f.key) {
+        f.node.port.postMessage(knobs);
+        f.key = key;
+      }
+    }
+  }
+  if (v.bfin == null) return null;
+  // the send leaves the note after its postgain (a MIXER level further down): undo what was added
+  // after the module, so the effect hears the note as loud as it was going in
+  const post = v.postgain ?? 1;
+  const busgain = post > 1e-3 ? Math.min(8, (v.bfpg ?? 1) / post) : 1;
+  const out = [];
+  let own = v.bus == null; // a note has ONE send: free = use it, taken (a TAPE further down) = a silent copy
+  if (!own) out.push(v);
+  for (const entry of String(v.bfin).split(',')) {
+    const [kind, id] = entry.split(':');
+    if (!wireFx(id, kind)) continue;
+    const send = { ...v, bus: `bfin_${id}`, busgain };
+    out.push(own ? send : { ...send, dry: 0, room: 0, delay: 0 });
+    own = false;
+  }
+  return out.length ? out : null;
+}
+
+// FRIDGE: 'off' | 'rec' (recording the slice) | 'on' (playing it)
+export function fridgeState(id) {
+  const f = busFx.get(id);
+  if (!f || f.state === 'off') return 'off';
+  if (f.state === 'rec' && performance.now() >= f.until) f.state = 'on';
+  return f.state;
+}
+
+// The FREEZE button: record `seconds` of what is coming in and loop it; pressed again = let go.
+export function fridgeToggle(id, seconds) {
+  const f = wireFx(id, 'fridge');
+  if (!f) return 'off';
+  if (fridgeState(id) === 'off') {
+    f.node.port.postMessage({ freeze: seconds });
+    f.state = 'rec';
+    f.until = performance.now() + seconds * 1000 + 40;
+  } else {
+    f.node.port.postMessage({ release: true });
+    f.state = 'off';
+  }
+  return f.state;
+}
+
+// A newly loaded patch starts with nothing frozen and no old reverb tail.
+export function fridgeReset() {
+  for (const f of busFx.values()) {
+    if (f.kind === 'halo') f.node.port.postMessage({ clear: true });
+    else if (f.state !== 'off') f.node.port.postMessage({ release: true });
+    f.state = 'off';
+  }
+}

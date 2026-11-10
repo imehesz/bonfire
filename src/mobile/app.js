@@ -326,6 +326,7 @@ engine.onEngine((st) => {
 playBtn.innerHTML = '<span>▶</span> PLAY';
 
 store.subscribe((kind, detail) => {
+  if (kind === 'reset' && detail?.load) engine.fridgeReset(); // a loaded patch starts unfrozen
   if (kind === 'params') {
     if (detail?.id) cards.get(detail.id)?.view.updateParam(detail.key);
     recompile();

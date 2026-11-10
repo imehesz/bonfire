@@ -63,7 +63,7 @@ export function redoChange() {
 export function loadPatch(p, { record = true } = {}) {
   if (record) checkpoint();
   patch = normalize(p);
-  emit('reset');
+  emit('reset', { load: true });
 }
 
 function normalize(p) {

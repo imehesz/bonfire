@@ -288,6 +288,7 @@ engine.onEngine((s) => {
 
 store.subscribe((kind, detail) => {
   if (kind === 'layout') return; // phone-only arrangement, nothing on the rack changes
+  if (kind === 'reset' && detail?.load) engine.fridgeReset(); // a loaded patch starts unfrozen
   if (kind === 'params') {
     if (detail?.id) rack.updateParam(detail.id, detail.key);
     recompile();

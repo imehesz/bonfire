@@ -3,7 +3,7 @@
 // give normal Strudel patterns, so MELODY/CHAIN/GATE in and FILTER/FX/MIXER out all work as usual.
 // Every definition here sets `strudel: false`; the drawer, faceplate and compiler key off that.
 import { Pattern, Hap, TimeSpan, noteToMidi, register, registerControl } from '@strudel/core';
-import { fn, mini, num } from '../core/expr.js';
+import { fn, mini, num, str } from '../core/expr.js';
 import { midiToNote } from '../core/music.js';
 import { setIf } from './helpers.js';
 
@@ -17,6 +17,8 @@ for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'g
   'drummodel', 'drumkey', 'drumtune', 'drumpunch', 'drumdecay', 'drumtone', 'drumnoise', 'drumclick', 'drumdrive',
   'fmalgo', 'fmfb', 'fmsus', 'fmhold', 'fmchorus', 'fmbright', 'fmtime', 'fmmetal', 'fmsoft', 'fmacc',
   ...[0, 1, 2, 3].flatMap((i) => [`fmr${i}`, `fml${i}`, `fma${i}`, `fmd${i}`]),
+  'bfin', 'bfpg', 'bfout', 'bfkind', 'fridgelvl', 'fridgesmooth', 'fridgetrig', 'fridgelen',
+  'haloshim', 'halodecay', 'halosize', 'halotone', 'halopitch', 'halolvl',
   'grainsrc', 'grainn', 'graintune', 'grainpos', 'grainspray', 'grainscan', 'grainsize', 'graindens', 'grainshim', 'grainwidth']) registerControl(c);
 
 // Shared front half of every Bonfire-only voice: PITCH (or a C3 per bar) -> s(sound), GATE, TUNE.
@@ -526,5 +528,95 @@ export const fm4 = {
     e = setIf(e, 'fmmetal', p.metal, 0, 2);
     e = setIf(e, 'fmsoft', p.soften, 0, 2);
     return { out: voiceEnd(ctx, e) };
+  },
+};
+
+// ---- BUS EFFECTS (FRIDGE, HALO): modules that hear the live sound, not just the notes ----
+// The notes pass straight through; .bfsend(id, kind) only tags them so the engine also sends their
+// sound into this module's worklet (core/forge-audio.js). What the worklet makes comes back as a
+// held s("bus") note stacked next to them, so everything patched after the module treats it like
+// any other sound. bfpg remembers the postgain a note had coming in (see busFxEvents: the effect
+// hears the note before a later MIXER level, which then turns its output up and down like the notes).
+const plain = (x) => String(x?.firstCycle ? x.firstCycle()[0]?.value : x); // Strudel wraps arguments in patterns
+register('bfsend', (id, kind, pat) => {
+  const tag = `${plain(kind)}:${plain(id)}`;
+  return pat.withValue((v) => (typeof v !== 'object' || v === null ? v : {
+    ...v,
+    bfin: v.bfin ? `${v.bfin},${tag}` : tag,
+    bfpg: v.bfpg ?? v.postgain ?? 1,
+  }));
+}, false);
+
+// [the tagged notes, the held note that plays the module's output]
+function busFxParts(ctx, e, kind) {
+  // one held note per bar; equal linear fades in and out, so the joins between bars add up flat
+  const wet = fn('s', mini('bus')).call('n', mini(`bfout_${ctx.id}`)).call('gain', num(1))
+    .call('attack', num(0.03, 2)).call('release', num(0.03, 2))
+    .call('bfout', mini(ctx.id)).call('bfkind', mini(kind));
+  return [e.call('bfsend', str(ctx.id), str(kind)), wet];
+}
+
+// ---- FRIDGE: a freeze pedal ----
+// The FREEZE button is a live gesture (like a footswitch): it is not part of the patch or the code.
+export const fridge = {
+  type: 'fridge',
+  name: 'FRIDGE',
+  title: 'Freeze Pedal',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 8,
+  description: 'A freeze pedal. Press FREEZE and it records the next LENGTH seconds of whatever is coming in, then keeps playing that slice while your notes carry on over the top. Press FREEZE again to let it go. MODE: LOOP plays the slice round and round (short lengths buzz and stutter, longer ones turn into a little loop); SMOOTH blurs it into a steady pad with no audible repeat. LEVEL is how loud the frozen sound is. TRIG presses the button for you: every step that is on freezes afresh, right on that step, and the old freeze keeps sounding until the new one is ready (pressing FREEZE lets go until the next step). Whatever you patch after FRIDGE (FILTER, FX, TAPE, a MIXER channel) works on the frozen sound too. The FREEZE button is something you play live: it is not saved in the patch, and it needs the patch to be playing.',
+  params: {
+    mode: { kind: 'switch', label: 'MODE', options: [{ v: 'loop', l: 'LOOP' }, { v: 'smooth', l: 'SMOOTH' }], default: 'loop' },
+    length: { kind: 'knob', label: 'LENGTH', min: 0.1, max: 1, default: 0.5, unit: 's' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1 },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' }, trig: { type: 'rhythm', label: 'TRIG' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  actions: { freeze: { label: 'FREEZE', led: true } },
+  layout: [['widget:fridgeDoor'], ['freeze'], ['mode'], ['length', 'level'], ['in:in', 'in:trig', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    if (!e) return { out: null };
+    const p = ctx.p;
+    const [notes, wet] = busFxParts(ctx, e, 'fridge');
+    const parts = [notes, wet.call('fridgelvl', num(p.level, 2)).call('fridgesmooth', num(p.mode === 'smooth' ? 1 : 0))];
+    // TRIG: soundless events the engine turns into button presses at their exact time
+    const trig = ctx.in('trig');
+    if (trig) parts.push(fn('n', num(0)).call('struct', trig).call('fridgetrig', mini(ctx.id)).call('fridgelen', num(p.length, 2)));
+    return { out: fn('stack', ...parts) };
+  },
+};
+
+// ---- HALO: shimmer reverb ----
+const HALO_PITCH = [{ v: 12, l: '+OCT' }, { v: 7, l: '+5TH' }, { v: 19, l: '+OCT5' }, { v: -12, l: '-OCT' }];
+
+export const halo = {
+  type: 'halo',
+  name: 'HALO',
+  title: 'Shimmer Reverb',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 10,
+  description: 'A shimmer reverb: a big, slow reverb whose tail keeps being fed back into itself an octave higher, so a chord blooms into a glowing, choir-like halo above the notes. SHIMMER is how much of the tail climbs (0 = a plain lush reverb). PITCH picks the climb: an octave up, a fifth, an octave and a fifth, or an octave down for a dark, sinking tail. DECAY is how long it rings, SIZE the size of the space, TONE how bright the tail stays, LEVEL how loud the reverb is next to your notes. Your notes pass through untouched; whatever you patch after HALO (FILTER, TAPE, a MIXER channel) works on the reverb too. The tail only sounds while the patch is playing.',
+  params: {
+    shimmer: { kind: 'knob', label: 'SHIMMER', min: 0, max: 1, default: 0.5, size: 'lg' },
+    decay: { kind: 'knob', label: 'DECAY', min: 0.5, max: 20, default: 6, curve: 'log', unit: 's' },
+    size: { kind: 'knob', label: 'SIZE', min: 0, max: 1, default: 0.6 },
+    tone: { kind: 'knob', label: 'TONE', min: 1000, max: 16000, default: 6000, curve: 'log', unit: 'Hz', size: 'sm' },
+    pitch: { kind: 'rotary', label: 'PITCH', options: HALO_PITCH, default: 12, size: 'sm' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 0.7, size: 'sm' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['shimmer'], ['decay', 'size'], ['tone', 'pitch', 'level'], ['in:in', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    if (!e) return { out: null };
+    const p = ctx.p;
+    if (p.level < 0.005) return { out: e };
+    const [notes, wet] = busFxParts(ctx, e, 'halo');
+    return { out: fn('stack', notes, wet.call('haloshim', num(p.shimmer, 2)).call('halodecay', num(p.decay, 2)).call('halosize', num(p.size, 2))
+      .call('halotone', num(Math.round(p.tone))).call('halopitch', num(p.pitch)).call('halolvl', num(p.level, 2))) };
   },
 };

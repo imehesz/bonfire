@@ -1051,3 +1051,11 @@ body.midi-learn .module .ctl[data-param]:not([data-param='color']):not(.sound), 
 .stems-head small { font-weight: 400; letter-spacing: 0.04em; color: var(--ui-dim); }
 .stems-num { width: 90px; }
 .stems-note { font-size: 12px; line-height: 1.5; color: var(--ui-dim); margin: 0 0 12px; max-width: 420px; }
+
+/* FRIDGE */
+.w-fridge { width: 96px; padding: 7px 0; font-size: 13px; text-align: center; letter-spacing: 0.08em; }
+.module[data-type='fridge'] .mod-ctls { gap: 10px; }
+.module[data-type='fridge'] [data-action='freeze'] button { width: 46px; height: 46px; }
+.module.fridge-rec [data-action='freeze'] .led { background: #ff4d3d; box-shadow: 0 0 6px #ff4d3d; }
+.module.fridge-on [data-action='freeze'] .led { background: #7fd6ff; box-shadow: 0 0 6px #7fd6ff, 0 0 14px rgba(127, 214, 255, 0.6); }
+.module.fridge-on .w-fridge { color: #9fe2ff; text-shadow: 0 0 6px rgba(127, 214, 255, 0.7); }
