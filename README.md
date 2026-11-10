@@ -41,6 +41,69 @@ Cables carry **patterns**, not audio: a module chain compiles to a Strudel metho
   User packs become `samples('…')` lines. Local files are flagged in the code as not portable.
 - OUTPUT's volume and mute work on the audio output, so they are deliberately **not** in the code.
 
+## Modules
+
+39 modules, in two groups. If you want your patch to keep running on strudel.cc, stick to the
+first table.
+
+### Strudel compatible (24)
+
+These compile to plain Strudel: the code in the dock runs unchanged on strudel.cc.
+
+| module | category | what it does |
+|--------|----------|--------------|
+| CLOCK | Time | Master tempo; its jacks set the step length of whatever they patch into |
+| CHAIN | Time | Song mode: plays up to eight patched parts in the order you write |
+| SEQ-16 | Rhythm | Sixteen-step trigger sequencer with rests and x2 / x4 rolls |
+| BEATS | Rhythm | Four-lane, sixteen-step drum grid with a drum-machine bank picker |
+| EUCLID | Rhythm | Spreads a number of hits as evenly as possible over a number of steps |
+| MELODY | Pitch | Up to sixteen-step note sequencer locked to a scale |
+| ARP | Pitch | Plays a four-chord progression one note at a time |
+| CHORDS | Pitch | Chord progressions: pick a mood (BASIC) or build your own (ADVANCED) |
+| OCTAVE | Pitch | Shifts every note passing through it up or down by octaves |
+| VOICE | Sound | The basic sound maker: an oscillator or any sample from the library |
+| SUB DRONE | Sound | Huge, slow, deep bass drone (sub sine plus detuned saws) |
+| THEREMIN | Sound | Gliding lead with vibrato, the 1950s sci-fi sound |
+| SAMPLER | Sound | Sample player: one-shot, looped to a number of bars, or sliced |
+| CHOPPER | Sound | Cuts a sample into slices and sequences them step by step |
+| VANDALIZER | Mangle | Breaks patterns on purpose: drops, chops and random tricks |
+| FILTER | Shape | Lowpass / highpass / bandpass with resonance and a CV input |
+| FILTER ENV | Shape | Opens the filter on every note (brass, plucks, acid squelch) |
+| EMBERS FX | Shape | Reverb, tempo-synced delay, bit crush and drive |
+| VINTAGE | Shape | Colors the sound like a classic sampler (MPC60, SP-1200, ...) |
+| LFO | Modulate | Slow wave for moving knobs automatically |
+| KHAOZ | Modulate | Chaos modulator that never quite repeats itself |
+| DUCK | Mix | Sidechain pump: dips the input every time the trigger hits |
+| MIXER | Mix | Four channels with level, pan, low / high cut and mute |
+| OUTPUT | Mix | Master output, volume, meters and scope |
+
+### Bonfire STACK only (15)
+
+These use Bonfire's own DSP. They patch like any other module, but a patch that uses even one
+of them only plays inside Bonfire STACK. The app flags it: the cards carry a NOT STRUDEL badge,
+the faceplates say BONFIRE ONLY, the code view says so at the top and OPEN IN STRUDEL is disabled.
+
+| module | category | what it does |
+|--------|----------|--------------|
+| TAPE | Effect | Three-head tape echo with a real tape loop: wow, saturation, age |
+| FRIDGE | Effect | Freeze pedal: grabs a slice of sound and holds it as a loop or a pad |
+| HALO | Effect | Shimmer reverb: the tail climbs an octave on every pass |
+| STUTTER | Effect | Beat repeat: machine-guns a slice in time, by button or by trigger |
+| MIRAGE | Effect | Chorus, string-ensemble and flanger |
+| SCORCH | Effect | Distortion: overdrive, distortion and fuzz, with a speaker cabinet |
+| STRING | Sound | Plucked string (Karplus-Strong) |
+| GROWL | Sound | Saw or square through a filter shaken at audio rate: growls and vowels |
+| FOLD | Sound | Wavefolder voice: a sine folded back on itself for bright overtones |
+| ACID | Sound | 303-style acid bass line with real slides and accents |
+| MODAL | Sound | Struck objects: wood, glass, bell and metal |
+| HOOVER | Sound | Seven-saw supersaw and rave hoover stack |
+| DRUM | Sound | Drum synth: kick, tom, snare, clap and hat made from scratch |
+| GRAIN | Sound | Granular cloud made from any sample |
+| FM4 | Sound | Four-operator FM voice with presets (e-pianos, bells, basses) |
+
+Every module's full help, with its faceplate, is in the app: open the MODULES drawer and click
+the **?** on a card.
+
 ## MIDI clock out (hardware sync)
 
 Bonfire can be the master clock for a hardware synth: PLAY / STOP start and stop its sequencer or
