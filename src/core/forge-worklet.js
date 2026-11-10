@@ -1353,3 +1353,94 @@ const HALO_FB = 1.3; // how much of the shifted tail goes back in at SHIMMER 1 (
 const HALO_OUT = 0.5;
 
 registerProcessor('bonfire-halo', BonfireHalo);
+
+// STUTTER: beat repeat. One per STUTTER module, and unlike FRIDGE / HALO it is an insert: ALL the
+// sound of the notes going through the module runs through here (they are silenced on their own
+// way out), so it can cut the live sound off while it repeats. Normally the input passes straight
+// through. { on: seconds, dur: seconds (0 = until told), at: time } : from `at`, the next `on`
+// seconds pass through while being recorded, then that slice repeats (live input muted) until
+// `dur` has passed since `at` or { off: true } arrives. FADE makes every repeat quieter.
+const STUTTER_MAX = 1.6; // seconds: a 1/4 bar at 40 BPM
+class BonfireStutter extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    const cap = Math.ceil(sampleRate * STUTTER_MAX) + 8;
+    this.buf = [new Float32Array(cap), new Float32Array(cap)];
+    this.cap = cap;
+    this.state = 0; // 0 passing, 1 passing + recording, 2 repeating
+    this.n = 0;
+    this.w = 0;
+    this.r = 0;
+    this.rep = 0;
+    this.end = Infinity;
+    this.pend = null;
+    this.passG = 1;
+    this.loopG = 0;
+    this.fade = 0;
+    this.port.onmessage = (e) => {
+      const d = e.data;
+      if (d.fade != null) this.fade = d.fade;
+      if (d.on != null) this.pend = { at: d.at != null ? Math.round(d.at * sampleRate) : 0, len: d.on, dur: d.dur || 0 };
+      if (d.off) {
+        this.pend = null;
+        this.state = 0;
+      }
+    };
+  }
+
+  process(inputs, outputs) {
+    const inp = inputs[0];
+    const out = outputs[0];
+    const L = out[0];
+    const R = out[1] ?? L;
+    const inL = inp?.[0];
+    const inR = inp?.[1] ?? inL;
+    const { buf } = this;
+    const k = 1 - Math.exp(-1 / (0.003 * sampleRate)); // 3 ms switch-over, so cutting in and out doesn't click
+    const perRep = 1 - 0.4 * Math.min(1, Math.max(0, this.fade));
+    for (let i = 0; i < L.length; i++) {
+      const f = currentFrame + i;
+      if (this.pend && f >= this.pend.at) {
+        this.n = Math.max(64, Math.min(this.cap - 8, Math.round(this.pend.len * sampleRate)));
+        this.end = this.pend.dur > 0 ? f + Math.round(this.pend.dur * sampleRate) : Infinity;
+        this.state = 1;
+        this.w = 0;
+        this.pend = null;
+      }
+      if (this.state && f >= this.end) this.state = 0;
+      const xl = inL?.[i] ?? 0;
+      const xr = inR?.[i] ?? 0;
+      if (this.state === 1) {
+        buf[0][this.w] = xl;
+        buf[1][this.w] = xr;
+        if (++this.w >= this.n) {
+          this.state = 2;
+          this.r = 0;
+          this.rep = 1;
+        }
+      }
+      const looping = this.state === 2;
+      this.passG += ((looping ? 0 : 1) - this.passG) * k;
+      this.loopG += ((looping ? 1 : 0) - this.loopG) * k;
+      let l = xl * this.passG;
+      let r = xr * this.passG;
+      if (this.loopG > 1e-4 && this.n) {
+        // each repeat: a 2 ms fade at both ends of the slice, FADE quieter than the one before
+        const edge = Math.min(96, this.n >> 3);
+        const p = this.r;
+        const env = Math.min(1, p / edge, (this.n - p) / edge) * this.loopG * perRep ** this.rep;
+        l += buf[0][p] * env;
+        r += buf[1][p] * env;
+        if (++this.r >= this.n) {
+          this.r = 0;
+          this.rep++;
+        }
+      }
+      L[i] = l;
+      R[i] = r;
+    }
+    return true;
+  }
+}
+
+registerProcessor('bonfire-stutter', BonfireStutter);

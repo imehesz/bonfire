@@ -4,11 +4,11 @@
 // See README.md "Writing a module" for the full contract.
 import { arp, beats, chain, chords, clock, euclid, melody, octave, seq } from './sources.js';
 import { chopper, drone, sampler, theremin, voice } from './voices.js';
-import { acid, drum, fm4, fold, fridge, grain, growl, halo, hoover, modal, string } from './forge.js';
+import { acid, drum, fm4, fold, fridge, grain, growl, halo, hoover, modal, string, stutter } from './forge.js';
 import { duck, fenv, filter, fx, khaoz, lfo, mixer, output, tape, vandal, vintage } from './processors.js';
 
 export const MODULES = Object.fromEntries(
-  [clock, chain, seq, beats, euclid, melody, arp, chords, octave, voice, drone, theremin, sampler, chopper, vandal, filter, fenv, fx, vintage, tape, fridge, halo, lfo, khaoz, duck, mixer, output, string, growl, fold, acid, modal, hoover, drum, grain, fm4].map((m) => [m.type, m]),
+  [clock, chain, seq, beats, euclid, melody, arp, chords, octave, voice, drone, theremin, sampler, chopper, vandal, filter, fenv, fx, vintage, tape, fridge, halo, stutter, lfo, khaoz, duck, mixer, output, string, growl, fold, acid, modal, hoover, drum, grain, fm4].map((m) => [m.type, m]),
 );
 
 export const CATEGORY_ORDER = ['Time', 'Rhythm', 'Pitch', 'Sound', 'Mangle', 'Shape', 'Modulate', 'Mix', 'Bonfire Only'];

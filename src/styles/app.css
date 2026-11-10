@@ -1059,3 +1059,8 @@ body.midi-learn .module .ctl[data-param]:not([data-param='color']):not(.sound), 
 .module.fridge-rec [data-action='freeze'] .led { background: #ff4d3d; box-shadow: 0 0 6px #ff4d3d; }
 .module.fridge-on [data-action='freeze'] .led { background: #7fd6ff; box-shadow: 0 0 6px #7fd6ff, 0 0 14px rgba(127, 214, 255, 0.6); }
 .module.fridge-on .w-fridge { color: #9fe2ff; text-shadow: 0 0 6px rgba(127, 214, 255, 0.7); }
+
+/* STUTTER */
+.module[data-type='stutter'] .mod-ctls { gap: 8px; }
+.module[data-type='stutter'] [data-action='stutter'] button { width: 46px; height: 46px; }
+.module.stutter-on [data-action='stutter'] .led { background: #ff9d2e; box-shadow: 0 0 6px #ff9d2e, 0 0 14px rgba(255, 157, 46, 0.6); }

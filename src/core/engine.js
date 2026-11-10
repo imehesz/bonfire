@@ -5,9 +5,9 @@ import {
   webaudioOutput,
 } from '@strudel/webaudio';
 import { initStrudel } from './strudel.js';
-import { busFxEvents, fridgeReset, fridgeState, fridgeToggle, loadForge, routeTape } from './forge-audio.js';
+import { busFxEvents, fridgeReset, fridgeState, fridgeToggle, loadForge, routeTape, stutterOff, stutterOn, stutterState } from './forge-audio.js';
 
-export { fridgeReset, fridgeState, fridgeToggle };
+export { fridgeReset, fridgeState, fridgeToggle, stutterState };
 import { registerSoundfonts } from '@strudel/soundfonts';
 import dirtSubset from './dirt-subset.json';
 
@@ -240,3 +240,13 @@ export function analysers() {
 }
 
 export { lastCode };
+
+// STUTTER's button. Off -> starts on the next RATE grid line (so the repeats sit on the beat) and
+// runs for `span` cycles (0 = until pressed again); on -> stops. rate / span are in cycles (bars).
+export function stutterPress(id, rate, span) {
+  if (stutterState(id) !== 'off') return stutterOff(id);
+  const ck = cycleClock();
+  if (!ck) return;
+  const start = Math.ceil(ck.cycleAt(getAudioContext().currentTime + 0.02) / rate) * rate;
+  stutterOn(id, rate / ck.cps, span / ck.cps, ck.at(start));
+}

@@ -279,13 +279,16 @@ export function routeTape(v) {
   }
 }
 
-// ---- BUS EFFECTS (FRIDGE, HALO): one worklet per module that hears live audio ----
+// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER): one worklet per module that hears live audio ----
 // Notes that went through such a module carry bfin = "kind:id" (several, comma-separated, when
 // they are chained) and are sent into bus 'bfin_<id>' -> the module's worklet -> bus 'bfout_<id>'.
 // The module also plays a held s("bus") note reading that out bus (tagged bfout = id, bfkind =
 // kind, plus the module's knobs), so the effect's sound runs through whatever comes after the
 // module (FILTER, FX, TAPE, MIXER) like any other sound.
-// A step on FRIDGE's TRIG jack arrives as a soundless event tagged fridgetrig = id.
+// An `insert` kind (STUTTER) carries ALL of its notes' sound: the notes themselves are silenced on
+// their way out (dry 0; only reverb / delay patched BEFORE the module still rings directly) and
+// are otherwise only heard through the worklet.
+// A step on a TRIG jack arrives as a soundless event tagged fridgetrig / stuttrig = id.
 // busFxEvents(value, time) is called by the engine for every event: null = play it as it is, else
 // the list of values to play instead (empty = nothing).
 const BUS_FX = {
@@ -294,6 +297,7 @@ const BUS_FX = {
     processor: 'bonfire-halo',
     keys: [['haloshim', 'shimmer'], ['halodecay', 'decay'], ['halosize', 'size'], ['halotone', 'tone'], ['halopitch', 'pitch'], ['halolvl', 'level']],
   },
+  stutter: { processor: 'bonfire-stutter', keys: [['stutfade', 'fade']], insert: true },
 };
 const busFx = new Map(); // module id -> { ctx, node, kind, inBus, outBus, key, state, until }
 
@@ -334,7 +338,11 @@ function wireFx(id, kind) {
 }
 
 export function busFxEvents(v, t) {
-  if (v?.bfout == null && v?.bfin == null && v?.fridgetrig == null) return null;
+  if (v?.bfout == null && v?.bfin == null && v?.fridgetrig == null && v?.stuttrig == null) return null;
+  if (v.stuttrig != null) {
+    stutterOn(String(v.stuttrig), v.stutlen ?? 0.125, v.stutdur ?? 0, t);
+    return [];
+  }
   if (v.fridgetrig != null) {
     // a step on the TRIG jack: freeze at that step's own time. The event itself makes no sound.
     const f = wireFx(String(v.fridgetrig), 'fridge');
@@ -365,14 +373,19 @@ export function busFxEvents(v, t) {
   const post = v.postgain ?? 1;
   const busgain = post > 1e-3 ? Math.min(8, (v.bfpg ?? 1) / post) : 1;
   const out = [];
-  let own = v.bus == null; // a note has ONE send: free = use it, taken (a TAPE further down) = a silent copy
-  if (!own) out.push(v);
-  for (const entry of String(v.bfin).split(',')) {
-    const [kind, id] = entry.split(':');
-    if (!wireFx(id, kind)) continue;
+  const entries = String(v.bfin).split(',').map((x) => x.split(':')).filter(([kind, id]) => wireFx(id, kind));
+  // through an insert the note is never heard directly, only as silent sends into the worklets
+  const insert = entries.some(([kind]) => BUS_FX[kind].insert);
+  let own = v.bus == null && !insert; // a note has ONE send: free = use it, taken (a TAPE further down) = a silent copy
+  if (!own && !insert) out.push(v);
+  // an insert's note keeps the reverb / delay it had BEFORE the module (those ring on untouched);
+  // any added after the module belong to the held note that plays the module's output
+  let sends = insert ? { room: v.bfroom ?? 0, delay: v.bfdelay ?? 0 } : { room: 0, delay: 0 };
+  for (const [, id] of entries) {
     const send = { ...v, bus: `bfin_${id}`, busgain };
-    out.push(own ? send : { ...send, dry: 0, room: 0, delay: 0 });
+    out.push(own ? send : { ...send, dry: 0, ...sends });
     own = false;
+    sends = { room: 0, delay: 0 };
   }
   return out.length ? out : null;
 }
@@ -400,10 +413,35 @@ export function fridgeToggle(id, seconds) {
   return f.state;
 }
 
-// A newly loaded patch starts with nothing frozen and no old reverb tail.
+// STUTTER: start repeating slices of `len` seconds at audio time `at`, for `dur` seconds (0 = until
+// stutterOff). 'on' | 'off'.
+export function stutterOn(id, len, dur, at) {
+  const f = wireFx(id, 'stutter');
+  if (!f) return;
+  f.node.port.postMessage({ on: len, dur, at });
+  f.state = 'on';
+  f.until = dur > 0 ? performance.now() + (Math.max(0, (at ?? 0) - f.ctx.currentTime) + dur) * 1000 : Infinity;
+}
+
+export function stutterOff(id) {
+  const f = busFx.get(id);
+  if (!f) return;
+  f.node.port.postMessage({ off: true });
+  f.state = 'off';
+}
+
+export function stutterState(id) {
+  const f = busFx.get(id);
+  if (!f || f.kind !== 'stutter' || f.state === 'off') return 'off';
+  if (performance.now() >= f.until) f.state = 'off';
+  return f.state;
+}
+
+// A newly loaded patch starts with nothing frozen, no stutter and no old reverb tail.
 export function fridgeReset() {
   for (const f of busFx.values()) {
     if (f.kind === 'halo') f.node.port.postMessage({ clear: true });
+    else if (f.kind === 'stutter') f.node.port.postMessage({ off: true });
     else if (f.state !== 'off') f.node.port.postMessage({ release: true });
     f.state = 'off';
   }

@@ -18,6 +18,7 @@ for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'g
   'fmalgo', 'fmfb', 'fmsus', 'fmhold', 'fmchorus', 'fmbright', 'fmtime', 'fmmetal', 'fmsoft', 'fmacc',
   ...[0, 1, 2, 3].flatMap((i) => [`fmr${i}`, `fml${i}`, `fma${i}`, `fmd${i}`]),
   'bfin', 'bfpg', 'bfout', 'bfkind', 'fridgelvl', 'fridgesmooth', 'fridgetrig', 'fridgelen',
+  'bfroom', 'bfdelay', 'stutfade', 'stuttrig', 'stutlen', 'stutdur',
   'haloshim', 'halodecay', 'halosize', 'halotone', 'halopitch', 'halolvl',
   'grainsrc', 'grainn', 'graintune', 'grainpos', 'grainspray', 'grainscan', 'grainsize', 'graindens', 'grainshim', 'grainwidth']) registerControl(c);
 
@@ -531,12 +532,13 @@ export const fm4 = {
   },
 };
 
-// ---- BUS EFFECTS (FRIDGE, HALO): modules that hear the live sound, not just the notes ----
+// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER): modules that hear the live sound, not just the notes ----
 // The notes pass straight through; .bfsend(id, kind) only tags them so the engine also sends their
 // sound into this module's worklet (core/forge-audio.js). What the worklet makes comes back as a
 // held s("bus") note stacked next to them, so everything patched after the module treats it like
 // any other sound. bfpg remembers the postgain a note had coming in (see busFxEvents: the effect
-// hears the note before a later MIXER level, which then turns its output up and down like the notes).
+// hears the note before a later MIXER level, which then turns its output up and down like the notes);
+// bfroom / bfdelay the reverb and delay it already had (an insert keeps those and drops later ones).
 const plain = (x) => String(x?.firstCycle ? x.firstCycle()[0]?.value : x); // Strudel wraps arguments in patterns
 register('bfsend', (id, kind, pat) => {
   const tag = `${plain(kind)}:${plain(id)}`;
@@ -544,14 +546,16 @@ register('bfsend', (id, kind, pat) => {
     ...v,
     bfin: v.bfin ? `${v.bfin},${tag}` : tag,
     bfpg: v.bfpg ?? v.postgain ?? 1,
+    bfroom: v.bfroom ?? v.room ?? 0,
+    bfdelay: v.bfdelay ?? v.delay ?? 0,
   }));
 }, false);
 
 // [the tagged notes, the held note that plays the module's output]
-function busFxParts(ctx, e, kind) {
+function busFxParts(ctx, e, kind, fade = 0.03) {
   // one held note per bar; equal linear fades in and out, so the joins between bars add up flat
   const wet = fn('s', mini('bus')).call('n', mini(`bfout_${ctx.id}`)).call('gain', num(1))
-    .call('attack', num(0.03, 2)).call('release', num(0.03, 2))
+    .call('attack', num(fade, 2)).call('release', num(fade, 2))
     .call('bfout', mini(ctx.id)).call('bfkind', mini(kind));
   return [e.call('bfsend', str(ctx.id), str(kind)), wet];
 }
@@ -618,5 +622,45 @@ export const halo = {
     const [notes, wet] = busFxParts(ctx, e, 'halo');
     return { out: fn('stack', notes, wet.call('haloshim', num(p.shimmer, 2)).call('halodecay', num(p.decay, 2)).call('halosize', num(p.size, 2))
       .call('halotone', num(Math.round(p.tone))).call('halopitch', num(p.pitch)).call('halolvl', num(p.level, 2))) };
+  },
+};
+
+// ---- STUTTER: beat repeat ----
+// An insert (see core/forge-audio.js): the notes' sound only reaches the output through STUTTER's
+// worklet, which passes it on untouched until the button / a TRIG step makes it repeat a slice.
+// The button is a live gesture; TRIG steps are part of the patch.
+export const STUTTER_RATES = [
+  { v: 1 / 4, l: '1/4' }, { v: 1 / 8, l: '1/8' }, { v: 1 / 12, l: '1/8T' }, { v: 1 / 16, l: '1/16' },
+  { v: 1 / 24, l: '1/16T' }, { v: 1 / 32, l: '1/32' }, { v: 1 / 64, l: '1/64' },
+];
+const STUTTER_SPANS = [{ v: 0.25, l: '1/4 BAR' }, { v: 0.5, l: '1/2 BAR' }, { v: 1, l: '1 BAR' }, { v: 2, l: '2 BAR' }, { v: 0, l: 'HOLD' }];
+
+export const stutter = {
+  type: 'stutter',
+  name: 'STUTTER',
+  title: 'Beat Repeat',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 8,
+  description: 'The glitch button: grabs a tiny slice of what is playing through it and machine-guns it in time, with the live sound cut off until it lets go. Press STUTTER and it starts on the next beat line: the first slice plays as normal, then repeats. RATE is the slice length (1/16 = sixteenth notes; 1/32 and 1/64 turn into a buzz; T = triplets). FOR is how long it keeps going before it lets go by itself; HOLD keeps going until you press again. FADE makes every repeat quieter than the one before. TRIG presses the button for you: every step that is on starts a stutter right on that step, which makes it part of the song (fills at the end of a bar). Patch it after the sound (or a whole MIXER) you want to stutter. The button is something you play live: it is not saved in the patch.',
+  params: {
+    rate: { kind: 'rotary', label: 'RATE', options: STUTTER_RATES, default: 1 / 16 },
+    span: { kind: 'rotary', label: 'FOR', options: STUTTER_SPANS, default: 0.5 },
+    fade: { kind: 'knob', label: 'FADE', min: 0, max: 1, default: 0, size: 'sm' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' }, trig: { type: 'rhythm', label: 'TRIG' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  actions: { stutter: { label: 'STUTTER', led: true } },
+  layout: [['widget:stutterLamp'], ['stutter'], ['rate', 'span'], ['fade'], ['in:in', 'in:trig', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    if (!e) return { out: null };
+    const p = ctx.p;
+    const secs = (cycles) => num((cycles * 240) / ctx.global.bpm, 4);
+    const [notes, wet] = busFxParts(ctx, e, 'stutter', 0.01);
+    const parts = [notes, wet.call('stutfade', num(p.fade, 2))];
+    const trig = ctx.in('trig');
+    if (trig) parts.push(fn('n', num(0)).call('struct', trig).call('stuttrig', mini(ctx.id)).call('stutlen', secs(p.rate)).call('stutdur', secs(p.span)));
+    return { out: fn('stack', ...parts) };
   },
 };

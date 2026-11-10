@@ -1,7 +1,7 @@
 // Custom panel widgets. Each returns { el, update(params), tick(cycle, meta) }.
 import { checkpoint, findModule, setParam } from '../core/store.js';
 import { bjorklund } from '@strudel/core';
-import { analysers, fridgeState, fridgeToggle, isPlaying } from '../core/engine.js';
+import { analysers, fridgeState, fridgeToggle, isPlaying, stutterPress, stutterState } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
 import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, arpOrder, beats, chordPlan } from '../modules/sources.js';
 import { FENV_PRESETS, khaozPath } from '../modules/processors.js';
@@ -1266,4 +1266,32 @@ function fridgeDoor(mod) {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor };
+// STUTTER: same idea as FRIDGE's display. The STUTTER push button arrives as an action.
+function stutterLamp(mod) {
+  const el = h('div', { class: 'lcd w-fridge' }, 'READY');
+  let hint = 0;
+  let shown = '';
+  return {
+    el,
+    update() {},
+    action(spec) {
+      if (spec !== 'stutter') return;
+      if (!isPlaying()) {
+        hint = performance.now() + 1200;
+        return;
+      }
+      const p = findModule(mod.id)?.params ?? {};
+      stutterPress(mod.id, p.rate ?? 1 / 16, p.span ?? 0.5);
+    },
+    tick() {
+      const on = stutterState(mod.id) === 'on';
+      const text = performance.now() < hint ? 'PRESS PLAY' : on ? 'STUTTER' : 'READY';
+      if (text === shown) return;
+      shown = text;
+      el.textContent = text;
+      el.closest('.module')?.classList.toggle('stutter-on', on);
+    },
+  };
+}
+
+export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor, stutterLamp };
