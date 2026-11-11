@@ -17,6 +17,10 @@ function versionPlugin(version) {
     buildStart() {
       fs.writeFileSync('version.txt', `${version}\n`);
     },
+    // also inside dist/: sites that load engine.js from here read it to get past browser caches
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.txt', source: `${version}\n` });
+    },
     transformIndexHtml: {
       order: 'post',
       handler: (html) => html.replace(/((?:src|href)="\.\/assets\/[^"?]+\.(?:js|css))"/g, `$1?v=${version}"`),
@@ -31,6 +35,16 @@ export default defineConfig(({ command }) => {
     base: './',
     define: { __APP_VERSION__: JSON.stringify(version) },
     plugins: [versionPlugin(version)],
-    build: { target: 'es2022', chunkSizeWarningLimit: 2500 },
+    build: {
+      target: 'es2022',
+      chunkSizeWarningLimit: 2500,
+      // two entries: the app, and the engine on its own under a FIXED name (engine.js, no hash) so
+      // other sites can import the newest engine from the app's URL (see src/player-engine.js)
+      rollupOptions: {
+        input: { index: 'index.html', engine: 'src/player-engine.js' },
+        preserveEntrySignatures: 'exports-only', // keep engine.js's exports (an app build drops them by default)
+        output: { entryFileNames: (chunk) => (chunk.name === 'engine' ? 'engine.js' : 'assets/[name]-[hash].js') },
+      },
+    },
   };
 });

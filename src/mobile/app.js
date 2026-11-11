@@ -264,7 +264,13 @@ async function demoSheet() {
       sh.close();
       loadDemo(d.id);
     },
-  }))));
+  })), h('hr'), row({
+    label: 'More on BonfirePLAYER',
+    onclick: () => {
+      sh.close();
+      window.open('https://mehesz.net/bonfireplayer/', '_blank');
+    },
+  })));
 }
 
 let skinIndex = [];

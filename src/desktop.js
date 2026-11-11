@@ -351,7 +351,11 @@ function patchMenu(anchor) {
 let demoIndex = [];
 async function demoMenu(anchor) {
   if (!demoIndex.length) demoIndex = await fetchDemoIndex();
-  menu(anchor, demoIndex.map((d) => ({ label: d.name, action: () => loadDemo(d.id) })));
+  menu(anchor, [
+    ...demoIndex.map((d) => ({ label: d.name, action: () => loadDemo(d.id) })),
+    '-',
+    { label: 'More on BonfirePLAYER', action: () => window.open('https://mehesz.net/bonfireplayer/', '_blank') },
+  ]);
 }
 
 let skinIndex = [];
