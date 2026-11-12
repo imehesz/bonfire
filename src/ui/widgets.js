@@ -6,7 +6,7 @@ import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
 import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, arpOrder, beats, chordPlan } from '../modules/sources.js';
 import { FENV_PRESETS, khaozPath } from '../modules/processors.js';
 import { CHOP_STEPS } from '../modules/voices.js';
-import { FM_ALGOS, FM_PRESETS, fmPresetParams } from '../modules/forge.js';
+import { FM_ALGOS, FM_PRESETS, VECTOR_MOTIONS, VECTOR_WAVES, fmPresetParams, vectorCurve, vectorMotionParams, vectorPoints } from '../modules/forge.js';
 import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
 import { editValue, knob, select } from './controls.js';
 import { noteEntry, setCursor } from './midi.js';
@@ -878,6 +878,216 @@ function khaozScope(mod) {
   };
 }
 
+// VECTOR: the square. Corner knobs A B (top) and C D (bottom) pick the waves; the pad shows the
+// puck (big ring) and the path the point travels (points 0-4, the curve between them).
+// BASIC: drag anywhere = move the puck (the whole path moves with it); double-click = centre.
+// ADVANCED: drag the nearest path point (or the puck, if that's nearer).
+const VEC_PAD = 132;
+function vectorPad(mod, def) {
+  const S = VEC_PAD;
+  const c = h('canvas', { class: 'w-vector-pad', width: S * 2, height: S * 2 });
+  const g = c.getContext('2d');
+  const knobs = [0, 1, 2, 3].map((i) => knob(mod, `wave${i}`, def.params[`wave${i}`]));
+  knobs.forEach((k, i) => k.el.classList.add(`vec-k${i}`));
+  let last = null;
+  let shown = '';
+  const geom = (p) => {
+    const size = p.size ?? 0;
+    const pts = vectorPoints(p.x, p.y, p.path ?? [], size);
+    return { pts, curve: vectorCurve(pts, p.loop) };
+  };
+  const draw = (p) => {
+    if (!p) return;
+    const ink = c.isConnected ? getComputedStyle(c).getPropertyValue('--scope-line').trim() || '#ffb648' : '#ffb648';
+    shown = c.isConnected ? ink : '';
+    const adv = p.face === 'advanced';
+    const X = (u) => 8 + u * (S - 16);
+    const Y = (v) => 8 + (1 - v) * (S - 16);
+    g.setTransform(2, 0, 0, 2, 0, 0);
+    g.clearRect(0, 0, S, S);
+    g.strokeStyle = ink;
+    g.fillStyle = ink;
+    // frame + crosshair
+    g.globalAlpha = 0.25;
+    g.lineWidth = 1;
+    g.strokeRect(X(0), Y(1), S - 16, S - 16);
+    g.beginPath();
+    g.moveTo(X(0.5), Y(0)); g.lineTo(X(0.5), Y(1));
+    g.moveTo(X(0), Y(0.5)); g.lineTo(X(1), Y(0.5));
+    g.stroke();
+    // corner names
+    g.globalAlpha = 0.6;
+    g.font = 'bold 8px monospace';
+    const names = [0, 1, 2, 3].map((i) => VECTOR_WAVES[p[`wave${i}`]]?.l ?? '');
+    g.textBaseline = 'top';
+    g.textAlign = 'left'; g.fillText(`A ${names[0]}`, X(0) + 3, Y(1) + 3);
+    g.textAlign = 'right'; g.fillText(`${names[1]} B`, X(1) - 3, Y(1) + 3);
+    g.textBaseline = 'bottom';
+    g.textAlign = 'left'; g.fillText(`C ${names[2]}`, X(0) + 3, Y(0) - 3);
+    g.textAlign = 'right'; g.fillText(`${names[3]} D`, X(1) - 3, Y(0) - 3);
+    // path
+    const { pts, curve } = geom(p);
+    g.globalAlpha = 0.85;
+    g.lineWidth = 1.4;
+    g.beginPath();
+    curve.forEach((sg) => sg.forEach(([u, v], i) => (i ? g.lineTo(X(u), Y(v)) : g.moveTo(X(u), Y(v)))));
+    g.stroke();
+    // points: 0 = start (filled), 1-4 small (numbered on ADVANCED)
+    g.globalAlpha = 1;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    pts.forEach(([u, v], i) => {
+      g.beginPath();
+      g.arc(X(u), Y(v), adv ? 5.5 : i ? 2 : 3.5, 0, Math.PI * 2);
+      if (i === 0 || !adv) g.fill();
+      else {
+        g.fillStyle = getComputedStyle(c).backgroundColor || '#000';
+        g.fill();
+        g.fillStyle = ink;
+        g.stroke();
+      }
+      if (adv) {
+        g.fillStyle = i === 0 ? '#000' : ink;
+        g.font = 'bold 7px monospace';
+        g.fillText(String(i), X(u), Y(v) + 0.5);
+        g.fillStyle = ink;
+      }
+    });
+    // the puck
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(X(p.x), Y(p.y), 8, 0, Math.PI * 2);
+    g.stroke();
+  };
+  // pointer -> 0..1 square position
+  const at = (e) => {
+    const r = c.getBoundingClientRect();
+    const k = (S - 16) / S;
+    const u = ((e.clientX - r.left) / r.width - 8 / S) / k;
+    const v = 1 - ((e.clientY - r.top) / r.height - 8 / S) / k;
+    return [Math.min(1, Math.max(0, u)), Math.min(1, Math.max(0, v))];
+  };
+  let grab = null; // 'puck' or a path point index
+  const tip = (u, v) => {
+    const r = c.getBoundingClientRect();
+    const what = grab === 'puck' ? 'PUCK' : `POINT ${grab}`;
+    showTip(`${what} · X ${u.toFixed(2)} · Y ${v.toFixed(2)}`, r.left + r.width / 2, r.top - 6);
+  };
+  const moveTo = (u, v) => {
+    const p = findModule(mod.id).params;
+    if (grab === 'puck') {
+      setParam(mod.id, 'x', Number(u.toFixed(3)), { record: false });
+      setParam(mod.id, 'y', Number(v.toFixed(3)), { record: false });
+    } else {
+      const k = Math.max(0.05, p.size) * 0.5;
+      const cl = (n) => Number(Math.min(2, Math.max(-2, n)).toFixed(3));
+      const path = (p.path ?? []).map((q) => [...q]);
+      while (path.length < 5) path.push([0, 0]);
+      path[grab] = [cl((u - p.x) / k), cl((v - p.y) / k)];
+      setParam(mod.id, 'path', path, { record: false });
+      if (p.motion) setParam(mod.id, 'motion', '', { record: false });
+    }
+    tip(u, v);
+  };
+  c.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    c.setPointerCapture(e.pointerId);
+    checkpoint();
+    const p = findModule(mod.id).params;
+    const [u, v] = at(e);
+    grab = 'puck';
+    if (p.face === 'advanced' && p.size >= 0.05) {
+      const pts = vectorPoints(p.x, p.y, p.path ?? [], p.size);
+      let best = Math.hypot(u - p.x, v - p.y) * 1.3; // a point sitting on the puck wins
+      pts.forEach(([a, b], i) => {
+        const d = Math.hypot(u - a, v - b);
+        if (d < best) { best = d; grab = i; }
+      });
+    }
+    moveTo(u, v);
+  });
+  c.addEventListener('pointermove', (e) => {
+    if (!c.hasPointerCapture(e.pointerId)) return;
+    moveTo(...at(e));
+  });
+  const end = (e) => {
+    if (!c.hasPointerCapture?.(e.pointerId)) return;
+    c.releasePointerCapture(e.pointerId);
+    hideTip();
+  };
+  c.addEventListener('pointerup', end);
+  c.addEventListener('pointercancel', end);
+  c.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    hideTip();
+    if (findModule(mod.id).params.face === 'advanced') return;
+    checkpoint();
+    setParam(mod.id, 'x', 0.5, { record: false });
+    setParam(mod.id, 'y', 0.5, { record: false });
+  });
+  return {
+    el: h('div', { class: 'ctl vec-pad' }, knobs[0].el, knobs[1].el, h('div', { class: 'vec-screen' }, c), knobs[2].el, knobs[3].el),
+    update(p) {
+      last = p;
+      knobs.forEach((k, i) => k.update(p[`wave${i}`]));
+      draw(p);
+    },
+    tick() {
+      if (c.isConnected && last && shown !== (getComputedStyle(c).getPropertyValue('--scope-line').trim() || '#ffb648')) draw(last);
+    },
+  };
+}
+
+// VECTOR BASIC: MOTION picker (‹ name ›, click for the list) + DICE (new corner waves and a new path).
+function vectorMotion(mod) {
+  const load = (vals) => {
+    checkpoint();
+    for (const [k, x] of Object.entries(vals)) setParam(mod.id, k, x, { record: false });
+  };
+  const pickMotion = (m) => load(vectorMotionParams(m));
+  const dice = () => {
+    const r = (lo, hi) => Number((lo + Math.random() * (hi - lo)).toFixed(2));
+    const waves = [];
+    while (waves.length < 4) {
+      const w = Math.floor(Math.random() * VECTOR_WAVES.length);
+      if (!waves.includes(w)) waves.push(w);
+    }
+    const loop = ['loop', 'loop', 'ping', 'off'][Math.floor(Math.random() * 4)];
+    const vals = { motion: '', loop, path: [0, 1, 2, 3, 4].map(() => [r(-1, 1), r(-1, 1)]), size: r(0.6, 1) };
+    if (loop === 'loop') vals.path[4] = [...vals.path[0]];
+    waves.forEach((w, i) => (vals[`wave${i}`] = w));
+    [1, 2, 3, 4].forEach((i) => (vals[`t${i}`] = r(0.3, 2.5)));
+    load(vals);
+  };
+  const step = (d) => {
+    const i = VECTOR_MOTIONS.findIndex((m) => m.v === findModule(mod.id).params.motion);
+    pickMotion(VECTOR_MOTIONS[(i + d + VECTOR_MOTIONS.length) % VECTOR_MOTIONS.length]);
+  };
+  const disp = h('button', { class: 'lcd sel-disp', onpointerdown: stop });
+  disp.addEventListener('click', () => {
+    const cur = findModule(mod.id).params.motion;
+    const item = (l, cls, fn) => h('button', { class: `pick ${cls}`, onclick: () => { closePopover(); fn(); } }, l);
+    popover(disp, h('div', { class: 'pick-list' },
+      VECTOR_MOTIONS.map((m) => item(m.l, m.v === cur ? 'active' : '', () => pickMotion(m))),
+      item('⚄ DICE', 'fe-dice', dice)), { className: 'pop-select' });
+  });
+  const arrow = (d, t) => h('button', { class: 'sel-arrow', onpointerdown: stop, onclick: () => step(d) }, t);
+  const diceBtn = h('button', { class: 'btn fm-dice', title: 'New corner waves and a new path', onpointerdown: stop, onclick: dice }, '⚄ DICE');
+  return {
+    el: h('div', { class: 'ctl select vec-motion' }, h('div', { class: 'sel-body' }, arrow(-1, '‹'), disp, arrow(1, '›'), diceBtn), h('label', {}, 'MOTION')),
+    update(p) {
+      const m = VECTOR_MOTIONS.find((x) => x.v === p.motion);
+      const same = m && Object.entries(vectorMotionParams(m)).every(([k, v]) => k === 'motion'
+        || (k === 'path' ? v.every((q, i) => p.path?.[i] && Math.abs(q[0] - p.path[i][0]) + Math.abs(q[1] - p.path[i][1]) < 0.005)
+          : typeof v === 'number' ? Math.abs(v - p[k]) < 0.005 : v === p[k]));
+      disp.textContent = same ? m.l : 'CUSTOM';
+    },
+    tick() {},
+  };
+}
+
 // OUTPUT scope: five looks (STYLE knob), optional COLOR override, FULL = fullscreen,
 // BACK = drawn big behind the rack (see-through, click-through) while you keep patching.
 const LOG_LO = Math.log(30);
@@ -1294,4 +1504,4 @@ function stutterLamp(mod) {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor, stutterLamp };
+export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, vectorPad, vectorMotion, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor, stutterLamp };

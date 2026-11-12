@@ -22,6 +22,7 @@ for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'g
   'mirmode', 'mirrate', 'mirdepth', 'mirwidth', 'mirlvl',
   'scorchmode', 'scorchgain', 'scorchtone', 'scorchcab', 'scorchmix', 'scorchlvl',
   'haloshim', 'halodecay', 'halosize', 'halotone', 'halopitch', 'halolvl',
+  'veca', 'vecb', 'vecc', 'vecd', 'vecx', 'vecy', 'vecpath', 'vecsize', 'vect1', 'vect2', 'vect3', 'vect4', 'vecloop', 'vecspread',
   'grainsrc', 'grainn', 'graintune', 'grainpos', 'grainspray', 'grainscan', 'grainsize', 'graindens', 'grainshim', 'grainwidth']) registerControl(c);
 
 // Shared front half of every Bonfire-only voice: PITCH (or a C3 per bar) -> s(sound), GATE, TUNE.
@@ -731,5 +732,134 @@ export const scorch = {
     return { out: fn('stack', notes, wet.call('scorchmode', num(Math.max(0, SCORCH_MODES.findIndex((m) => m.v === p.mode))))
       .call('scorchgain', num(p.gain, 2)).call('scorchtone', num(p.tone, 2)).call('scorchcab', num(p.cab === 'on' ? 1 : 0))
       .call('scorchmix', num(p.mix, 2)).call('scorchlvl', num(p.level, 2))) };
+  },
+};
+
+// ---- VECTOR: four waves on the corners of a square, a joystick point mixes them ----
+// The point (the PUCK) sits at X/Y; the vector envelope moves it along a 5-point PATH while the
+// note plays (point 0 = where every note starts). Path points are offsets from the puck in
+// -1..1, scaled by SIZE (1 = can reach every edge from the middle). Corners: A top-left, B
+// top-right, C bottom-left, D bottom-right; X runs left -> right, Y bottom -> top.
+// VECTOR_WAVES order = the worklet's VEC_SPECTRA order (forge-worklet.js): keep them in sync by hand.
+export const VECTOR_WAVES = ['SINE', 'TRI', 'SOFT', 'SAW', 'SQUARE', 'PULSE', 'ORGAN', 'REED', 'AH', 'OOH', 'EE', 'BELL', 'GLASS', 'HOLLOW', 'DIGI', 'GRIT']
+  .map((l, i) => ({ v: i, l }));
+export const VECTOR_LOOPS = [{ v: 'off', l: 'ONCE' }, { v: 'loop', l: 'LOOP' }, { v: 'ping', l: 'BOUNCE' }];
+const vm = (v, l, pts, times, loop, waves = null) => ({ v, l, pts, times, loop, waves });
+// pts = 5 [dx, dy] offsets; times = seconds per segment (0->1, 1->2, 2->3, 3->4)
+export const VECTOR_MOTIONS = [
+  vm('still', 'STILL', [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], [1, 1, 1, 1], 'off'),
+  vm('sweep', 'SWEEP', [[-1, 0], [1, 0], [1, 0], [1, 0], [1, 0]], [3, 0.1, 0.1, 0.1], 'off'),
+  vm('rise', 'RISE', [[0, -1], [0, 1], [0, 1], [0, 1], [0, 1]], [2.5, 0.1, 0.1, 0.1], 'off'),
+  vm('bloom', 'BLOOM', [[-1, -1], [-0.3, -0.6], [0.4, 0.2], [0.9, 0.8], [1, 1]], [0.8, 1.2, 1.6, 2], 'off'),
+  vm('circle', 'CIRCLE', [[0, 1], [1, 0], [0, -1], [-1, 0], [0, 1]], [1, 1, 1, 1], 'loop'),
+  vm('eight', 'FIGURE 8', [[-1, 1], [1, -1], [1, 1], [-1, -1], [-1, 1]], [1, 1, 1, 1], 'loop'),
+  vm('pendulum', 'PENDULUM', [[0, 0], [1, 0], [-1, 0], [1, 0], [-1, 0]], [0.5, 1, 1, 1], 'loop'),
+  vm('swirl', 'SWIRL', [[-1, 1], [1, 0.6], [0.4, -0.6], [-0.3, 0.2], [0, 0]], [0.6, 0.9, 1.3, 2], 'off'),
+  vm('drift', 'DRIFT', [[0, 0], [0.3, 0.8], [0.9, -0.2], [-0.4, -0.7], [-0.8, 0.3]], [2, 3, 2.5, 3.5], 'loop'),
+  vm('wobble', 'WOBBLE', [[0, 0.5], [0.5, 0], [0, -0.5], [-0.5, 0], [0, 0.5]], [0.1, 0.1, 0.1, 0.1], 'loop'),
+  vm('zigzag', 'ZIGZAG', [[-1, 1], [1, 1], [-1, -1], [1, -1], [-1, 1]], [0.25, 0.25, 0.25, 0.25], 'loop'),
+];
+// a motion as the params it sets (what the MOTION list writes); DICE also rolls the corners
+export function vectorMotionParams(m) {
+  const out = { motion: m.v, path: m.pts.map((p) => [...p]), loop: m.loop };
+  m.times.forEach((t, i) => (out[`t${i + 1}`] = t));
+  return out;
+}
+const VEC_DEFAULT = vectorMotionParams(VECTOR_MOTIONS[4]);
+
+// Every path point as an absolute 0..1 square position (puck + offset x SIZE / 2, clamped).
+export function vectorPoints(cx, cy, path, size) {
+  const k = size * 0.5;
+  const cl = (v) => Math.min(1, Math.max(0, v));
+  return [0, 1, 2, 3, 4].map((i) => [cl(cx + (path[i]?.[0] ?? 0) * k), cl(cy + (path[i]?.[1] ?? 0) * k)]);
+}
+
+// The path as smooth curves (Catmull-Rom through the points), sampled at VEC_N + 1 points each.
+// segs[0..3] = 0->1 .. 3->4; with LOOP also segs[4] = 4->1 (the loop closes over points 1-4).
+// The worklet plays the segments in order (see BonfireVector) and the pad draws the same curves.
+export const VEC_N = 12;
+export function vectorCurve(pts, loop) {
+  const P = (i) => pts[Math.max(0, Math.min(4, i))];
+  const seg = (a, b, c, d) => {
+    const out = [];
+    for (let s = 0; s <= VEC_N; s++) {
+      const t = s / VEC_N, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((k) => Math.min(1, Math.max(0, 0.5 * (2 * b[k] + (c[k] - a[k]) * t
+        + (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * t2 + (3 * b[k] - a[k] - 3 * c[k] + d[k]) * t3)))));
+    }
+    return out;
+  };
+  if (loop === 'loop') {
+    // inside the loop the neighbours wrap around 1-4, so it goes round smoothly every lap
+    return [seg(P(0), P(0), P(1), P(2)), seg(P(4), P(1), P(2), P(3)), seg(P(1), P(2), P(3), P(4)),
+      seg(P(2), P(3), P(4), P(1)), seg(P(3), P(4), P(1), P(2))];
+  }
+  return [0, 1, 2, 3].map((i) => seg(P(i - 1), P(i), P(i + 1), P(i + 2)));
+}
+
+// The path as one mini-notation-safe word: "p" + 3 digits per coordinate, (offset + 2) x 100.
+export function vectorPathWord(path) {
+  return `p${path.map((q) => q.map((n) => String(Math.round((Math.min(2, Math.max(-2, n)) + 2) * 100)).padStart(3, '0')).join('')).join('')}`;
+}
+export function vectorPathFromWord(w) {
+  const d = String(w ?? '').replace(/^p/, '');
+  const out = [];
+  for (let i = 0; i + 6 <= d.length; i += 6) out.push([Number(d.slice(i, i + 3)) / 100 - 2, Number(d.slice(i + 3, i + 6)) / 100 - 2]);
+  return out;
+}
+const VEC_SPEED = (s) => 4 ** ((0.5 - s) * 2); // SPEED .5 = the times as set; 1 = 4x faster; 0 = 4x slower
+const VEC_SPREAD_MAX = 14; // cents: SPREAD 1 detunes the corners up to this far apart
+
+export const vector = {
+  type: 'vector',
+  name: 'VECTOR',
+  title: 'Vector Synth',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 20,
+  description: 'Vector synthesis, the sound of the Prophet VS and the Korg Wavestation: four different waves sit on the four corners of a square, and a dot (the PUCK) decides how much of each you hear. Near a corner you mostly hear that wave; in the middle you hear all four. The magic is that the dot MOVES while a note plays, so one held note keeps slowly turning from one sound into another: pads that breathe, evolve and never sit still. Pick the four corner waves (A B C D) with their knobs. Two faces. BASIC: drag the puck on the pad to move the whole movement around, pick a MOTION (SWEEP, CIRCLE, FIGURE 8, DRIFT...) or roll DICE for new waves and a new path. SIZE = how far the dot wanders (0 = it stays put), SPEED = how fast. ADVANCED: the pad shows the path\'s five points; drag them anywhere. Every note starts at point 0 and travels 1, 2, 3, 4; T1-T4 are how long each leg takes. LOOP: ONCE stops at point 4, LOOP keeps going round 1-2-3-4, BOUNCE goes back and forth. SPREAD detunes the four waves against each other for a richer, chorus-like sound. X / Y jacks move the puck from a patch (try both outputs of a KHAOZ or two slow LFOs): each new note then starts somewhere else. Feed it PITCH and/or GATE like a VOICE; long ATK and REL for pads. BONFIRE ONLY: this sound does not exist on strudel.cc.',
+  params: {
+    face: { kind: 'switch', label: 'FACE', options: [{ v: 'basic', l: 'BASIC' }, { v: 'advanced', l: 'ADVANCED' }], default: 'basic' },
+    wave0: { kind: 'rotary', label: 'A', options: VECTOR_WAVES, default: 3, size: 'sm' },
+    wave1: { kind: 'rotary', label: 'B', options: VECTOR_WAVES, default: 8, size: 'sm' },
+    wave2: { kind: 'rotary', label: 'C', options: VECTOR_WAVES, default: 11, size: 'sm' },
+    wave3: { kind: 'rotary', label: 'D', options: VECTOR_WAVES, default: 2, size: 'sm' },
+    x: { kind: 'data', default: 0.5 },
+    y: { kind: 'data', default: 0.5 },
+    motion: { kind: 'data', default: VEC_DEFAULT.motion },
+    path: { kind: 'data', default: VEC_DEFAULT.path },
+    size: { kind: 'knob', label: 'SIZE', min: 0, max: 1, default: 0.8, size: 'sm' },
+    speed: { kind: 'knob', label: 'SPEED', min: 0, max: 1, default: 0.5, size: 'sm' },
+    ...Object.fromEntries([1, 2, 3, 4].map((i) => [`t${i}`, { kind: 'knob', label: `T${i}`, min: 0.02, max: 10, default: VEC_DEFAULT[`t${i}`], curve: 'pow', size: 'sm', unit: 's' }])),
+    loop: { kind: 'switch', label: 'LOOP', options: VECTOR_LOOPS, default: VEC_DEFAULT.loop },
+    spread: { kind: 'knob', label: 'SPREAD', min: 0, max: 1, default: 0.3, size: 'sm' },
+    tune: { kind: 'knob', label: 'TUNE', min: -24, max: 24, default: 0, step: 1, size: 'sm', unit: 'st' },
+    attack: { kind: 'knob', label: 'ATK', min: 0, max: 4, default: 0.3, size: 'sm', curve: 'pow', unit: 's' },
+    release: { kind: 'knob', label: 'REL', min: 0.02, max: 8, default: 1.5, size: 'sm', curve: 'pow', unit: 's' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 1, size: 'sm' },
+  },
+  inputs: { ...VOICE_INPUTS, x: { type: 'cv', label: 'X' }, y: { type: 'cv', label: 'Y' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['face'], ['widget:vectorPad'], ['widget:vectorMotion', 'size', 'speed'], ['t1', 't2', 't3', 't4', 'loop'],
+    ['spread', 'tune', 'attack', 'release', 'level'],
+    ['in:pitch', 'in:gate', 'in:x', 'in:y', 'in:pan', 'out:out']],
+  compile(ctx) {
+    const p = ctx.p;
+    let e = voiceStart(ctx, 'bf_vector');
+    ['veca', 'vecb', 'vecc', 'vecd'].forEach((c, i) => (e = e.call(c, num(p[`wave${i}`], 0))));
+    const x = ctx.in('x');
+    const y = ctx.in('y');
+    e = e.call('vecx', x ?? num(p.x, 3)).call('vecy', y ?? num(p.y, 3));
+    const path = Array.isArray(p.path) ? p.path : VEC_DEFAULT.path;
+    const moves = path.some(([dx, dy]) => Math.abs(dx - path[0][0]) + Math.abs(dy - path[0][1]) > 1e-3);
+    if (p.size >= 0.005) {
+      e = e.call('vecpath', str(vectorPathWord(moves ? path : path.slice(0, 1)))).call('vecsize', num(p.size, 2));
+      if (moves) {
+        [1, 2, 3, 4].forEach((i) => (e = e.call(`vect${i}`, num(p[`t${i}`] * VEC_SPEED(p.speed), 3))));
+        if (p.loop !== 'off') e = e.call('vecloop', num(p.loop === 'loop' ? 1 : 2));
+      }
+    }
+    e = setIf(e, 'vecspread', p.spread, 0, 2);
+    return { out: voiceEnd(ctx, e) };
   },
 };

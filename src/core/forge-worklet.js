@@ -1638,3 +1638,180 @@ class BonfireScorch extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-scorch', BonfireScorch);
+
+// VECTOR: four single-cycle waves on the corners of a square (A top-left, B top-right, C bottom-
+// left, D bottom-right), mixed by where the vector point is: A = (1-x)y, B = xy, C = (1-x)(1-y),
+// D = x(1-y). The point travels a precomputed curve (vectorCurve in modules/forge.js: segments of
+// VEC_N + 1 points, played ONCE / LOOP / BOUNCE). Waves are built here from harmonic recipes,
+// band-limited per octave (mipmaps), lazily the first time a wave is used.
+// VEC_SPECTRA order = VECTOR_WAVES in modules/forge.js.
+const VEC_TABLE = 1024;
+const VEC_HARM = 256; // most harmonics in the top table (C2 still reaches ~17 kHz)
+const formant = (n, fs) => {
+  const f = n * 130; // the vowels sit right around C3
+  let g = 0.04;
+  for (const [fc, bw, a] of fs) g += a / (1 + ((f - fc) / bw) ** 2);
+  return g / n;
+};
+const hashAmp = (n, salt) => {
+  const x = Math.sin(n * 12.9898 + salt * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+const pick = (list) => (n) => list[n] ?? 0;
+const VEC_SPECTRA = [
+  (n) => (n === 1 ? 1 : 0), // SINE
+  (n) => (n % 2 ? ((n - 1) / 2) % 2 ? -1 / (n * n) : 1 / (n * n) : 0), // TRI
+  (n) => 1 / (n * n), // SOFT
+  (n) => 1 / n, // SAW
+  (n) => (n % 2 ? 1 / n : 0), // SQUARE
+  (n) => Math.sin(Math.PI * n * 0.2) / n, // PULSE (20%)
+  pick({ 1: 1, 2: 0.8, 3: 0.6, 4: 0.5, 6: 0.35, 8: 0.3, 10: 0.15, 12: 0.1, 16: 0.06 }), // ORGAN
+  (n) => (n % 2 ? 1 : 0.35) / n * (1 + 1.5 / (1 + ((n - 5) / 2) ** 2)), // REED
+  (n) => formant(n, [[730, 90, 1], [1090, 110, 0.5], [2440, 160, 0.25]]), // AH
+  (n) => formant(n, [[300, 60, 1], [870, 90, 0.45], [2240, 150, 0.12]]), // OOH
+  (n) => formant(n, [[270, 60, 1], [2290, 150, 0.5], [3010, 200, 0.35]]), // EE
+  pick({ 1: 0.8, 3: 0.5, 7: 0.45, 12: 0.35, 17: 0.25, 25: 0.15, 33: 0.08 }), // BELL
+  pick({ 1: 0.6, 4: 0.5, 9: 0.4, 16: 0.3, 25: 0.25, 36: 0.15, 49: 0.1 }), // GLASS
+  (n) => (n === 1 ? 0.3 : n % 2 ? 1 / n : 0), // HOLLOW
+  (n) => (n > 48 ? 0 : (0.2 + hashAmp(n, 1)) / Math.sqrt(n)), // DIGI
+  (n) => (n === 1 ? 1 : 0.9 / Math.sqrt(n)), // GRIT (random phases, below)
+];
+const VEC_LEVELS = [];
+for (let hN = VEC_HARM; hN >= 1; hN >>= 1) VEC_LEVELS.push(hN);
+const VEC_SIN = new Float32Array(VEC_TABLE).map((_, i) => Math.sin((2 * Math.PI * i) / VEC_TABLE));
+// vecSpec[w] = { amps, phs, pow }; vecTables[w][level] = one band-limited table, built on first use
+// (only the band a voice needs: ~0.5 ms, so a first note doesn't stall the audio thread)
+const vecSpec = [];
+const vecTables = [];
+function vecWave(w, lvl) {
+  const tabs = (vecTables[w] ??= []);
+  if (tabs[lvl]) return tabs[lvl];
+  let sp = vecSpec[w];
+  if (!sp) {
+    const spec = VEC_SPECTRA[w] ?? VEC_SPECTRA[0];
+    const amps = new Float32Array(VEC_HARM + 1);
+    const phs = new Int32Array(VEC_HARM + 1);
+    let pow = 0;
+    for (let n = 1; n <= VEC_HARM; n++) {
+      amps[n] = spec(n);
+      phs[n] = w === 15 && n > 1 ? Math.floor(hashAmp(n, 7) * VEC_TABLE) : 0;
+      pow += amps[n] * amps[n];
+    }
+    sp = vecSpec[w] = { amps, phs, pow };
+  }
+  const t = new Float32Array(VEC_TABLE + 1);
+  const hN = VEC_LEVELS[lvl];
+  for (let n = 1; n <= hN; n++) {
+    const a = sp.amps[n];
+    if (!a) continue;
+    const ph = sp.phs[n];
+    for (let i = 0; i < VEC_TABLE; i++) t[i] += a * VEC_SIN[(n * i + ph) % VEC_TABLE];
+  }
+  // same loudness for every wave (RMS of the full recipe), but never clipping
+  let peak = 0;
+  for (let i = 0; i < VEC_TABLE; i++) peak = Math.max(peak, Math.abs(t[i]));
+  const k = Math.min(0.4 / Math.sqrt(sp.pow / 2 || 1), 0.95 / (peak || 1));
+  for (let i = 0; i < VEC_TABLE; i++) t[i] *= k;
+  t[VEC_TABLE] = t[0];
+  return (tabs[lvl] = t);
+}
+const VEC_CTRL = 16; // frames between vector-position updates (weights glide in between)
+
+class BonfireVector extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = options.processorOptions;
+    this.env = new Envelope(o);
+    const allowed = (0.45 * sampleRate) / Math.max(1, o.freq); // harmonics under Nyquist
+    const lvl = Math.max(0, VEC_LEVELS.findIndex((hN) => hN <= allowed));
+    const spread = Math.min(1, Math.max(0, o.spread ?? 0)) * 14;
+    this.oscs = [0, 1, 2, 3].map((i) => ({
+      t: vecWave(Math.min(VEC_SPECTRA.length - 1, Math.max(0, Math.round(o.waves?.[i] ?? 0))), allowed < 1 ? VEC_LEVELS.length - 1 : lvl),
+      dt: (o.freq * 2 ** (([0, 0.5, -0.5, 0.25][i] * spread) / 1200)) / sampleRate,
+      ph: i * 0.25 * (spread > 0 ? 1 : 0), // detuned: start apart so the beating doesn't open with a flam
+    }));
+    this.pt = o.point ?? [0.5, 0.5];
+    this.curve = o.curve; // null = the point stays put
+    if (this.curve) {
+      const T = o.times;
+      const seg = (s, rev = false) => ({ s, rev, n: Math.max(1, Math.round(Math.max(0.02, s === 4 ? T[0] : T[s]) * sampleRate)) });
+      const first = [seg(0), seg(1), seg(2), seg(3)];
+      this.loopFrom = first.length;
+      this.order = o.loop === 1 ? [...first, seg(4), seg(1), seg(2), seg(3)]
+        : o.loop === 2 ? [...first, seg(3, true), seg(2, true), seg(1, true), seg(1), seg(2), seg(3)] : first;
+      this.loops = o.loop === 1 || o.loop === 2;
+      this.si = 0;
+      this.sf = 0; // frames into the current segment
+    }
+    this.w = this.weights(this.pt);
+    this.wFrom = this.w;
+    this.ctrl = 0;
+    listenForStop(this);
+  }
+
+  weights([x, y]) {
+    const w = [(1 - x) * y, x * y, (1 - x) * (1 - y), x * (1 - y)];
+    // a little lift in the middle, where four different waves partly cancel each other out
+    const g = (w[0] * w[0] + w[1] * w[1] + w[2] * w[2] + w[3] * w[3]) ** -0.15;
+    return w.map((v) => v * g);
+  }
+
+  // advance the vector point by `frames`, return where it is
+  move(frames) {
+    if (!this.curve) return this.pt;
+    let sg = this.order[this.si];
+    this.sf += frames;
+    while (this.sf >= sg.n) {
+      if (this.si === this.order.length - 1 && !this.loops) {
+        this.sf = sg.n;
+        break;
+      }
+      this.sf -= sg.n;
+      this.si = this.si + 1 < this.order.length ? this.si + 1 : this.loopFrom;
+      sg = this.order[this.si];
+    }
+    const c = this.curve[sg.s] ?? this.curve[0];
+    let u = Math.min(1, this.sf / sg.n);
+    if (sg.rev) u = 1 - u;
+    const p = u * (c.length - 1);
+    const i = Math.min(c.length - 2, Math.floor(p));
+    const f = p - i;
+    return [c[i][0] + (c[i + 1][0] - c[i][0]) * f, c[i][1] + (c[i + 1][1] - c[i][1]) * f];
+  }
+
+  process(_inputs, outputs) {
+    const out = outputs[0][0];
+    if (!out) return true;
+    const { env, oscs } = this;
+    const N = VEC_TABLE;
+    for (let i = 0; i < out.length; i++) {
+      const f = currentFrame + i;
+      const amp = env.at(f);
+      if (f >= env.start && this.ctrl === 0) {
+        this.wFrom = this.w;
+        this.w = this.weights(this.move(VEC_CTRL));
+      }
+      if (f < env.start) {
+        out[i] = 0;
+        continue;
+      }
+      const k = this.ctrl / VEC_CTRL;
+      this.ctrl = (this.ctrl + 1) % VEC_CTRL;
+      let y = 0;
+      for (let j = 0; j < 4; j++) {
+        const o = oscs[j];
+        o.ph += o.dt;
+        if (o.ph >= 1) o.ph -= 1;
+        const wj = this.wFrom[j] + (this.w[j] - this.wFrom[j]) * k;
+        if (wj < 1e-4) continue;
+        const p = o.ph * N;
+        const n = p | 0;
+        y += wj * (o.t[n] + (o.t[n + 1] - o.t[n]) * (p - n));
+      }
+      out[i] = y * amp;
+    }
+    return finishBlock(this, outputs, out);
+  }
+}
+
+registerProcessor('bonfire-vector', BonfireVector);

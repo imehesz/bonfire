@@ -5,6 +5,7 @@
 import { getAudioContext, getFrequencyFromValue, getSampleBuffer, getSound, getSuperdoughAudioController, registerSound } from '@strudel/webaudio';
 import { getFontBufferSource } from '@strudel/soundfonts';
 import workletUrl from './forge-worklet.js?url';
+import { vectorCurve, vectorPathFromWord, vectorPoints } from '../modules/forge.js';
 
 let loading = null;
 
@@ -169,6 +170,31 @@ async function grainOpts(v) {
   };
 }
 
+// ---- VECTOR: the puck (vecx / vecy, maybe from CV) + the path -> the curve the worklet plays ----
+// Curves are cached: a held chord or a running pattern sends the same few settings over and over.
+const vecCache = new Map();
+const clamp01 = (v) => Math.min(1, Math.max(0, Number(v) || 0));
+function vectorOpts(v) {
+  const x = clamp01(v.vecx ?? 0.5);
+  const y = clamp01(v.vecy ?? 0.5);
+  const path = vectorPathFromWord(v.vecpath);
+  const size = clamp01(v.vecsize ?? 0);
+  const waves = [v.veca ?? 3, v.vecb ?? 8, v.vecc ?? 11, v.vecd ?? 2];
+  const base = { waves, spread: v.vecspread ?? 0 };
+  if (!path.length || !size) return { ...base, point: [x, y], curve: null };
+  if (path.length < 5) return { ...base, point: vectorPoints(x, y, path, size)[0], curve: null };
+  const loop = Number(v.vecloop ?? 0);
+  const key = `${x.toFixed(3)}|${y.toFixed(3)}|${v.vecpath}|${size}|${loop}`;
+  let curve = vecCache.get(key);
+  if (!curve) {
+    curve = vectorCurve(vectorPoints(x, y, path, size), loop === 1 ? 'loop' : loop === 2 ? 'ping' : 'off');
+    if (vecCache.size > 256) vecCache.clear();
+    vecCache.set(key, curve);
+  }
+  const times = [v.vect1 ?? 1, v.vect2 ?? 1, v.vect3 ?? 1, v.vect4 ?? 1];
+  return { ...base, point: curve[0][0], curve, times, loop };
+}
+
 function registerForgeSounds() {
   workletSound('bf_string', 'bonfire-string', (v) => ({
     decay: v.strdecay ?? 3,
@@ -231,6 +257,7 @@ function registerForgeSounds() {
     acc: v.fmacc ?? 0,
   }), { outGain: 0.6, defaultRelease: 0.4, channels: 2 });
   workletSound('bf_grain', 'bonfire-grain', grainOpts, { outGain: 0.8, defaultRelease: 1.5, channels: 2 });
+  workletSound('bf_vector', 'bonfire-vector', vectorOpts, { outGain: 0.55, defaultRelease: 1.5 });
 }
 
 // ---- TAPE: one tape-loop worklet per TAPE module, fed by its superdough send bus ----

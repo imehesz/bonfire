@@ -77,7 +77,7 @@ These compile to plain Strudel: the code in the dock runs unchanged on strudel.c
 | MIXER | Mix | Four channels with level, pan, low / high cut and mute |
 | OUTPUT | Mix | Master output, volume, meters and scope |
 
-### Bonfire STACK only (15)
+### Bonfire STACK only (16)
 
 These use Bonfire's own DSP. They patch like any other module, but a patch that uses even one
 of them only plays inside Bonfire STACK. The app flags it: the cards carry a NOT STRUDEL badge,
@@ -100,6 +100,7 @@ the faceplates say BONFIRE ONLY, the code view says so at the top and OPEN IN ST
 | DRUM | Sound | Drum synth: kick, tom, snare, clap and hat made from scratch |
 | GRAIN | Sound | Granular cloud made from any sample |
 | FM4 | Sound | Four-operator FM voice with presets (e-pianos, bells, basses) |
+| VECTOR | Sound | Vector synth: four waves on the corners of a square, a moving dot morphs between them |
 
 Every module's full help, with its faceplate, is in the app: open the MODULES drawer and click
 the **?** on a card.

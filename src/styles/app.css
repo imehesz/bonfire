@@ -545,11 +545,23 @@ a { color: var(--accent); }
 .fm-dice { margin-left: 8px; font-size: 11px; padding: 4px 8px; }
 .fm-algo-lcd { padding: 2px 3px; }
 .w-fm-algo { width: 176px; height: 54px; display: block; }
+/* VECTOR: corner knobs around the square pad; BASIC = MOTION row, ADVANCED = T1-T4 + LOOP row */
+.vec-pad { display: grid; grid-template-columns: auto 132px auto; grid-template-rows: 1fr 1fr; column-gap: 6px; align-items: start; }
+.vec-pad .vec-k0 { grid-area: 1 / 1; }
+.vec-pad .vec-k1 { grid-area: 1 / 3; }
+.vec-pad .vec-k2 { grid-area: 2 / 1; align-self: end; }
+.vec-pad .vec-k3 { grid-area: 2 / 3; align-self: end; }
+.vec-pad .vec-screen { grid-area: 1 / 2 / 3 / 3; }
+.vec-pad .knob-val { min-width: 44px; }
+.w-vector-pad { display: block; width: 132px; height: 132px; border-radius: 4px; background: var(--scope); box-shadow: inset 0 1px 6px #000, 0 1px 0 rgba(255, 255, 255, 0.2); touch-action: none; cursor: crosshair; }
+.vec-motion .sel-disp { min-width: 72px; }
+.module[data-type='vector'][data-face='basic'] .mod-row:has([data-param='t1']),
+.module[data-type='vector'][data-face='advanced'] .mod-row:has([data-widget='vectorMotion']) { display: none; }
 .pick.fe-dice { color: var(--accent); }
 /* CHORDS faces: BASIC = moods + chord names only; ADVANCED = everything else */
-.module[data-face='basic'] :is([data-param='scale'], [data-param='size'], [data-param='voicing'], [data-param='inv'],
+.module[data-type='chords'][data-face='basic'] :is([data-param='scale'], [data-param='size'], [data-param='voicing'], [data-param='inv'],
   [data-param='bass'], [data-param='length'], [data-param='lead'], [data-widget='chordPresets'], .ch-num, .w-chords .knob, .ch-name i),
-.module[data-face='advanced'] [data-widget='chordMoods'] { display: none; }
+.module[data-type='chords'][data-face='advanced'] [data-widget='chordMoods'] { display: none; }
 .module[data-face='basic'] .w-chords .mel-col.off-len { visibility: hidden; }
 .module[data-face='basic'] .ch-name { padding: 4px 0; }
 .module[data-face='basic'] .ch-name b { font-size: 13px; }
