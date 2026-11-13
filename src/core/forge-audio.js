@@ -10,8 +10,24 @@ import { vectorCurve, vectorPathFromWord, vectorPoints } from '../modules/forge.
 let loading = null;
 
 // Call after the AudioContext exists (inside unlockAudio). Safe to call repeatedly.
+// Browsers without AudioWorklet (some iPhones: in-app browsers, Lockdown Mode, old iOS) play on
+// without the Bonfire-only sounds instead of failing the whole patch (superdough does the same
+// for its own worklets).
 export function loadForge() {
-  return (loading ??= getAudioContext().audioWorklet.addModule(workletUrl).then(registerForgeSounds));
+  return (loading ??= (async () => {
+    const worklet = getAudioContext().audioWorklet;
+    if (!worklet) {
+      console.warn('[bonfire] AudioWorklet not available in this browser: Bonfire-only sounds (STRING, FM4, TAPE, ...) are silent');
+      return;
+    }
+    try {
+      await worklet.addModule(workletUrl);
+    } catch (e) {
+      console.warn('[bonfire] Bonfire-only sounds could not be loaded:', e);
+      return;
+    }
+    await registerForgeSounds();
+  })());
 }
 
 // Registers sound `name` played by worklet `processor`. opts(value) -> the processor's own knobs
