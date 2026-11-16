@@ -1,4 +1,4 @@
-// Timing + event sources: CLOCK, SEQ-16, BEATS, MELODY, ARP, CHORDS, EUCLID, CHAIN, OCTAVE.
+// Timing + event sources: CLOCK, SEQ-16, BEATS, MELODY, ARP, CHORDS, EUCLID, CHAIN, TURING, OCTAVE.
 import { fn, mini, obj } from '../core/expr.js';
 import { BANKS, DRUM_SOUNDS, ROOTS, SCALES, bankLabel, midiToNote, pcName, scaleArg, scaleLength, scaleSteps, useSharps } from '../core/music.js';
 import { miniExpr, num, setIf, stepToken, timed } from './helpers.js';
@@ -498,6 +498,98 @@ export const chain = {
     if (!used.length) return { out: null };
     const sel = Math.abs(step - 1) < 1e-9 ? miniExpr(`<${tokens.join(' ')}>`) : timed(miniExpr(tokens.join(' ')), dur);
     return { out: sel.call(restart ? 'pickRestart' : 'pick', obj(used.map((k) => [k, parts[k]]))) };
+  },
+};
+
+// TURING: a random looping sequencer after the Music Thing Turing Machine. A ring of
+// LENGTH bits turns one place per step; the bit coming round is flipped with a chance
+// set by LOCK (fully locked = never, so the ring is a fixed loop of LENGTH steps).
+// Per step: the bit at the head is the gate, the next eight bits are the note (0-255,
+// scaled to RANGE scale degrees). Strudel can't run the ring live, so the journey is
+// baked at compile time: EVOLVE bars of it, then it starts over (seeded, so the same
+// patch always plays the same journey).
+export const TURING_BITS = 16;
+const TURING_STATES = [
+  [0.995, 'LOCKED'], [0.85, 'SLOW'], [0.55, 'DRIFT'], [0.25, 'RESTLESS'], [-1, 'WILD'],
+];
+export const turingLocked = (lock) => lock >= 0.995;
+export const turingStatus = (lock) => TURING_STATES.find(([v]) => lock >= v)[1];
+// chance a bit flips as it comes round: 0 locked .. 0.5 pure noise
+const turingFlip = (lock) => (turingLocked(lock) ? 0 : 0.5 * (1 - lock) ** 2);
+
+function mulberry(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), a | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Run the ring `count` steps. deg/gate per step, states[t] = the ring (absolute
+// positions, head at t % length) as step t starts, flips[t] = the head bit flipped after t.
+export function turingRun({ bits, seed, lock, length, range }, count) {
+  const L = length;
+  const buf = Array.from({ length: L }, (_, i) => (bits[i] ? 1 : 0));
+  const rnd = mulberry(Math.imul(seed, 2654435761));
+  const p = turingFlip(lock);
+  const deg = [];
+  const gate = [];
+  const states = [];
+  const flips = [];
+  for (let t = 0; t < count; t++) {
+    states.push(buf.slice());
+    const h = t % L;
+    gate.push(buf[h]);
+    let v = 0;
+    for (let i = 1; i <= 8; i++) v = (v << 1) | buf[(h + i) % L];
+    deg.push(Math.min(range, Math.floor((v / 256) * (range + 1))));
+    const f = p > 0 && rnd() < p ? 1 : 0;
+    if (f) buf[h] ^= 1;
+    flips.push(f);
+  }
+  return { deg, gate, states, flips };
+}
+
+export const randomBits = () => Array.from({ length: TURING_BITS }, () => (Math.random() < 0.5 ? 1 : 0));
+
+export const turing = {
+  type: 'turing',
+  name: 'TURING',
+  title: 'Random Looping Sequencer',
+  category: 'Pitch',
+  hp: 16,
+  description: 'Makes up melodies for you, then lets you keep the one you like (after the Music Thing Turing Machine). The lights are a ring of bits that turns one step at a time: the first light is the gate (on = a note plays), the next eight are the note. LOCK is the big one. Turned down, bits flip as they come round and the tune keeps changing (WILD = new notes every step); turned up it changes slowly (DRIFT, SLOW); all the way up it is LOCKED, a fixed loop of LENGTH steps. So: leave it loose, listen, and when it plays something you like press KEEP. It grabs what is playing right now and locks it. DICE rolls a fresh start. RANGE is how many scale notes it spreads over, ROOT / SCALE / OCT put it in key, so it never plays a wrong note. EVOLVE is how many bars it wanders before the whole journey starts over (the same every time you load the patch). RESTS off plays a note on every step. CLK sets the step speed (16ths by default). Patch PITCH into a VOICE; GATE is the same rhythm on its own, for a drum or a CHORDS gate.',
+  params: {
+    bits: { kind: 'data', default: [1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0], structural: true },
+    seed: { kind: 'data', default: 1, structural: true },
+    lock: { kind: 'knob', label: 'LOCK', min: 0, max: 1, default: 0.75, size: 'lg', structural: true },
+    length: { kind: 'knob', label: 'LENGTH', min: 2, max: TURING_BITS, default: 8, step: 1, structural: true },
+    range: { kind: 'knob', label: 'RANGE', min: 1, max: 14, default: 7, step: 1, structural: true },
+    root: { kind: 'select', label: 'ROOT', options: ROOTS, default: 'C', structural: true },
+    scale: { kind: 'select', label: 'SCALE', options: SCALES.map(([v, l]) => ({ v, l })), default: 'minor:pentatonic', structural: true },
+    octave: { kind: 'knob', label: 'OCT', min: 1, max: 6, default: 3, step: 1, size: 'sm', structural: true },
+    evolve: { kind: 'rotary', label: 'EVOLVE', options: [4, 8, 16, 32].map((v) => ({ v, l: `${v} BAR` })), default: 8, size: 'sm', structural: true },
+    rests: { kind: 'toggle', label: 'RESTS', default: true, structural: true },
+  },
+  inputs: { clk: { type: 'clock', label: 'CLK' } },
+  outputs: { gate: { type: 'rhythm', label: 'GATE' }, pitch: { type: 'pitch', label: 'PITCH' } },
+  actions: { dice: { label: 'DICE' }, keep: { label: 'KEEP' } },
+  layout: [['widget:turingRing'], ['widget:turingLcd', 'dice', 'keep'], ['lock', 'length', 'range'], ['root', 'scale'], ['octave', 'evolve', 'rests'], ['in:clk', 'out:gate', 'out:pitch']],
+  compile(ctx) {
+    const p = ctx.p;
+    const step = ctx.in('clk') ?? 1 / 16;
+    const count = turingLocked(p.lock) ? p.length : Math.max(p.length, Math.round(p.evolve / step));
+    const run = turingRun(p, count);
+    const dur = step * count;
+    ctx.meta({ steps: count, dur, step, run });
+    const notes = run.deg.map((d, i) => (p.rests && !run.gate[i] ? '~' : String(d)));
+    const pitch = notes.some((t) => t !== '~')
+      ? timed(fn('n', mini(notes.join(' '))).call('scale', mini(scaleArg(p.root, p.octave, p.scale))), dur)
+      : null;
+    const gate = run.gate.some(Boolean) ? timed(miniExpr(run.gate.map((g) => (g ? 'x' : '~')).join(' ')), dur) : null;
+    return { pitch, gate };
   },
 };
 

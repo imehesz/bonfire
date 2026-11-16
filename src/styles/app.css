@@ -1065,6 +1065,14 @@ body.midi-learn .module .ctl[data-param]:not([data-param='color']):not(.sound), 
 .stems-note { font-size: 12px; line-height: 1.5; color: var(--ui-dim); margin: 0 0 12px; max-width: 420px; }
 
 /* FRIDGE */
+.w-turing { display: grid; grid-template-columns: repeat(8, 16px); gap: 5px 6px; padding: 5px 7px; border-radius: 4px; background: var(--display); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.2); }
+.tm-bit { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; }
+.tm-bit .led { width: 10px; height: 10px; }
+.tm-bit.gate { box-shadow: 0 0 0 1.5px var(--accent); }
+.tm-bit.win { background: color-mix(in srgb, var(--display-text) 12%, transparent); }
+.tm-bit.off-len { opacity: 0.25; }
+.tm-bit.flip .led { background: #ff9d2e; box-shadow: 0 0 6px #ff9d2e, 0 0 12px rgba(255, 157, 46, 0.6); }
+.tm-lcd { width: 84px; }
 .w-fridge { width: 96px; padding: 7px 0; font-size: 13px; text-align: center; letter-spacing: 0.08em; }
 .module[data-type='fridge'] .mod-ctls { gap: 10px; }
 .module[data-type='fridge'] [data-action='freeze'] button { width: 46px; height: 46px; }

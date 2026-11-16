@@ -3,7 +3,7 @@ import { checkpoint, findModule, setParam } from '../core/store.js';
 import { bjorklund } from '@strudel/core';
 import { analysers, fridgeState, fridgeToggle, isPlaying, stutterPress, stutterState } from '../core/engine.js';
 import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
-import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, arpOrder, beats, chordPlan } from '../modules/sources.js';
+import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, TURING_BITS, arpOrder, beats, chordPlan, randomBits, turingStatus } from '../modules/sources.js';
 import { FENV_PRESETS, khaozPath } from '../modules/processors.js';
 import { CHOP_STEPS } from '../modules/voices.js';
 import { FM_ALGOS, FM_PRESETS, VECTOR_MOTIONS, VECTOR_WAVES, fmPresetParams, vectorCurve, vectorMotionParams, vectorPoints } from '../modules/forge.js';
@@ -1504,4 +1504,85 @@ function stutterLamp(mod) {
   };
 }
 
-export const WIDGETS = { steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, vectorPad, vectorMotion, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor, stutterLamp };
+// TURING: the ring of bits, read from the head (light 1 = gate, 2-9 = the note).
+// While playing it shows the ring as it is now and flashes a bit as it flips.
+function turingRing(mod) {
+  const leds = [];
+  const ring = h('div', { class: 'w-turing' });
+  for (let i = 0; i < TURING_BITS; i++) {
+    const b = h('span', { class: `tm-bit${i === 0 ? ' gate' : i <= 8 ? ' win' : ''}` }, h('span', { class: 'led' }));
+    leds.push(b);
+    ring.append(b);
+  }
+  const el = ring;
+  let p = null;
+  let last = { cycle: null, meta: null };
+  const draw = (state, head, flip) => {
+    const L = state.length;
+    leds.forEach((b, i) => {
+      b.classList.toggle('off-len', i >= L);
+      b.querySelector('.led').classList.toggle('on', i < L && !!state[(head + i) % L]);
+      b.classList.toggle('flip', flip && i === L - 1);
+    });
+  };
+  return {
+    el,
+    update(np) {
+      p = np;
+      if (last.cycle == null) draw(np.bits.slice(0, np.length), 0, false);
+    },
+    tick(cycle, meta) {
+      last = { cycle, meta };
+      if (!p) return;
+      const k = stepIndex(cycle, meta);
+      if (k >= 0 && meta.run) draw(meta.run.states[k], k % p.length, !!meta.run.flips[k - 1]);
+      else if (cycle == null) draw(p.bits.slice(0, p.length), 0, false);
+    },
+    action(spec) {
+      const m = findModule(mod.id);
+      if (!m) return;
+      const q = m.params;
+      checkpoint();
+      if (spec === 'dice') {
+        setParam(mod.id, 'bits', randomBits(), { record: false });
+        setParam(mod.id, 'seed', 1 + Math.floor(Math.random() * 1e6), { record: false });
+        return;
+      }
+      if (spec !== 'keep') return;
+      // Lock what's playing now. The locked loop reads the ring at global step g, so
+      // rotate the captured ring so step g lands on the bits sounding right now.
+      const { cycle, meta } = last;
+      const k = stepIndex(cycle, meta);
+      if (k >= 0 && meta.run && meta.step) {
+        const L = q.length;
+        const g = Math.floor(cycle / meta.step + 1e-6);
+        const s = meta.run.states[k];
+        const bits = [...q.bits];
+        for (let j = 0; j < L; j++) bits[j] = s[(((j - g + k) % L) + L) % L];
+        setParam(mod.id, 'bits', bits, { record: false });
+      }
+      setParam(mod.id, 'lock', 1, { record: false });
+    },
+  };
+}
+
+// TURING status LCD: how restless LOCK makes it (flashes KEPT after KEEP).
+function turingLcd(mod) {
+  const el = h('div', { class: 'lcd w-fridge tm-lcd' }, 'SLOW');
+  let lock = 0.75;
+  let shown = '';
+  let hint = 0;
+  return {
+    el,
+    update: (p) => { lock = p.lock; },
+    action: (spec) => { if (spec === 'keep') hint = performance.now() + 900; },
+    tick() {
+      const text = performance.now() < hint ? 'KEPT' : turingStatus(lock);
+      if (text === shown) return;
+      shown = text;
+      el.textContent = text;
+    },
+  };
+}
+
+export const WIDGETS = { turingRing, turingLcd, steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, vectorPad, vectorMotion, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor, stutterLamp };

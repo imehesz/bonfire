@@ -43,10 +43,10 @@ Cables carry **patterns**, not audio: a module chain compiles to a Strudel metho
 
 ## Modules
 
-39 modules, in two groups. If you want your patch to keep running on strudel.cc, stick to the
+41 modules, in two groups. If you want your patch to keep running on strudel.cc, stick to the
 first table.
 
-### Strudel compatible (24)
+### Strudel compatible (25)
 
 These compile to plain Strudel: the code in the dock runs unchanged on strudel.cc.
 
@@ -60,6 +60,7 @@ These compile to plain Strudel: the code in the dock runs unchanged on strudel.c
 | MELODY | Pitch | Up to sixteen-step note sequencer locked to a scale |
 | ARP | Pitch | Plays a four-chord progression one note at a time |
 | CHORDS | Pitch | Chord progressions: pick a mood (BASIC) or build your own (ADVANCED) |
+| TURING | Pitch | Random looping sequencer: lets melodies mutate, then KEEP locks the one you like |
 | OCTAVE | Pitch | Shifts every note passing through it up or down by octaves |
 | VOICE | Sound | The basic sound maker: an oscillator or any sample from the library |
 | SUB DRONE | Sound | Huge, slow, deep bass drone (sub sine plus detuned saws) |
