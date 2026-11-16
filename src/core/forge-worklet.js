@@ -1815,3 +1815,146 @@ class BonfireVector extends AudioWorkletProcessor {
 }
 
 registerProcessor('bonfire-vector', BonfireVector);
+
+// RESONATOR: sympathetic strings as an effect (a bank of Karplus-Strong loops with no pluck of
+// their own). Whatever comes in is fed into all six loops at once; each loop only keeps the part of
+// it that matches its own pitch, so drums, noise or a voice set the tuned strings ringing like the
+// open strings of a sitar or a piano with the pedal down. Wet only: the dry sound goes past.
+// Tuning: the module's own ROOT + CHORD (root = MIDI note), or, once notes arrive on the TUNE jack
+// ({tune: midi, at: time}, one message per chord note, same `at` = same chord), those notes from
+// their own time on. A chord of k notes fills the six strings with octave doublings.
+const RESO_N = 6;
+// order = RESO_CHORDS in modules/forge.js
+const RESO_CHORDS = [[0, 12], [0, 7, 12], [0, 4, 7], [0, 3, 7], [0, 5, 7], [0, 3, 7, 10], [0, 4, 7, 11]];
+const RESO_DETUNE = [0, 0.0016, -0.0013, 0.0011, -0.0017, 0.0014]; // ~2-3 cents apart: doublings shimmer
+const RESO_IN = 0.45;
+const RESO_OUT = 0.7;
+class BonfireReso extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    const sr = sampleRate;
+    this.size = Math.ceil(sr / 28) + 8; // the lowest string is held at 30 Hz
+    this.buf = Array.from({ length: RESO_N }, () => new Float32Array(this.size));
+    this.w = 0;
+    this.y1 = new Float32Array(RESO_N);
+    this.d = new Float32Array(RESO_N); // delay now (glides to the target over ~20 ms)
+    this.hp = 0;
+    this.env = 0;
+    this.gain = 1;
+    this.p = { decay: 3, bright: 0.6, chord: 2, root: 48, tuned: 0, width: 0.7, level: 0.8 };
+    this.followed = null; // the TUNE jack's current chord (MIDI notes)
+    this.followedAt = -1;
+    this.queue = []; // chords waiting for their time: { at, notes }
+    this.port.onmessage = (e) => {
+      const m = e.data;
+      if (m.clear) {
+        for (const b of this.buf) b.fill(0);
+        this.y1.fill(0);
+        this.queue = [];
+        this.followed = null;
+        this.followedAt = -1;
+        return;
+      }
+      if (m.tune != null) {
+        const at = m.at ?? 0;
+        const last = this.queue[this.queue.length - 1];
+        if (last && Math.abs(last.at - at) < 1e-4) last.notes.push(m.tune);
+        else if (!last && this.followed && Math.abs(this.followedAt - at) < 1e-4) this.followed.push(m.tune);
+        else this.queue.push({ at, notes: [m.tune] });
+        return;
+      }
+      Object.assign(this.p, m);
+    };
+  }
+
+  // the six string pitches (MIDI), lowest chord note first, doublings an octave up, kept within 3 octaves
+  notes() {
+    const p = this.p;
+    const base = p.tuned && this.followed?.length
+      ? this.followed
+      : RESO_CHORDS[Math.min(RESO_CHORDS.length - 1, Math.max(0, Math.round(p.chord)))].map((s) => p.root + s);
+    const u = [...new Set(base.map((n) => Math.round(n)))].sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i < RESO_N; i++) {
+      let n = u[i % u.length] + 12 * Math.floor(i / u.length);
+      while (n > u[0] + 36) n -= 12;
+      out.push(n);
+    }
+    return out;
+  }
+
+  process(inputs, outputs) {
+    const inp = inputs[0];
+    const out = outputs[0];
+    const L = out[0];
+    const R = out[1] ?? L;
+    const n = L.length;
+    const inL = inp?.[0];
+    const inR = inp?.[1] ?? inL;
+    const sr = sampleRate;
+    const { p, buf, size, y1, d } = this;
+    while (this.queue.length && this.queue[0].at <= currentTime + n / sr) {
+      const c = this.queue.shift();
+      this.followed = c.notes;
+      this.followedAt = c.at;
+    }
+    const notes = this.notes();
+    // loop lowpass (BRIGHT 1 = barely damped) and its phase delay, taken off the loop to stay in tune
+    const a = (1 - Math.min(1, Math.max(0, p.bright))) * 0.9;
+    const comp = a / (1 - a);
+    const t60 = Math.max(0.1, p.decay);
+    const width = Math.min(1, Math.max(0, p.width));
+    const dT = new Float32Array(RESO_N);
+    const g = new Float32Array(RESO_N);
+    const pl = new Float32Array(RESO_N);
+    const pr = new Float32Array(RESO_N);
+    for (let i = 0; i < RESO_N; i++) {
+      const f = Math.min(4000, Math.max(30, 440 * 2 ** ((notes[i] - 69) / 12) * (1 + RESO_DETUNE[i])));
+      dT[i] = Math.max(2, sr / f - comp);
+      if (d[i] === 0) d[i] = dT[i];
+      g[i] = 10 ** (-3 / (t60 * f));
+      // strings fan out left / right, low ones nearer the middle
+      const pan = (i % 2 ? 1 : -1) * (0.35 + 0.65 * (i / (RESO_N - 1))) * width;
+      pl[i] = Math.cos(((pan + 1) * Math.PI) / 4);
+      pr[i] = Math.sin(((pan + 1) * Math.PI) / 4);
+    }
+    const glide = 1 - Math.exp(-1 / (0.02 * sr));
+    const aHp = 1 - Math.exp((-2 * Math.PI * 70) / sr);
+    const rel = Math.exp(-1 / (0.3 * sr));
+    const level = Math.max(0, p.level) * RESO_OUT;
+    let w = this.w;
+    for (let s = 0; s < n; s++) {
+      let x = inL ? (inL[s] + inR[s]) * 0.5 : 0;
+      this.hp += (x - this.hp) * aHp; // the strings don't need the sub: it only makes them boom
+      x = (x - this.hp) * RESO_IN;
+      let oL = 0;
+      let oR = 0;
+      for (let i = 0; i < RESO_N; i++) {
+        d[i] += (dT[i] - d[i]) * glide;
+        let r = w - d[i];
+        if (r < 0) r += size;
+        const i0 = r | 0;
+        const fr = r - i0;
+        const b = buf[i];
+        const y = b[i0] + (b[i0 + 1 === size ? 0 : i0 + 1] - b[i0]) * fr;
+        const lp = (1 - a) * y + a * y1[i];
+        y1[i] = lp;
+        b[w] = x + g[i] * lp;
+        oL += y * pl[i];
+        oR += y * pr[i];
+      }
+      if (++w >= size) w = 0;
+      // a held note right on a string's pitch keeps pumping it up: a soft limiter keeps that in check
+      const pk = Math.max(Math.abs(oL), Math.abs(oR));
+      this.env = pk > this.env ? pk : this.env * rel;
+      const target = this.env > 0.8 ? 0.8 / this.env : 1;
+      this.gain += (target - this.gain) * (target < this.gain ? 0.05 : 0.0005);
+      L[s] = oL * this.gain * level;
+      R[s] = oR * this.gain * level;
+    }
+    this.w = w;
+    return true;
+  }
+}
+
+registerProcessor('bonfire-reso', BonfireReso);

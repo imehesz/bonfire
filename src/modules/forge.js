@@ -4,7 +4,7 @@
 // Every definition here sets `strudel: false`; the drawer, faceplate and compiler key off that.
 import { Pattern, Hap, TimeSpan, noteToMidi, register, registerControl } from '@strudel/core';
 import { fn, mini, num, str } from '../core/expr.js';
-import { midiToNote } from '../core/music.js';
+import { ROOTS, midiToNote } from '../core/music.js';
 import { setIf } from './helpers.js';
 
 // Pattern methods for the custom sound's knobs (.strdecay(2) etc.). Registered at import, so the
@@ -21,6 +21,7 @@ for (const c of ['strdecay', 'strbright', 'strpick', 'growlwave', 'growlcut', 'g
   'bfroom', 'bfdelay', 'stutfade', 'stuttrig', 'stutlen', 'stutdur',
   'mirmode', 'mirrate', 'mirdepth', 'mirwidth', 'mirlvl',
   'scorchmode', 'scorchgain', 'scorchtone', 'scorchcab', 'scorchmix', 'scorchlvl',
+  'resdecay', 'resbright', 'reschord', 'resroot', 'reswidth', 'reslvl', 'restuned', 'restune',
   'haloshim', 'halodecay', 'halosize', 'halotone', 'halopitch', 'halolvl',
   'veca', 'vecb', 'vecc', 'vecd', 'vecx', 'vecy', 'vecpath', 'vecsize', 'vect1', 'vect2', 'vect3', 'vect4', 'vecloop', 'vecspread',
   'grainsrc', 'grainn', 'graintune', 'grainpos', 'grainspray', 'grainscan', 'grainsize', 'graindens', 'grainshim', 'grainwidth']) registerControl(c);
@@ -732,6 +733,52 @@ export const scorch = {
     return { out: fn('stack', notes, wet.call('scorchmode', num(Math.max(0, SCORCH_MODES.findIndex((m) => m.v === p.mode))))
       .call('scorchgain', num(p.gain, 2)).call('scorchtone', num(p.tone, 2)).call('scorchcab', num(p.cab === 'on' ? 1 : 0))
       .call('scorchmix', num(p.mix, 2)).call('scorchlvl', num(p.level, 2))) };
+  },
+};
+
+// ---- RESONATOR: sympathetic strings ----
+// A bus effect like HALO (wet only, the notes pass straight through): six tuned string loops that
+// whatever comes in sets ringing. Tuned by ROOT + CHORD + OCT, or by the TUNE jack: its notes
+// arrive as soundless events tagged restune = id, and the engine hands each one to the worklet
+// with its own time, so the strings change chord exactly when the chord does.
+// order = RESO_CHORDS in core/forge-worklet.js
+const RESO_CHORDS = [{ v: 'oct', l: 'OCT' }, { v: 'fifth', l: '5TH' }, { v: 'maj', l: 'MAJOR' }, { v: 'min', l: 'MINOR' },
+  { v: 'sus', l: 'SUS 4' }, { v: 'min7', l: 'MIN 7' }, { v: 'maj7', l: 'MAJ 7' }];
+
+export const reso = {
+  type: 'reso',
+  name: 'RESONATOR',
+  title: 'Sympathetic Strings',
+  category: 'Bonfire Only',
+  strudel: false,
+  hp: 10,
+  description: 'Six tuned strings that nobody plucks: whatever you patch in sets them ringing, like the open strings of a sitar, or a piano with the sustain pedal down while someone shouts into it. Drums, noise, a GRAIN cloud or a whole mix come out the other side humming a chord, so a plain beat suddenly plays in key. Your sound passes through untouched; the strings ring next to it. ROOT, CHORD and OCT tune the strings (CHORD: octaves, a fifth, major, minor, sus 4, minor 7, major 7). Patch a CHORDS (its CHORD jack), a MELODY or any pitch into TUNE and the strings follow it instead, changing chord exactly when it does. DECAY is how long they ring, BRIGHT goes from soft nylon to bright steel, WIDTH spreads the strings across the stereo field, LEVEL is how loud they are next to your sound. Low, busy sounds (kicks, bass) excite them the least; snares, hats, noise and claps the most. The strings only ring while the patch is playing.',
+  params: {
+    decay: { kind: 'knob', label: 'DECAY', min: 0.2, max: 12, default: 3, curve: 'log', unit: 's', size: 'lg' },
+    bright: { kind: 'knob', label: 'BRIGHT', min: 0, max: 1, default: 0.6 },
+    root: { kind: 'select', label: 'ROOT', options: ROOTS, default: 'C' },
+    chord: { kind: 'rotary', label: 'CHORD', options: RESO_CHORDS, default: 'maj', size: 'sm' },
+    octave: { kind: 'knob', label: 'OCT', min: 1, max: 5, default: 3, step: 1, size: 'sm' },
+    width: { kind: 'knob', label: 'WIDTH', min: 0, max: 1, default: 0.7, size: 'sm' },
+    level: { kind: 'knob', label: 'LEVEL', min: 0, max: 1.5, default: 0.8, size: 'sm' },
+  },
+  inputs: { in: { type: 'pattern', label: 'IN' }, tune: { type: 'pitch', label: 'TUNE' } },
+  outputs: { out: { type: 'pattern', label: 'OUT' } },
+  layout: [['decay', 'bright'], ['root', 'chord'], ['octave', 'width', 'level'], ['in:in', 'in:tune', 'out:out']],
+  compile(ctx) {
+    const e = ctx.in('in');
+    if (!e) return { out: null };
+    const p = ctx.p;
+    if (p.level < 0.005) return { out: e };
+    const tune = ctx.in('tune');
+    const [notes, wet] = busFxParts(ctx, e, 'reso');
+    const parts = [notes, wet.call('resdecay', num(p.decay, 2)).call('resbright', num(p.bright, 2))
+      .call('reschord', num(Math.max(0, RESO_CHORDS.findIndex((c) => c.v === p.chord))))
+      .call('resroot', num(12 * (p.octave + 1) + Math.max(0, ROOTS.indexOf(p.root))))
+      .call('reswidth', num(p.width, 2)).call('reslvl', num(p.level, 2)).call('restuned', num(tune ? 1 : 0))];
+    // TUNE: soundless events, one per note, that retune the strings at their own time
+    if (tune) parts.push(tune.call('restune', mini(ctx.id)));
+    return { out: fn('stack', ...parts) };
   },
 };
 

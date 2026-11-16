@@ -43,7 +43,7 @@ Cables carry **patterns**, not audio: a module chain compiles to a Strudel metho
 
 ## Modules
 
-41 modules, in two groups. If you want your patch to keep running on strudel.cc, stick to the
+42 modules, in two groups. If you want your patch to keep running on strudel.cc, stick to the
 first table.
 
 ### Strudel compatible (25)
@@ -78,7 +78,7 @@ These compile to plain Strudel: the code in the dock runs unchanged on strudel.c
 | MIXER | Mix | Four channels with level, pan, low / high cut and mute |
 | OUTPUT | Mix | Master output, volume, meters and scope |
 
-### Bonfire STACK only (16)
+### Bonfire STACK only (17)
 
 These use Bonfire's own DSP. They patch like any other module, but a patch that uses even one
 of them only plays inside Bonfire STACK. The app flags it: the cards carry a NOT STRUDEL badge,
@@ -92,6 +92,7 @@ the faceplates say BONFIRE ONLY, the code view says so at the top and OPEN IN ST
 | STUTTER | Effect | Beat repeat: machine-guns a slice in time, by button or by trigger |
 | MIRAGE | Effect | Chorus, string-ensemble and flanger |
 | SCORCH | Effect | Distortion: overdrive, distortion and fuzz, with a speaker cabinet |
+| RESONATOR | Effect | Sympathetic strings: drums or noise set six tuned strings ringing, tuned by hand or by a CHORDS |
 | STRING | Sound | Plucked string (Karplus-Strong) |
 | GROWL | Sound | Saw or square through a filter shaken at audio rate: growls and vowels |
 | FOLD | Sound | Wavefolder voice: a sine folded back on itself for bright overtones |

@@ -4,6 +4,7 @@
 // Each sound = one AudioWorklet processor in forge-worklet.js, one node per note.
 import { getAudioContext, getFrequencyFromValue, getSampleBuffer, getSound, getSuperdoughAudioController, registerSound } from '@strudel/webaudio';
 import { getFontBufferSource } from '@strudel/soundfonts';
+import { noteToMidi } from '@strudel/core';
 import workletUrl from './forge-worklet.js?url';
 import { vectorCurve, vectorPathFromWord, vectorPoints } from '../modules/forge.js';
 
@@ -322,7 +323,7 @@ export function routeTape(v) {
   }
 }
 
-// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER, MIRAGE, SCORCH): one worklet per module that hears live audio ----
+// ---- BUS EFFECTS (FRIDGE, HALO, STUTTER, MIRAGE, SCORCH, RESONATOR): one worklet per module that hears live audio ----
 // Notes that went through such a module carry bfin = "kind:id" (several, comma-separated, when
 // they are chained) and are sent into bus 'bfin_<id>' -> the module's worklet -> bus 'bfout_<id>'.
 // The module also plays a held s("bus") note reading that out bus (tagged bfout = id, bfkind =
@@ -345,6 +346,10 @@ const BUS_FX = {
     processor: 'bonfire-scorch',
     keys: [['scorchmode', 'mode'], ['scorchgain', 'gain'], ['scorchtone', 'tone'], ['scorchcab', 'cab'], ['scorchmix', 'mix'], ['scorchlvl', 'level']],
     insert: true,
+  },
+  reso: {
+    processor: 'bonfire-reso',
+    keys: [['resdecay', 'decay'], ['resbright', 'bright'], ['reschord', 'chord'], ['resroot', 'root'], ['reswidth', 'width'], ['reslvl', 'level'], ['restuned', 'tuned']],
   },
   mirage: { processor: 'bonfire-mirage', keys: [['mirmode', 'mode'], ['mirrate', 'rate'], ['mirdepth', 'depth'], ['mirwidth', 'width'], ['mirlvl', 'level']] },
 };
@@ -387,7 +392,14 @@ function wireFx(id, kind) {
 }
 
 export function busFxEvents(v, t) {
-  if (v?.bfout == null && v?.bfin == null && v?.fridgetrig == null && v?.stuttrig == null) return null;
+  if (v?.bfout == null && v?.bfin == null && v?.fridgetrig == null && v?.stuttrig == null && v?.restune == null) return null;
+  if (v.restune != null) {
+    // a note on RESONATOR's TUNE jack: retune the strings at that note's time. It makes no sound.
+    const f = wireFx(String(v.restune), 'reso');
+    const m = typeof v.note === 'number' ? v.note : v.note != null ? noteToMidi(String(v.note)) : typeof v.n === 'number' ? v.n : null;
+    if (f && Number.isFinite(m)) f.node.port.postMessage({ tune: m, at: t ?? 0 });
+    return [];
+  }
   if (v.stuttrig != null) {
     stutterOn(String(v.stuttrig), v.stutlen ?? 0.125, v.stutdur ?? 0, t);
     return [];
@@ -489,7 +501,7 @@ export function stutterState(id) {
 // A newly loaded patch starts with nothing frozen, no stutter and no old reverb tail.
 export function fridgeReset() {
   for (const f of busFx.values()) {
-    if (f.kind === 'halo') f.node.port.postMessage({ clear: true });
+    if (f.kind === 'halo' || f.kind === 'reso') f.node.port.postMessage({ clear: true });
     else if (f.kind === 'stutter') f.node.port.postMessage({ off: true });
     else if (f.state !== 'off') f.node.port.postMessage({ release: true });
     f.state = 'off';
