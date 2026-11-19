@@ -6,6 +6,7 @@ import { DRUM_SOUNDS, chordNumeral } from '../core/music.js';
 import { ARP_SLOTS, CHAIN_INPUTS, CHAIN_SLOTS, CHORD_MOODS, CHORD_PRESETS, CHORD_QUALITIES, CHORD_SLOTS, OCT_MAX, TURING_BITS, arpOrder, beats, chordPlan, randomBits, turingStatus } from '../modules/sources.js';
 import { FENV_PRESETS, khaozPath } from '../modules/processors.js';
 import { CHOP_STEPS } from '../modules/voices.js';
+import { driftLoops, driftRepeat } from '../modules/time.js';
 import { FM_ALGOS, FM_PRESETS, VECTOR_MOTIONS, VECTOR_WAVES, fmPresetParams, vectorCurve, vectorMotionParams, vectorPoints } from '../modules/forge.js';
 import { closePopover, h, hideTip, popover, s, showTip } from './dom.js';
 import { editValue, knob, select } from './controls.js';
@@ -1585,4 +1586,116 @@ function turingLcd(mod) {
   };
 }
 
-export const WIDGETS = { turingRing, turingLcd, steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, vectorPad, vectorMotion, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor, stutterLamp };
+// TIDE: one slow swell across the stretched loop, the dot rides where you are in it;
+// the corner says which bar of the slowed loop is playing.
+function tideWave() {
+  const c = h('canvas', { class: 'w-lfo w-tide', width: 192, height: 72 });
+  const g = c.getContext('2d');
+  let n = 4;
+  let shown = null;
+  const draw = (cycle) => {
+    const col = getComputedStyle(c).getPropertyValue('--scope-line').trim() || '#2ec4d6';
+    const W = c.width;
+    const H = c.height;
+    const y = (t) => 14 + (0.5 - 0.5 * Math.cos(t * Math.PI * 2)) * (H - 26);
+    g.clearRect(0, 0, W, H);
+    g.globalAlpha = 0.35;
+    g.fillStyle = col;
+    for (let b = 1; b < n; b++) g.fillRect(Math.round((b / n) * W), 6, 2, H - 12);
+    g.globalAlpha = 1;
+    g.strokeStyle = col;
+    g.lineWidth = 3;
+    g.beginPath();
+    for (let x = 0; x <= W; x += 2) x ? g.lineTo(x, H - y(x / W)) : g.moveTo(x, H - y(0));
+    g.stroke();
+    g.font = 'bold 18px monospace';
+    g.textAlign = 'right';
+    if (cycle != null) {
+      const t = (((cycle / n) % 1) + 1) % 1;
+      g.beginPath();
+      g.arc(t * W, H - y(t), 7, 0, Math.PI * 2);
+      g.fill();
+      g.fillText(`${Math.floor(t * n) + 1}/${n}`, W - 6, 20);
+    } else g.fillText(n === 1 ? 'x1' : `/${n}`, W - 6, 20);
+  };
+  return {
+    el: c,
+    update(p) { n = p.slow || 1; draw(shown); },
+    tick(cycle) {
+      if (cycle == null && shown == null) return; // stopped: nothing moves
+      shown = cycle;
+      draw(cycle);
+    },
+  };
+}
+
+// DRIFT: one lane per loop. The dot walks the lane once per loop length and glows while
+// that loop's slice is playing; the top line is how long until it all lines up again.
+function driftTime(bars, bpm) {
+  const min = (bars * 240) / (bpm || 120) / 60;
+  if (min < 60) return `${Math.max(1, Math.round(min))} MIN`;
+  if (min < 60 * 48) return `${(min / 60).toFixed(min < 600 ? 1 : 0)} HRS`;
+  if (min < 60 * 24 * 365) return `${Math.round(min / 1440)} DAYS`;
+  const yrs = min / 525600;
+  return yrs < 1000 ? `${Math.round(yrs)} YEARS` : 'FOREVER';
+}
+const fracLabel = (l) => {
+  const f = Math.round((l % 1) * 16);
+  return f ? `${Math.floor(l)}+${f}/16` : String(l);
+};
+function driftLanes() {
+  const c = h('canvas', { class: 'w-lfo w-drift', width: 300, height: 150 });
+  const g = c.getContext('2d');
+  let loops = [3, 5, 7, 11];
+  let bpm = 120;
+  let shown = null;
+  const draw = (cycle) => {
+    const col = getComputedStyle(c).getPropertyValue('--scope-line').trim() || '#2ec4d6';
+    const W = c.width;
+    const H = c.height;
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = col;
+    g.strokeStyle = col;
+    g.font = 'bold 17px monospace';
+    g.textAlign = 'left';
+    g.fillText(`REPEATS IN ${driftTime(driftRepeat(loops), bpm)}`, 10, 22);
+    const top = 34;
+    const lane = (H - top - 6) / loops.length;
+    const x0 = 78;
+    const x1 = W - 12;
+    g.font = 'bold 14px monospace';
+    g.textAlign = 'right';
+    loops.forEach((L, i) => {
+      const yy = top + lane * (i + 0.5);
+      g.globalAlpha = 0.8;
+      g.fillText(fracLabel(L), x0 - 10, yy + 5);
+      g.globalAlpha = 0.3;
+      g.fillRect(x0, yy - 1, x1 - x0, 2);
+      // the bar it plays in
+      g.fillRect(x0, yy - Math.min(5, lane / 2 - 1), ((x1 - x0) / L), Math.min(10, lane - 2));
+      const pos = cycle == null ? 0 : ((cycle % L) + L) % L;
+      const on = cycle != null && pos < 1;
+      g.globalAlpha = on ? 1 : 0.65;
+      g.shadowColor = col;
+      g.shadowBlur = on ? 12 : 0;
+      g.beginPath();
+      g.arc(x0 + (pos / L) * (x1 - x0), yy, Math.min(on ? 7 : 4.5, lane / 2), 0, Math.PI * 2);
+      g.fill();
+      g.shadowBlur = 0;
+    });
+    g.globalAlpha = 1;
+  };
+  return {
+    el: c,
+    update(p) { loops = driftLoops(p); draw(shown); },
+    tick(cycle, meta) {
+      const b = meta?.bar ? Math.round(240 / meta.bar) : bpm;
+      if (cycle == null && shown == null && b === bpm) return; // stopped: nothing moves
+      bpm = b;
+      shown = cycle;
+      draw(cycle);
+    },
+  };
+}
+
+export const WIDGETS = { tideWave, driftLanes, turingRing, turingLcd, steps, grid, melody, chopper, arp, chords, chordPresets, chordMoods, fmPresets, fmAlgo, vectorPad, vectorMotion, fenvPresets, fenvScope, chain, euclidRing, octaveShift, bpmDisplay, lfoScope, khaozScope, scope, meters, tapeDeck, fridgeDoor, stutterLamp };

@@ -43,10 +43,10 @@ Cables carry **patterns**, not audio: a module chain compiles to a Strudel metho
 
 ## Modules
 
-42 modules, in two groups. If you want your patch to keep running on strudel.cc, stick to the
+44 modules, in two groups. If you want your patch to keep running on strudel.cc, stick to the
 first table.
 
-### Strudel compatible (25)
+### Strudel compatible (27)
 
 These compile to plain Strudel: the code in the dock runs unchanged on strudel.cc.
 
@@ -54,6 +54,8 @@ These compile to plain Strudel: the code in the dock runs unchanged on strudel.c
 |--------|----------|--------------|
 | CLOCK | Time | Master tempo; its jacks set the step length of whatever they patch into |
 | CHAIN | Time | Song mode: plays up to eight patched parts in the order you write |
+| TIDE | Time | Slows one chain down (up to /16) without touching the CLOCK; stretches its swells and fades to match |
+| DRIFT | Time | Music for Airports loops: each slice of the bar repeats on its own prime-length loop, locked to the CLOCK |
 | SEQ-16 | Rhythm | Sixteen-step trigger sequencer with rests and x2 / x4 rolls |
 | BEATS | Rhythm | Four-lane, sixteen-step drum grid with a drum-machine bank picker |
 | EUCLID | Rhythm | Spreads a number of hits as evenly as possible over a number of steps |
