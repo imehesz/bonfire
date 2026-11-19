@@ -745,6 +745,16 @@ a { color: var(--accent); }
 }
 .drawer.left { left: 0; transform: translateX(-102%); }
 .drawer.open { transform: none; }
+/* MODULES: full width, cards in columns so more of them fit on screen */
+.drawer.wide { width: auto; right: 0; }
+.drawer-tool { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.drawer-count { flex: none; font-family: var(--font-display); font-size: 16px; letter-spacing: 0.04em; color: var(--ui-dim); font-variant-numeric: tabular-nums; }
+.drawer.wide .drawer-tool { flex: 0 1 520px; margin-right: auto; }
+.drawer.wide .mod-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 6px 10px; }
+.drawer.wide .cat, .drawer.wide .cat-note { grid-column: 1 / -1; }
+.drawer.wide .cat { margin-bottom: 0; }
+.drawer.wide .cat-note { margin: 0; max-width: 720px; }
+.drawer.wide .mod-card { margin-bottom: 0; }
 .drawer header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--ui-border); }
 .drawer h3 { margin: 0; letter-spacing: 0.2em; font-size: 14px; }
 .drawer .x { background: none; border: 0; font-size: 22px; color: var(--ui-dim); }

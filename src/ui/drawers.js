@@ -39,14 +39,18 @@ function addSelected(selected, render) {
 export function mountModuleDrawer(host) {
   const search = h('input', { type: 'search', placeholder: 'find a module…', class: 'drawer-search' });
   const list = h('div', { class: 'mod-list' });
+  const count = h('span', { class: 'drawer-count', title: 'modules shown / all modules' });
+  const total = Object.keys(MODULES).length;
   const selected = new Set(); // module types, in the order they were picked
   const render = () => {
     const q = search.value.trim().toLowerCase();
     list.replaceChildren();
+    let shown = 0;
     for (const cat of CATEGORY_ORDER) {
       const defs = Object.values(MODULES).filter((d) => d.category === cat
         && (!q || `${d.name} ${d.title} ${d.description}`.toLowerCase().includes(q)));
       if (!defs.length) continue;
+      shown += defs.length;
       list.append(h('div', { class: 'cat' }, cat.toUpperCase()));
       if (defs.some((d) => d.strudel === false)) {
         list.append(h('div', { class: 'cat-note' }, 'Bonfire\'s own sound engine. These play here but NOT on strudel.cc: the code view marks any patch that uses them.'));
@@ -83,14 +87,18 @@ export function mountModuleDrawer(host) {
         card.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/bonfire-module', d.type);
           e.dataTransfer.effectAllowed = 'copy';
+          // the drawer covers the whole rack: get out of the way so there's somewhere to drop
+          // (after this tick, or the browser cancels the drag that just started)
+          setTimeout(() => el.classList.remove('open'), 0);
         });
         list.append(card);
       }
     }
+    count.textContent = `(${shown}/${total})`;
   };
   search.addEventListener('input', render);
   render();
-  const el = drawer('left', 'MODULES', h('div', { class: 'drawer-body' }, list), search);
+  const el = drawer('left wide', 'MODULES', h('div', { class: 'drawer-body' }, list), h('div', { class: 'drawer-tool' }, search, count));
   host.append(el);
   // opening the drawer (from anywhere) puts the cursor in the search, ready to type
   new MutationObserver(() => {
